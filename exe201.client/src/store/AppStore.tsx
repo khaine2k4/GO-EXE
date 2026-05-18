@@ -10,6 +10,7 @@ import type {
   Role,
   Transaction,
 } from '../types'
+import api from '../api/axios'
 import type { Photoset } from '../types'
 import {
   initialBookings,
@@ -38,6 +39,7 @@ type AppActions = {
   // Auth
   login: (email: string, password: string) => AuthUser | null
   logout: () => void
+  setCurrentUser: (user: AuthUser | null) => void
   register: (data: {
     name: string; email: string; password: string; role: Role
     bio?: string; location?: string; tags?: string[]; startingPrice?: number
@@ -233,6 +235,32 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
 
+  // Tự động gọi API /me để lấy lại thông tin user khi F5
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token && !state.currentUser) {
+      api.get('/auth/me')
+        .then(response => {
+          const user = response.data;
+          dispatch({
+            type: 'SET_USER', user: {
+              id: String(user.id),
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              password: '',
+              createdAt: new Date().toISOString()
+            }
+          });
+        })
+        .catch(err => {
+          console.error('Tự động đăng nhập thất bại:', err);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        });
+    }
+  }, [])
+
   const actions = useMemo<AppActions>(() => ({
     // ── Auth ──────────────────────────────────────────────────
     login(email, password) {
@@ -245,6 +273,11 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     },
     logout() {
       dispatch({ type: 'SET_USER', user: null })
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    },
+    setCurrentUser(user) {
+      dispatch({ type: 'SET_USER', user })
     },
     register({ name, email, password, role, bio, location, tags, startingPrice }) {
       const id = uid(role === 'PHOTOGRAPHER' ? 'PH' : 'USR')

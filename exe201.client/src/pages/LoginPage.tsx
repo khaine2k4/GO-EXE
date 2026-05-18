@@ -4,6 +4,7 @@ import { Camera, Eye, EyeOff, LogIn } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
+import api from '../api/axios'
 
 export default function LoginPage() {
     const { actions } = useAppStore()
@@ -20,24 +21,48 @@ export default function LoginPage() {
         e.preventDefault()
         setError('')
         setLoading(true)
-        await new Promise((r) => setTimeout(r, 600))
-        const user = actions.login(email, password)
-        setLoading(false)
-        if (!user) {
-            setError('Email hoặc mật khẩu không đúng.')
-            return
+        
+        try {
+            const response = await api.post('/auth/login', {
+                email,
+                password
+            });
+
+            setLoading(false);
+            const { token, user } = response.data;
+            
+            // Lưu token và thông tin user vào localStorage
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            
+            // Cập nhật state trong store để RequireAuth cho phép qua
+            actions.setCurrentUser({
+                id: String(user.id),
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                password: '', // Không lưu mật khẩu ở client
+                createdAt: new Date().toISOString()
+            });
+            
+            toast.push({ type: 'success', title: `Chào mừng, ${user.name}!`, message: '' });
+            
+            // Điều hướng dựa trên Role từ DB
+            if (user.role === 'ADMIN') nav('/admin/users');
+            else if (user.role === 'STUDIO_OWNER') nav('/photographer/dashboard');
+            else nav('/');
+            
+        } catch (err: any) {
+            setLoading(false);
+            if (err.response && err.response.data) {
+                setError(err.response.data);
+            } else {
+                setError('Email hoặc mật khẩu không đúng, hoặc không thể kết nối tới server.');
+            }
         }
-        toast.push({ type: 'success', title: `Chào mừng, ${user.name}!`, message: '' })
-        if (user.role === 'ADMIN') nav('/admin/users')
-        else if (user.role === 'PHOTOGRAPHER') nav('/photographer/dashboard')
-        else nav('/')
     }
 
-    const DEMOS = [
-        { label: 'Khách hàng', email: 'an@demo.com', pw: '123456' },
-        { label: 'Photographer', email: 'studiox@demo.com', pw: '123456' },
-        { label: 'Admin', email: 'admin@demo.com', pw: 'admin123' },
-    ]
+
 
     return (
         <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 py-20">
@@ -53,35 +78,17 @@ export default function LoginPage() {
                 transition={{ duration: 0.5 }}
                 className="relative z-10 w-full max-w-md"
             >
-                <div className="overflow-hidden rounded-[40px] border border-white/60 bg-white/70 shadow-2xl shadow-indigo-200/40 ring-1 ring-slate-200/50 backdrop-blur-2xl">
-                    <div className="bg-white/40 px-8 pb-8 pt-12 text-center">
-                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-slate-900 text-white shadow-xl shadow-slate-900/20">
+                <div className="overflow-hidden rounded-[32px] border border-white/60 bg-white/80 shadow-2xl shadow-indigo-200/40 ring-1 ring-slate-200/50 backdrop-blur-2xl">
+                    <div className="bg-white/50 px-8 pb-8 pt-10 text-center">
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/20">
                             <Camera className="h-8 w-8" />
                         </div>
                         <h1 className="mt-8 text-3xl font-black tracking-tight text-slate-900">Mừng bạn trở lại</h1>
                         <p className="mt-2 text-[13px] font-bold uppercase tracking-widest text-slate-500">PhotoMarket Workspace</p>
                     </div>
 
-                    <div className="p-10">
-                        <div className="mb-10">
-                            <div className="mb-4 flex items-center gap-2">
-                                <span className="h-px flex-1 bg-slate-200/60" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">TRUY CẬP NHANH</span>
-                                <span className="h-px flex-1 bg-slate-200/60" />
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                {DEMOS.map((d) => (
-                                    <button
-                                        key={d.email}
-                                        type="button"
-                                        onClick={() => { setEmail(d.email); setPassword(d.pw) }}
-                                        className="group relative flex min-h-12 items-center justify-center rounded-2xl border border-slate-100 bg-white p-3 text-center transition-all hover:border-slate-900 hover:bg-slate-900 hover:shadow-lg active:scale-95"
-                                    >
-                                        <span className="text-[10px] font-black text-slate-900 transition-colors group-hover:text-white">{d.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                    <div className="p-8">
+
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <Field label="ĐỊA CHỈ EMAIL">
@@ -136,7 +143,7 @@ export default function LoginPage() {
                             </button>
                         </form>
 
-                        <div className="mt-10 text-center">
+                        <div className="mt-8 text-center">
                             <p className="text-[13px] font-medium text-slate-500">
                                 Chưa có tài khoản?{' '}
                                 <Link to="/register" className="ml-2 text-[11px] font-black uppercase tracking-widest text-indigo-600 transition-colors hover:text-indigo-700 hover:underline">

@@ -1,217 +1,200 @@
-import { ArrowRight, Search, Star, Camera, Users, Shield } from 'lucide-react'
+import { ArrowRight, Camera, CheckCircle2, Search, Shield, Sparkles, Users } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import PhotoCard from '../components/PhotoCard'
+import api from '../api/axios'
+import heroImage from '../assets/hero.png'
 
-const HOW_IT_WORKS = [
-  { icon: <Search className="h-6 w-6" />, step: '01', title: 'Tìm kiếm', desc: 'Khám phá hàng trăm nhiếp ảnh gia uy tín theo phong cách, địa điểm.' },
-  { icon: <Camera className="h-6 w-6" />, step: '02', title: 'Đặt lịch', desc: 'Chọn ngày, gói chụp ảnh và thanh toán cọc 30% để giữ lịch.' },
-  { icon: <Shield className="h-6 w-6" />, step: '03', title: 'Nhận ảnh', desc: 'Xem preview trước, thanh toán còn lại và tải ảnh gốc chất lượng cao.' },
+const STEPS = [
+  {
+    icon: <Search className="h-5 w-5" />,
+    title: 'Tìm photographer',
+    desc: 'Lọc theo phong cách, địa điểm, rating và portfolio thực tế.',
+  },
+  {
+    icon: <Camera className="h-5 w-5" />,
+    title: 'Đặt lịch chụp',
+    desc: 'Chọn gói, ngày chụp và thanh toán giữ lịch trong vài bước.',
+  },
+  {
+    icon: <Shield className="h-5 w-5" />,
+    title: 'Nhận ảnh an toàn',
+    desc: 'Ảnh được giao qua workspace, tiền giữ bằng escrow mock.',
+  },
 ]
 
 export default function HomePage() {
   const { state } = useAppStore()
-  const [q, setQ] = useState('')
-  const nav = useNavigate()
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+
+  const [homeData, setHomeData] = useState<{
+    stats: { approvedStudiosCount: number; totalBookingsCount: number; avgRating: number };
+    featuredStudios: Array<{ id: number; name: string; city: string; rating: number; reviewCount: number; coverUrl: string }>;
+  } | null>(null);
+
+  useEffect(() => {
+    api.get('/public/home-data')
+      .then(res => setHomeData(res.data))
+      .catch(err => console.error('Failed to fetch home data:', err));
+  }, []);
 
   const featured = useMemo(() => {
-    const norm = q.trim().toLowerCase()
-    const list = state.photographers.filter((p) => p.status === 'APPROVED')
-    if (!norm) return list.slice(0, 6)
-    return list
-      .filter((p) => (p.name + ' ' + p.location + ' ' + p.tags.join(' ')).toLowerCase().includes(norm))
-      .slice(0, 6)
-  }, [q, state.photographers])
-
-  const totalApproved = state.photographers.filter((p) => p.status === 'APPROVED').length
-  const totalBookings = state.bookings.length
-  const avgRating =
-    state.photographers.filter((p) => p.status === 'APPROVED').reduce((s, p) => s + p.rating, 0) / (totalApproved || 1)
+    const norm = query.trim().toLowerCase()
+    const list = Array.isArray(homeData) ? homeData : (homeData?.featuredStudios ?? [])
+    return norm
+      ? list.filter((p) =>
+        `${p.name} ${p.city}`.toLowerCase().includes(norm)
+      )
+      : list
+  }, [homeData, query])
 
   return (
-    <div className="space-y-32 pb-32 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-      {/* ── Ultra-Premium Hero ── */}
-      <section className="relative overflow-hidden rounded-[64px] bg-slate-950 px-6 py-28 md:px-20 md:py-36 flex flex-col items-center text-center text-white shadow-3xl shadow-slate-900/50">
-        {/* Refined Background Elements - Purple Focus */}
-        <div className="absolute inset-0 z-0">
-          <div className="absolute -left-24 -top-24 h-[500px] w-[500px] rounded-full bg-violet-600/30 blur-[120px] animate-pulse" style={{ animationDuration: '8s' }} />
-          <div className="absolute -right-24 -bottom-24 h-[600px] w-[600px] rounded-full bg-fuchsia-600/20 blur-[140px] animate-pulse" style={{ animationDuration: '10s' }} />
-          <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #fff 1px, transparent 0)', backgroundSize: '40px 40px' }} />
-        </div>
-
-        <div className="relative z-10 w-full max-w-4xl space-y-12">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
-            <div className="inline-flex items-center gap-3 rounded-2xl bg-white/5 px-5 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-violet-300 ring-1 ring-white/10 backdrop-blur-2xl">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
-              </span>
-              {totalApproved} verified artists online
+    <div className="space-y-16 pb-16">
+      <section className="grid items-stretch gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="flex min-h-[560px] flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700">
+              <Sparkles className="h-4 w-4" />
+              Marketplace nhiếp ảnh chuyên nghiệp
             </div>
 
-            <h1 className="mt-12 text-6xl font-black leading-[1.05] tracking-tight text-white md:text-8xl">
-              Đỉnh cao của<br />
-              <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-indigo-300 bg-clip-text text-transparent">Nghệ thuật Hình ảnh</span>
-            </h1>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-8 max-w-3xl text-5xl font-black leading-[1.05] tracking-tight text-slate-950 sm:text-6xl"
+            >
+              Đặt lịch chụp ảnh với photographer phù hợp nhất.
+            </motion.h1>
 
-            <p className="mt-10 mx-auto max-w-2xl text-[17px] font-medium leading-relaxed text-slate-400/90">
-              Nền tảng kết nối tinh hoa nhiếp ảnh gia toàn quốc. Trải nghiệm quy trình làm việc chuyên nghiệp,
-              minh bạch qua hệ thống bảo chứng Escrow hiện đại.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+              PhotoMarket giúp khách hàng tìm gói chụp, đặt lịch, quản lý ảnh giao và theo dõi thanh toán trong cùng một workspace.
             </p>
 
-            {/* Minimalist SaaS Search Bar */}
-            <div className="mt-16 flex w-full max-w-2xl flex-col gap-4 sm:flex-row mx-auto">
-              <div className="group flex h-18 flex-1 items-center gap-4 rounded-3xl bg-white/5 px-7 shadow-2xl backdrop-blur-3xl ring-1 ring-white/10 transition-all focus-within:ring-white/30 focus-within:bg-white/10">
-                <Search className="h-6 w-6 shrink-0 text-violet-400" />
+            <div className="mt-8 flex max-w-2xl flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2 sm:flex-row">
+              <div className="flex min-h-12 flex-1 items-center gap-3 px-4">
+                <Search className="h-5 w-5 text-slate-400" />
                 <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Tìm theo phong cách, địa điểm hoặc nghệ sĩ..."
-                  className="h-full w-full bg-transparent text-[15px] font-bold text-white outline-none placeholder:text-slate-600"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Tìm theo phong cách, địa điểm..."
+                  className="h-12 w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
                 />
               </div>
-              <div className="flex flex-wrap gap-3 justify-center">
-                <Link
-                  to="/gallery"
-                  className="inline-flex h-18 items-center justify-center gap-3 rounded-3xl bg-white px-10 text-[11px] font-black uppercase tracking-[0.2em] text-slate-950 shadow-2xl transition-all hover:bg-slate-50 hover:scale-[1.02] active:scale-95"
-                >
-                  KHÁM PHÁ NGAY <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  to="/photosets"
-                  className="inline-flex h-18 items-center justify-center gap-3 rounded-3xl bg-white/10 px-10 text-[11px] font-black uppercase tracking-[0.2em] text-white ring-1 ring-white/20 shadow-2xl backdrop-blur transition-all hover:bg-white/20 hover:scale-[1.02] active:scale-95"
-                >
-                  XEM GÓI CHỤP
-                </Link>
-              </div>
+              <Link
+                to="/gallery"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 text-sm font-bold text-white transition hover:bg-indigo-600"
+              >
+                Khám phá
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
+          </div>
+
+          <div className="mt-10 grid gap-3 sm:grid-cols-3">
+            <Stat value={String(homeData?.stats?.approvedStudiosCount ?? 0)} label="Photographer" />
+            <Stat value={String(homeData?.stats?.totalBookingsCount ?? 0)} label="Booking" />
+            <Stat value={(homeData?.stats?.avgRating ?? 0).toFixed(1)} label="Rating trung bình" />
+          </div>
+        </div>
+
+        <div className="relative min-h-[560px] overflow-hidden rounded-3xl bg-slate-950 shadow-sm">
+          <img src={heroImage} alt="PhotoMarket workspace" className="h-full w-full object-cover opacity-90" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/25 to-transparent" />
+          <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-xl">
+            <div className="flex items-center gap-2 text-sm font-bold text-white/75">
+              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+              Escrow flow, booking, delivery, dispute
+            </div>
+            <div className="mt-3 text-2xl font-black">Một workspace cho toàn bộ quy trình chụp ảnh.</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        {STEPS.map((step, index) => (
+          <motion.div
+            key={step.title}
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: index * 0.08 }}
+            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white">{step.icon}</div>
+            <h2 className="mt-5 text-xl font-black text-slate-950">{step.title}</h2>
+            <p className="mt-3 leading-7 text-slate-600">{step.desc}</p>
           </motion.div>
-
-          {/* Designer Stats Block */}
-          <div className="grid grid-cols-3 gap-12 border-t border-white/5 pt-16">
-            <HeroStat label="Active Creators" value={String(totalApproved)} />
-            <HeroStat label="Successful Shoots" value={String(totalBookings)} />
-            <HeroStat label="Master Rating" value={avgRating.toFixed(1) + '★'} />
-          </div>
-        </div>
+        ))}
       </section>
 
-      {/* ── Professional Workflow Section ── */}
-      <section className="px-4 max-w-7xl mx-auto">
-        <div className="text-center mb-24 max-w-2xl mx-auto">
-          <div className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-600 mb-4">PLATFORM ECOSYSTEM</div>
-          <h2 className="text-4xl font-black text-slate-900 md:text-5xl tracking-tight leading-tight">Quy trình vận hành<br />chuẩn mực quốc tế</h2>
-          <p className="mt-6 text-slate-500 font-medium text-lg leading-relaxed">Chúng tôi tối ưu từng bước để đảm bảo sự hài lòng tuyệt đối cho cả khách hàng và nhiếp ảnh gia.</p>
-        </div>
-
-        <div className="grid gap-8 md:grid-cols-3">
-          {HOW_IT_WORKS.map((item, i) => (
-            <motion.div
-              key={item.step}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="group relative flex flex-col rounded-[40px] border border-slate-100 bg-white p-10 shadow-sm transition-all duration-500 hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-2"
-            >
-              <div className="mb-8 flex h-20 w-20 shrink-0 items-center justify-center rounded-[28px] bg-slate-900 text-white shadow-2xl shadow-slate-900/10 group-hover:bg-violet-600 group-hover:shadow-violet-600/20 transition-all duration-500">
-                {item.icon}
-              </div>
-              <div className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-300 mb-4">{item.step}</div>
-              <div className="text-2xl font-black text-slate-900 mb-4">{item.title}</div>
-              <p className="text-[15px] leading-relaxed font-medium text-slate-500/90">{item.desc}</p>
-
-              {/* Decorative accent */}
-              <div className="absolute bottom-10 right-10 h-10 w-10 opacity-0 group-hover:opacity-10 transition-opacity duration-500">
-                <Camera className="h-full w-full rotate-12" />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Featured Artists Grid ── */}
-      <section className="px-4 max-w-7xl mx-auto space-y-16">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-100 pb-12">
-          <div className="max-w-xl">
-            <div className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-600 mb-4">CURATED TALENTS</div>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-tight">Nghệ sĩ tiêu biểu nhất</h2>
-            <p className="mt-4 text-slate-500 font-medium">Hồ sơ được chọn lọc kỹ lưỡng dựa trên rating và portfolio cá nhân.</p>
+      <section className="space-y-8">
+        <div className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
+          <div>
+            <div className="text-sm font-black uppercase tracking-[0.18em] text-indigo-600">Đề xuất hôm nay</div>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Photographer nổi bật</h2>
+            <p className="mt-3 max-w-2xl text-slate-600">
+              Danh sách được lọc từ các hồ sơ đã duyệt, ưu tiên portfolio rõ ràng và rating cao.
+            </p>
           </div>
-          <Link to="/gallery" className="group inline-flex h-16 items-center gap-3 rounded-2xl bg-slate-900 px-8 text-[11px] font-black uppercase tracking-widest text-white hover:bg-violet-600 transition-all shadow-xl shadow-slate-900/10">
-            XEM TẤT CẢ TÁC PHẨM <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          <Link to="/gallery" className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700">
+            Xem tất cả
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
         {featured.length === 0 ? (
-          <div className="rounded-[48px] border-2 border-dashed border-slate-100 py-32 text-center">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-50 text-slate-200 mb-6">
-              <Users className="h-10 w-10" />
-            </div>
-            <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Hiện chưa có dữ liệu phù hợp</div>
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-20 text-center">
+            <Users className="mx-auto h-10 w-10 text-slate-300" />
+            <div className="mt-4 font-bold text-slate-500">Chưa có photographer phù hợp.</div>
           </div>
         ) : (
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((p, i) => (
-              <motion.div key={p.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.15 }}>
-                <PhotoCard
-                  imageUrl={p.portfolio[0]?.url ?? p.coverUrl}
-                  photographerName={p.name}
-                  location={p.location}
-                  startingPriceVnd={p.startingPrice}
-                  rating={p.rating}
-                  reviewCount={p.reviewCount}
-                  tags={p.tags}
-                  isTopRated={p.rating >= 4.9}
-                  onClick={() => nav(`/photographers/${p.id}`)}
-                />
-              </motion.div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featured.map((studio) => (
+              <PhotoCard
+                key={studio.id}
+                imageUrl={studio.coverUrl || 'https://images.unsplash.com/photo-1542038783-0601e1c2f64a?w=800'}
+                photographerName={studio.name}
+                location={studio.city || 'N/A'}
+                startingPriceVnd={1000000} // Mock giá tạm thời
+                rating={studio.rating}
+                reviewCount={studio.reviewCount}
+                tags={['Professional', 'Verified']} // Mock tags tạm thời
+                isTopRated={studio.rating >= 4.9}
+                onClick={() => navigate(`/photographers/${studio.id}`)}
+              />
             ))}
           </div>
         )}
       </section>
 
-      {/* ── High-Impact CTA Block ── */}
-      <section className="px-4 max-w-7xl mx-auto">
-        <div className="relative overflow-hidden rounded-[64px] bg-violet-600 px-8 py-24 md:py-32 text-center text-white shadow-3xl shadow-violet-200/40">
-          <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-[100px]" />
-          <div className="absolute -right-24 -bottom-24 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-[100px]" />
-
-          <div className="relative z-10 mx-auto max-w-4xl space-y-12">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[32px] bg-white shadow-2xl text-violet-600">
-              <Star className="h-10 w-10" />
-            </div>
-            <h2 className="text-4xl font-black md:text-7xl tracking-tighter leading-[1.1]">Bắt đầu kiến tạo<br />di sản hình ảnh của bạn</h2>
-            <p className="mt-10 mx-auto max-w-2xl text-[19px] font-medium text-violet-50/80 leading-relaxed">
-              Tham gia cộng đồng với hơn 500+ nghệ sĩ hàng đầu. Quản lý sự nghiệp nhiếp ảnh
-              một cách thông minh và chuyên nghiệp nhất.
-            </p>
-            <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-6">
-              <button
-                onClick={() => nav('/photographer/dashboard')}
-                className="flex h-18 w-full sm:w-auto items-center justify-center gap-4 rounded-3xl bg-white px-12 text-[11px] font-black uppercase tracking-widest text-violet-700 shadow-2xl transition-all hover:bg-slate-50 hover:scale-[1.05] active:scale-95"
-              >
-                <Camera className="h-5 w-5" /> TRỞ THÀNH PARTNER
-              </button>
-              <Link to="/register"
-                className="flex h-18 w-full sm:w-auto items-center justify-center rounded-3xl border-2 border-white/20 px-12 text-[11px] font-black uppercase tracking-widest text-white backdrop-blur-md hover:bg-white/10 transition-all hover:border-white/40">
-                ĐĂNG KÝ NGAY ✨
-              </Link>
-            </div>
+      <section className="overflow-hidden rounded-3xl bg-slate-950 p-8 text-white sm:p-10">
+        <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <div className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-300">Dành cho photographer</div>
+            <h2 className="mt-3 max-w-3xl text-3xl font-black tracking-tight sm:text-4xl">
+              Tạo portfolio, quản lý booking và theo dõi doanh thu trong cùng một nơi.
+            </h2>
           </div>
+          <Link
+            to="/register"
+            className="inline-flex h-12 items-center justify-center rounded-xl bg-white px-6 text-sm font-black text-slate-950 transition hover:bg-indigo-50"
+          >
+            Đăng ký partner
+          </Link>
         </div>
       </section>
     </div>
   )
 }
 
-function HeroStat({ label, value }: { label: string; value: string }) {
+function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex flex-col items-center group">
-      <span className="text-4xl font-black text-white tracking-tighter group-hover:scale-110 transition-transform duration-500">{value}</span>
-      <span className="mt-3 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 group-hover:text-violet-400 transition-colors">{label}</span>
+    <div className="rounded-2xl bg-slate-50 p-5">
+      <div className="text-3xl font-black text-slate-950">{value}</div>
+      <div className="mt-1 text-sm font-semibold text-slate-500">{label}</div>
     </div>
   )
 }
