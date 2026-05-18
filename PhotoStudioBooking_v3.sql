@@ -415,9 +415,10 @@ CREATE INDEX IX_bookings_code     ON bookings(booking_code);
 -- [FIX-07] Filtered unique index: chỉ enforce 1 booking/slot với trạng thái ACTIVE
 -- CANCELLED(4) và REJECTED(3) không bị đếm → slot có thể được đặt lại
 -- (status_id: PENDING=1, CONFIRMED=2, REJECTED=3, CANCELLED=4, IN_PROGRESS=5, COMPLETED=6, DISPUTED=7)
+-- Note: SQL Server filtered index KHÔNG hỗ trợ NOT IN → dùng <> AND <>
 CREATE UNIQUE INDEX UX_bookings_slot_active
     ON bookings(slot_id)
-    WHERE status_id NOT IN (3, 4);   -- bỏ qua REJECTED và CANCELLED
+    WHERE status_id <> 3 AND status_id <> 4;   -- bỏ qua REJECTED(3) và CANCELLED(4)
 GO
 
 -- ================================================================
