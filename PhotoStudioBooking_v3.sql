@@ -401,14 +401,9 @@ CREATE TABLE bookings (
     CONSTRAINT FK_bookings_slot        FOREIGN KEY (slot_id)            REFERENCES time_slots(slot_id),
     CONSTRAINT FK_bookings_status      FOREIGN KEY (status_id)          REFERENCES booking_statuses(status_id),
     CONSTRAINT FK_bookings_cancel_by   FOREIGN KEY (cancelled_by)       REFERENCES users(user_id),
-    CONSTRAINT FK_bookings_dispute_by  FOREIGN KEY (dispute_resolved_by) REFERENCES users(user_id),
-
-    -- [FIX-07] One confirmed booking per slot
-    -- Enforces at DB level that a slot cannot have 2 CONFIRMED bookings
-    -- (PENDING rows are allowed — SP handles optimistic locking)
-    CONSTRAINT UQ_bookings_slot_confirmed UNIQUE (slot_id)
-    -- Note: this unique constraint prevents any 2nd row with the same slot_id.
-    -- The SP below checks status = 'OPEN' before insert, giving us the lock.
+    CONSTRAINT FK_bookings_dispute_by  FOREIGN KEY (dispute_resolved_by) REFERENCES users(user_id)
+    -- [FIX-07] Unique constraint removed — replaced by filtered index below
+    --          to allow slot reuse after CANCELLED / REJECTED bookings.
 );
 GO
 CREATE INDEX IX_bookings_customer ON bookings(customer_id);
@@ -416,6 +411,13 @@ CREATE INDEX IX_bookings_studio   ON bookings(studio_id);
 CREATE INDEX IX_bookings_status   ON bookings(status_id);
 CREATE INDEX IX_bookings_date     ON bookings(shooting_date);
 CREATE INDEX IX_bookings_code     ON bookings(booking_code);
+
+-- [FIX-07] Filtered unique index: chỉ enforce 1 booking/slot với trạng thái ACTIVE
+-- CANCELLED(4) và REJECTED(3) không bị đếm → slot có thể được đặt lại
+-- (status_id: PENDING=1, CONFIRMED=2, REJECTED=3, CANCELLED=4, IN_PROGRESS=5, COMPLETED=6, DISPUTED=7)
+CREATE UNIQUE INDEX UX_bookings_slot_active
+    ON bookings(slot_id)
+    WHERE status_id NOT IN (3, 4);   -- bỏ qua REJECTED và CANCELLED
 GO
 
 -- ================================================================
@@ -620,10 +622,13 @@ CREATE TABLE conversations (
 
     CONSTRAINT FK_conv_customer FOREIGN KEY (customer_id) REFERENCES users(user_id),
     CONSTRAINT FK_conv_studio   FOREIGN KEY (studio_id)   REFERENCES studios(studio_id),
-    CONSTRAINT FK_conv_booking  FOREIGN KEY (booking_id)  REFERENCES bookings(booking_id),
-    CONSTRAINT UQ_conversation  UNIQUE (customer_id, studio_id)
+    CONSTRAINT FK_conv_booking  FOREIGN KEY (booking_id)  REFERENCES bookings(booking_id)
+    -- UQ_conversation đã bỏ để hỗ trợ nhiều thread giữa cùng 1 cặp customer-studio
 );
 GO
+-- Index thường thay thế cho UQ_conversation (vẫn query nhanh)
+CREATE INDEX IX_conversations_customer_studio
+    ON conversations(customer_id, studio_id);
 
 CREATE TABLE messages (
     message_id      BIGINT        PRIMARY KEY IDENTITY(1,1),
@@ -683,8 +688,10 @@ GROUP BY s.studio_id, s.studio_name, s.city,
 GO
 
 -- Top studios (UC92)
+-- v_top_studios: bỏ TOP 100 và ORDER BY khỏi View
+-- Khi dùng: SELECT TOP 20 * FROM v_top_studios ORDER BY avg_rating DESC, total_bookings DESC
 CREATE VIEW v_top_studios AS
-SELECT TOP 100
+SELECT
     s.studio_id,
     s.studio_name,
     s.city,
@@ -693,8 +700,7 @@ SELECT TOP 100
     s.total_bookings
 FROM studios s
 WHERE s.status = 'APPROVED'
-  AND s.deleted_at IS NULL
-ORDER BY s.avg_rating DESC, s.total_bookings DESC;
+  AND s.deleted_at IS NULL;
 GO
 
 -- System-wide stats (UC89, UC91, UC93)
