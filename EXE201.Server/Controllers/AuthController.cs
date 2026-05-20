@@ -35,6 +35,30 @@ namespace EXE201.Server.Controllers
             return Ok(response);
         }
 
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password) || string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Role))
+            {
+                return BadRequest("Họ tên, email, mật khẩu và vai trò không được để trống.");
+            }
+
+            try
+            {
+                var user = await _authService.RegisterAsync(request);
+                if (user == null)
+                {
+                    return BadRequest("Đăng ký không thành công.");
+                }
+
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetMe()
@@ -54,6 +78,58 @@ namespace EXE201.Server.Controllers
             }
 
             return Ok(user);
+        }
+
+        [HttpPut("profile")]
+        [Authorize]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Name))
+            {
+                return BadRequest("Họ tên không được để trống.");
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+            {
+                return Unauthorized("Không tìm thấy thông tin người dùng trong token.");
+            }
+
+            var userId = long.Parse(userIdClaim.Value);
+            var updatedUser = await _authService.UpdateProfileAsync(userId, request);
+
+            if (updatedUser == null)
+            {
+                return NotFound("Không tìm thấy thông tin người dùng.");
+            }
+
+            return Ok(updatedUser);
+        }
+
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword))
+            {
+                return BadRequest("Mật khẩu cũ và mật khẩu mới không được để trống.");
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+            {
+                return Unauthorized("Không tìm thấy thông tin người dùng trong token.");
+            }
+
+            var userId = long.Parse(userIdClaim.Value);
+            var success = await _authService.ChangePasswordAsync(userId, request);
+
+            if (!success)
+            {
+                return BadRequest("Mật khẩu hiện tại không chính xác hoặc không thể cập nhật mật khẩu.");
+            }
+
+            return Ok(new { message = "Đổi mật khẩu thành công!" });
         }
     }
 }

@@ -3,3 +3,28 @@ bin/
 obj/ 
 node_modules/ 
 exe201.client/dist/ 
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.db
+*.sqlite
+*.log
+*.tmp
+*.cache
+appsettings.*.local.json
+
+# Visual Studio user/session files
+*.csproj.user
+*.esproj.user
+*.slnLaunch.user
+EXE201.slnLaunch.user
+
+# Local notes / temporary planning files
+booking_flow.md
+exe.md
+message.txt
+
+# Local secrets / machine-specific config
+exe201.Server/appsettings.json
+exe201.Server/appsettings.Development.json

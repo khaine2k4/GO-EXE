@@ -1,268 +1,304 @@
-import { useAppStore } from '../store/AppStore'
-import { useToast } from '../components/Toast'
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import type { BookingStatus } from '../types'
-import { RotateCcw, TrendingUp, AlertTriangle, CheckCircle, Clock, Shield, Search, Calendar } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Calendar, ChevronDown, CircleDollarSign, Filter, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
+import api from '../api/axios'
 
-function formatVnd(v: number) { return new Intl.NumberFormat('vi-VN').format(v) + ' ₫' }
-function formatDate(iso: string) { return new Date(iso).toLocaleDateString('vi-VN', { dateStyle: 'short' }) }
+type BookingStatus = 'ALL' | 'PENDING' | 'CONFIRMED' | 'DELIVERED' | 'COMPLETED' | 'DISPUTED' | 'REFUNDED' | 'CANCELLED'
+type PaymentStatus = 'ALL' | 'PENDING' | 'PAID' | 'HOLDING' | 'RELEASED' | 'REFUNDED' | 'FAILED'
 
-const STATUS_LABEL: Record<BookingStatus, string> = {
-  PENDING: 'CHỜ DUYỆT', CONFIRMED: 'ĐÃ XÁC NHẬN', DELIVERED: 'ĐÃ GIAO ẢNH',
-  COMPLETED: 'HOÀN THÀNH', DISPUTED: 'KHIẾU NẠI', REFUNDED: 'HOÀN TIỀN', CANCELLED: 'ĐÃ HỦY',
+interface AdminBookingDto {
+  id: number
+  bookingCode: string
+  customerName: string
+  studioName: string
+  packageName: string
+  shootingDate: string
+  status: string
+  totalPrice: number
+  commissionPercent: number
+  commissionAmount: number
+  studioRevenue: number
+  paymentStatus?: string
+  paymentAmount?: number
+  paymentCode?: string
+  city?: string
+  disputeNote?: string
+  createdAt: string
 }
-const STATUS_COLOR: Record<BookingStatus, string> = {
-  PENDING: 'bg-amber-50 text-amber-600 ring-amber-100',
-  CONFIRMED: 'bg-blue-50 text-blue-600 ring-blue-100',
-  DELIVERED: 'bg-indigo-50 text-indigo-600 ring-indigo-100',
-  COMPLETED: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-  DISPUTED: 'bg-rose-50 text-rose-600 ring-rose-100',
-  REFUNDED: 'bg-slate-50 text-slate-500 ring-slate-100',
-  CANCELLED: 'bg-slate-50 text-slate-400 ring-slate-100',
+
+const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
+  { value: 'ALL', label: 'Tất cả booking' },
+  { value: 'PENDING', label: 'Chờ duyệt' },
+  { value: 'CONFIRMED', label: 'Đã xác nhận' },
+  { value: 'DELIVERED', label: 'Đã giao ảnh' },
+  { value: 'COMPLETED', label: 'Hoàn thành' },
+  { value: 'DISPUTED', label: 'Khiếu nại' },
+  { value: 'REFUNDED', label: 'Hoàn tiền' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+]
+
+const paymentStatusOptions: { value: PaymentStatus; label: string }[] = [
+  { value: 'ALL', label: 'Tất cả payment' },
+  { value: 'PENDING', label: 'Chờ thanh toán' },
+  { value: 'PAID', label: 'Đã thanh toán' },
+  { value: 'HOLDING', label: 'Đang giữ' },
+  { value: 'RELEASED', label: 'Đã giải ngân' },
+  { value: 'REFUNDED', label: 'Đã hoàn tiền' },
+  { value: 'FAILED', label: 'Thất bại' },
+]
+
+function formatVnd(value?: number) {
+  return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} đ`
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('vi-VN', { dateStyle: 'short' })
 }
 
 export default function AdminOrdersPage() {
-  const { state, actions } = useAppStore()
-  const toast = useToast()
-  const [filter, setFilter] = useState<BookingStatus | 'ALL' | 'DISPUTES'>('ALL')
-  const [resolveNote, setResolveNote] = useState('')
-  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [bookings, setBookings] = useState<AdminBookingDto[]>([])
+  const [allBookings, setAllBookings] = useState<AdminBookingDto[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [status, setStatus] = useState<BookingStatus>('ALL')
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('ALL')
+  const [sortBy, setSortBy] = useState('newest')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const openDisputes = state.disputes.filter((d) => d.status === 'open')
-  const bookings = filter === 'ALL'
-    ? state.bookings
-    : filter === 'DISPUTES'
-      ? state.bookings.filter((b) => b.status === 'DISPUTED')
-      : state.bookings.filter((b) => b.status === filter)
+  const params = useMemo(() => {
+    const query: Record<string, string> = { sortBy }
+    if (searchTerm.trim()) query.search = searchTerm.trim()
+    if (status !== 'ALL') query.status = status
+    if (paymentStatus !== 'ALL') query.paymentStatus = paymentStatus
+    return query
+  }, [paymentStatus, searchTerm, sortBy, status])
 
-  const totalPlatformFee = state.payments.reduce((s, p) => s + (p.status === 'released' ? p.platformFee : 0), 0)
-  const holdingAmount = state.payments.filter((p) => p.status === 'holding').reduce((s, p) => s + p.amount, 0)
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [filtered, total] = await Promise.all([
+        api.get<AdminBookingDto[]>('/admin/bookings', { params }),
+        api.get<AdminBookingDto[]>('/admin/bookings'),
+      ])
+      setBookings(filtered.data)
+      setAllBookings(total.data)
+    } catch {
+      setError('Không tải được dữ liệu booking từ API admin.')
+    } finally {
+      setLoading(false)
+    }
+  }, [params])
 
-  async function handleResolve(bookingId: string, decision: 'refund' | 'release') {
-    setResolvingId(bookingId)
-    await new Promise((r) => setTimeout(r, 700))
-    actions.resolveDispute(bookingId, decision, resolveNote)
-    toast.push({
-      type: 'success',
-      title: decision === 'refund' ? 'Hoàn tiền thành công' : 'Đã release thanh toán',
-      message: resolveNote || (decision === 'refund' ? 'Yêu cầu hoàn tiền đã được xử lý.' : 'Tiền đã được chuyển vào ví Photographer.'),
-    })
-    setResolvingId(null)
-    setResolveNote('')
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(fetchData, 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [fetchData])
+
+  const stats = {
+    total: allBookings.length,
+    holding: allBookings.filter((item) => item.paymentStatus === 'HOLDING').reduce((sum, item) => sum + (item.paymentAmount ?? item.totalPrice), 0),
+    revenue: allBookings.reduce((sum, item) => sum + item.commissionAmount, 0),
+    disputed: allBookings.filter((item) => item.status === 'DISPUTED').length,
+  }
+
+  function clearFilters() {
+    setSearchTerm('')
+    setStatus('ALL')
+    setPaymentStatus('ALL')
+    setSortBy('newest')
   }
 
   return (
-    <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      {/* Premium Header */}
-      <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between px-2">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">Giao dịch & Escrow</h1>
-          <p className="mt-2 text-[15px] font-medium text-slate-500 max-w-xl leading-relaxed">
-            Theo dõi dòng tiền an toàn (Escrow), phí nền tảng và quản lý các tranh chấp thanh toán chuyên nghiệp.
-          </p>
-        </div>
+    <div className="space-y-5 pb-12">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Tổng booking" value={stats.total} />
+        <Metric label="Đang giữ" value={formatVnd(stats.holding)} tone="amber" />
+        <Metric label="Commission" value={formatVnd(stats.revenue)} tone="indigo" />
+        <Metric label="Khiếu nại" value={stats.disputed} tone="rose" />
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className="mb-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Tổng đơn hàng" value={state.bookings.length} icon={<Clock className="h-5 w-5" />} color="slate" />
-        <KpiCard label="Đang giữ Escrow" value={formatVnd(holdingAmount)} icon={<Shield className="h-5 w-5" />} color="amber" />
-        <KpiCard label="Doanh thu Platform" value={formatVnd(totalPlatformFee)} icon={<TrendingUp className="h-5 w-5" />} color="indigo" highlight />
-        <KpiCard label="Khiếu nại cần xử lý" value={openDisputes.length} icon={<AlertTriangle className="h-5 w-5" />} color="rose" urgent={openDisputes.length > 0} />
-      </div>
-
-      {/* Disputes section */}
-      <AnimatePresence>
-        {openDisputes.length > 0 && (
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="mb-12 space-y-6">
-            <h2 className="text-lg font-black text-rose-600 flex items-center gap-3 px-2">
-              <div className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
-              TRANH CHẤP TRỌNG YẾU ({openDisputes.length})
-            </h2>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              {openDisputes.map((d) => {
-                const booking = state.bookings.find((b) => b.id === d.bookingId)
-                const payment = state.payments.find((p) => p.bookingId === d.bookingId)
-                const isResolving = resolvingId === d.bookingId
-                if (!booking) return null
-                return (
-                  <div key={d.id} className="flex flex-col rounded-[32px] border border-rose-100 bg-white shadow-xl shadow-rose-200/20 overflow-hidden ring-1 ring-rose-50">
-                    <div className="bg-rose-50/40 p-6 md:p-8">
-                      <div className="flex items-center justify-between mb-6">
-                        <span className="font-black text-[10px] tracking-widest text-slate-400 uppercase">CASE #{booking.id.substring(0, 12)}</span>
-                        <span className="rounded-xl bg-white px-3 py-1 text-[11px] font-black text-rose-600 shadow-sm">{formatDate(booking.date)}</span>
-                      </div>
-
-                      <div className="flex items-center gap-4 mb-6">
-                        <div className="flex-1">
-                          <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Khách hàng</div>
-                          <div className="text-[15px] font-black text-slate-900 truncate">{booking.customerName}</div>
-                        </div>
-                        <div className="h-8 w-8 flex items-center justify-center rounded-full bg-rose-100 italic font-black text-rose-600">vs</div>
-                        <div className="flex-1 text-right">
-                          <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Photographer</div>
-                          <div className="text-[15px] font-black text-slate-900 truncate">{booking.photographerName}</div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-rose-100">
-                        <div className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                          <AlertTriangle className="h-3 w-3" /> Lý do khiếu nại
-                        </div>
-                        <p className="text-[13px] font-medium leading-relaxed text-slate-700 italic">"{d.reason}"</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col flex-1 p-6 md:p-8">
-                      <div className="mb-6 flex flex-row items-center justify-between rounded-2xl bg-slate-50 px-5 py-3 border border-slate-100 ring-1 ring-inset ring-white">
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Escrow Balance</span>
-                        <span className="text-lg font-black text-slate-900">{payment ? formatVnd(payment.amount) : '0 ₫'}</span>
-                      </div>
-
-                      <div className="mt-auto space-y-4">
-                        <input value={resolveNote} onChange={(e) => setResolveNote(e.target.value)}
-                          placeholder="Ghi chú phán xử từ Admin..."
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-bold outline-none ring-indigo-500/10 transition focus:border-indigo-500 focus:ring-4 placeholder:text-slate-300" />
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <button onClick={() => handleResolve(d.bookingId, 'refund')} disabled={isResolving}
-                            className={`flex items-center justify-center gap-2 rounded-2xl border py-4 text-[11px] font-black uppercase tracking-widest transition-all ${isResolving ? 'bg-slate-50 text-slate-300' : 'border-rose-100 bg-white text-rose-600 hover:bg-rose-50 active:scale-[0.98]'}`}>
-                            <RotateCcw className="h-4 w-4" /> HOÀN TIỀN
-                          </button>
-                          <button onClick={() => handleResolve(d.bookingId, 'release')} disabled={isResolving}
-                            className={`flex items-center justify-center gap-2 rounded-2xl py-4 text-[11px] font-black uppercase tracking-widest transition-all ${isResolving ? 'bg-slate-50 text-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-[0.98]'}`}>
-                            <CheckCircle className="h-4 w-4" /> TRẢ TIỀN THỢ
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Transactions Section */}
-      <div className="mt-16 overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
-        <div className="flex flex-col border-b border-slate-100 px-8 py-6 lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div>
-            <h2 className="text-xl font-black text-slate-900">Bảng giao dịch</h2>
-            <p className="mt-1 text-xs font-bold text-slate-400">Tất cả lịch chụp và trạng thái thanh toán Escrow</p>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="relative min-w-[280px] xl:w-[360px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Tìm mã booking, khách, studio..."
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
+            />
+            {searchTerm && (
+              <button type="button" onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          {/* Filter chips */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {(['ALL', 'PENDING', 'CONFIRMED', 'DELIVERED', 'COMPLETED', 'DISPUTED', 'REFUNDED'] as const).map((s) => {
-              const count = s === 'ALL' ? state.bookings.length : state.bookings.filter((b) => b.status === s).length
-              const isSelected = filter === s
-              if (count === 0 && s !== 'ALL') return null
-              return (
-                <button key={s} onClick={() => setFilter(s)}
-                  className={`flex items-center gap-2.5 whitespace-nowrap rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${isSelected
-                    ? 'bg-slate-900 text-white shadow-lg'
-                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}>
-                  {s === 'ALL' ? 'Tất cả' : STATUS_LABEL[s as BookingStatus]}
-                  <span className={`inline-flex items-center justify-center rounded-lg px-1.5 py-0.5 text-[9px] font-black ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-500'}`}>{count}</span>
-                </button>
-              )
-            })}
+          <div className="flex flex-wrap gap-2">
+            <SelectBox icon={<Filter className="h-4 w-4" />} value={status} onChange={(value) => setStatus(value as BookingStatus)} options={bookingStatusOptions} />
+            <SelectBox icon={<CircleDollarSign className="h-4 w-4" />} value={paymentStatus} onChange={(value) => setPaymentStatus(value as PaymentStatus)} options={paymentStatusOptions} />
+            <SelectBox
+              icon={<SlidersHorizontal className="h-4 w-4" />}
+              value={sortBy}
+              onChange={setSortBy}
+              options={[
+                { value: 'newest', label: 'Mới nhất' },
+                { value: 'oldest', label: 'Cũ nhất' },
+                { value: 'amount', label: 'Giá trị cao' },
+                { value: 'status', label: 'Theo trạng thái' },
+              ]}
+            />
+            <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto px-2 pb-2">
-          <table className="w-full border-separate border-spacing-0 px-4 py-2">
+        {error && <div className="border-b border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1040px]">
             <thead>
-              <tr className="text-left">
-                <th className="rounded-l-2xl border-b border-slate-50 bg-slate-50/50 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Reference</th>
-                <th className="border-b border-slate-50 bg-slate-50/50 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Khách hàng / Thợ</th>
-                <th className="border-b border-slate-50 bg-slate-50/50 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Booking Info</th>
-                <th className="border-b border-slate-50 bg-slate-50/50 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Giá trị Escrow</th>
-                <th className="rounded-r-2xl border-b border-slate-50 bg-slate-50/50 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Trạng thái</th>
+              <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
+                <th className="px-5 py-3">Booking</th>
+                <th className="px-5 py-3">Khách / Studio</th>
+                <th className="px-5 py-3">Dịch vụ</th>
+                <th className="px-5 py-3 text-right">Thanh toán</th>
+                <th className="px-5 py-3 text-right">Commission</th>
+                <th className="px-5 py-3 text-center">Trạng thái</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {bookings.map((b, i) => {
-                const payment = state.payments.find((p) => p.bookingId === b.id)
-                return (
-                  <motion.tr key={b.id} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
-                    className="group hover:bg-slate-50/40 transition-all duration-300">
-                    <td className="px-6 py-6 items-start">
-                      <div className="text-[10px] font-black font-mono text-slate-300 group-hover:text-indigo-500 transition-colors">#{b.id.substring(0, 12)}</div>
-                    </td>
-                    <td className="px-6 py-6">
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded-md bg-indigo-50 flex items-center justify-center text-[9px] font-black text-indigo-600 ring-1 ring-indigo-100">K</div>
-                          <span className="text-sm font-black text-slate-900">{b.customerName}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded-md bg-slate-100 flex items-center justify-center text-[9px] font-black text-slate-400">T</div>
-                          <span className="text-[13px] font-bold text-slate-500">{b.photographerName}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-6">
-                      <div className="text-[13px] font-black text-slate-800">{b.packageTier} Edition</div>
-                      <div className="mt-1 text-xs font-bold text-slate-400 flex items-center gap-1.5">
-                        <Calendar className="h-3 w-3" /> {formatDate(b.date)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-6 text-right">
-                      <div className="text-sm font-black text-slate-900">{formatVnd(b.totalPrice)}</div>
-                      {payment && (
-                        <div className="mt-1.5 flex justify-end">
-                          <EscrowBadge status={payment.status} />
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-6 text-center">
-                      <span className={`inline-flex items-center rounded-xl ring-1 ring-inset px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${STATUS_COLOR[b.status]}`}>
-                        {STATUS_LABEL[b.status]}
-                      </span>
-                    </td>
-                  </motion.tr>
-                )
-              })}
+            <tbody>
+              {bookings.map((booking) => (
+                <tr key={booking.id} className="border-b border-slate-100 transition hover:bg-slate-50/70">
+                  <td className="px-5 py-4">
+                    <div className="font-mono text-xs font-medium text-slate-500">#{booking.bookingCode}</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {formatDate(booking.shootingDate)}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="text-sm font-medium text-slate-900">{booking.customerName}</div>
+                    <div className="mt-1 text-sm text-slate-500">{booking.studioName}</div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="text-sm font-medium text-slate-900">{booking.packageName}</div>
+                    <div className="mt-1 text-xs text-slate-500">{booking.city || 'Chưa có khu vực'}</div>
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="text-sm font-semibold text-slate-950">{formatVnd(booking.paymentAmount ?? booking.totalPrice)}</div>
+                    <PaymentBadge status={booking.paymentStatus} />
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="text-sm font-semibold text-slate-950">{formatVnd(booking.commissionAmount)}</div>
+                    <div className="mt-1 text-xs text-slate-500">{booking.commissionPercent}%</div>
+                  </td>
+                  <td className="px-5 py-4 text-center">
+                    <StatusBadge status={booking.status} />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-          {bookings.length === 0 && (
-            <div className="py-20 text-center">
-              <Search className="mx-auto h-12 w-12 text-slate-200 mb-4" />
-              <p className="text-sm font-black text-slate-300 uppercase tracking-widest">Không có dữ liệu phù hợp</p>
-            </div>
+
+          {!loading && bookings.length === 0 && (
+            <div className="px-6 py-16 text-center text-sm text-slate-500">Không có booking phù hợp.</div>
           )}
         </div>
-      </div>
-    </div>
-  )
-}
 
-function KpiCard({ label, value, icon, color, highlight, urgent }: { label: string, value: string | number, icon: React.ReactNode, color: string, highlight?: boolean, urgent?: boolean }) {
-  const colorMap: Record<string, string> = {
-    slate: 'bg-slate-50 text-slate-600 ring-slate-100',
-    amber: 'bg-amber-50 text-amber-600 ring-amber-100',
-    indigo: 'bg-indigo-50 text-indigo-600 ring-indigo-100',
-    rose: 'bg-rose-50 text-rose-600 ring-rose-100',
-  }
-  return (
-    <div className={`flex flex-col rounded-[28px] border p-6 shadow-sm transition-all hover:shadow-lg ${urgent ? 'border-rose-200 bg-rose-50/20' : highlight ? 'border-indigo-100 bg-white ring-1 ring-indigo-50' : 'border-slate-100 bg-white'}`}>
-      <div className="flex items-center gap-3 mb-5">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ring-1 ring-inset ${colorMap[color]}`}>
-          {icon}
+        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-xs text-slate-500">
+          <span>Hiển thị {bookings.length} booking</span>
+          {(searchTerm || status !== 'ALL' || paymentStatus !== 'ALL') && (
+            <button type="button" onClick={clearFilters} className="font-medium text-indigo-600 hover:text-indigo-700">
+              Xóa bộ lọc
+            </button>
+          )}
         </div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-      </div>
-      <div className={`text-2xl font-black tracking-tight ${highlight ? 'text-indigo-700' : 'text-slate-900'}`}>{value}</div>
+      </section>
     </div>
   )
 }
 
-function EscrowBadge({ status }: { status: string }) {
-  if (status === 'holding') return <span className="flex items-center gap-1 text-[9px] font-black text-amber-600 border border-amber-200 bg-amber-50 px-2 py-0.5 rounded-lg">🔒 HOLDING</span>
-  if (status === 'released') return <span className="flex items-center gap-1 text-[9px] font-black text-emerald-600 border border-emerald-200 bg-emerald-50 px-2 py-0.5 rounded-lg">✅ RELEASED</span>
-  return <span className="flex items-center gap-1 text-[9px] font-black text-slate-400 border border-slate-200 bg-slate-50 px-2 py-0.5 rounded-lg">↩ REFUNDED</span>
+function Metric({ label, value, tone = 'slate' }: { label: string; value: string | number; tone?: 'slate' | 'amber' | 'indigo' | 'rose' }) {
+  const toneClass = {
+    slate: 'text-slate-950',
+    amber: 'text-amber-700',
+    indigo: 'text-indigo-700',
+    rose: 'text-rose-700',
+  }[tone]
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-xs font-medium text-slate-500">{label}</div>
+      <div className={`mt-2 truncate text-xl font-semibold ${toneClass}`}>{value}</div>
+    </div>
+  )
+}
+
+function SelectBox({ icon, value, onChange, options }: { icon: React.ReactNode; value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <label className="relative inline-flex h-10 items-center">
+      <span className="pointer-events-none absolute left-3 text-slate-400">{icon}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-10 appearance-none rounded-lg border border-slate-200 bg-white pl-9 pr-8 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10">
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 h-4 w-4 text-slate-400" />
+    </label>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, string> = {
+    PENDING: 'border-amber-200 bg-amber-50 text-amber-700',
+    CONFIRMED: 'border-blue-200 bg-blue-50 text-blue-700',
+    DELIVERED: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    COMPLETED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    DISPUTED: 'border-rose-200 bg-rose-50 text-rose-700',
+    REFUNDED: 'border-slate-200 bg-slate-50 text-slate-600',
+    CANCELLED: 'border-slate-200 bg-slate-50 text-slate-500',
+  }
+
+  const label: Record<string, string> = {
+    PENDING: 'Chờ duyệt',
+    CONFIRMED: 'Đã xác nhận',
+    DELIVERED: 'Đã giao ảnh',
+    COMPLETED: 'Hoàn thành',
+    DISPUTED: 'Khiếu nại',
+    REFUNDED: 'Hoàn tiền',
+    CANCELLED: 'Đã hủy',
+  }
+
+  return <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium ${config[status] ?? config.PENDING}`}>{label[status] ?? status}</span>
+}
+
+function PaymentBadge({ status }: { status?: string }) {
+  const normalized = status ?? 'PENDING'
+  const config: Record<string, string> = {
+    PENDING: 'border-slate-200 bg-slate-50 text-slate-600',
+    PAID: 'border-blue-200 bg-blue-50 text-blue-700',
+    HOLDING: 'border-amber-200 bg-amber-50 text-amber-700',
+    RELEASED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    REFUNDED: 'border-slate-200 bg-slate-50 text-slate-600',
+    FAILED: 'border-rose-200 bg-rose-50 text-rose-700',
+  }
+  const label: Record<string, string> = {
+    PENDING: 'Chờ thanh toán',
+    PAID: 'Đã thanh toán',
+    HOLDING: 'Đang giữ',
+    RELEASED: 'Đã giải ngân',
+    REFUNDED: 'Đã hoàn tiền',
+    FAILED: 'Thất bại',
+  }
+
+  return <span className={`mt-2 inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${config[normalized] ?? config.PENDING}`}>{label[normalized] ?? normalized}</span>
 }

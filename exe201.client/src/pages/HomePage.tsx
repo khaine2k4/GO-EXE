@@ -2,7 +2,6 @@ import { ArrowRight, Camera, CheckCircle2, Search, Shield, Sparkles, Users } fro
 import { Link, useNavigate } from 'react-router-dom'
 import { useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { useAppStore } from '../store/AppStore'
 import PhotoCard from '../components/PhotoCard'
 import api from '../api/axios'
 import heroImage from '../assets/hero.png'
@@ -26,7 +25,6 @@ const STEPS = [
 ]
 
 export default function HomePage() {
-  const { state } = useAppStore()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
 

@@ -101,6 +101,7 @@ export type AuthUser = {
   role: Role
   avatarUrl?: string
   createdAt: string
+  status?: string      // 'ACTIVE' | 'LOCKED' từ DB
 }
 
 // ── Transaction (wallet) ─────────────────────────────────────

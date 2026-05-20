@@ -33,5 +33,40 @@ namespace EXE201.Server.Repositories
                 .Take(count)
                 .ToListAsync();
         }
+
+        public async Task<Studio?> GetStudioByOwnerIdAsync(long ownerId)
+        {
+            return await _context.Studios
+                .FirstOrDefaultAsync(s => s.OwnerId == ownerId && s.DeletedAt == null);
+        }
+
+        public async Task<Studio> CreateStudioAsync(Studio studio)
+        {
+            await _context.Studios.AddAsync(studio);
+            await _context.SaveChangesAsync();
+            return studio;
+        }
+
+        public async Task<Studio> UpdateStudioAsync(Studio studio)
+        {
+            _context.Studios.Update(studio);
+            await _context.SaveChangesAsync();
+            return studio;
+        }
+
+        public async Task<List<Studio>> GetAllStudiosAsync()
+        {
+            return await _context.Studios
+                .Include(s => s.Owner)
+                .Where(s => s.DeletedAt == null)
+                .ToListAsync();
+        }
+
+        public async Task<Studio?> GetStudioByIdAsync(long studioId)
+        {
+            return await _context.Studios
+                .Include(s => s.Owner)
+                .FirstOrDefaultAsync(s => s.StudioId == studioId && s.DeletedAt == null);
+        }
     }
 }
