@@ -29,6 +29,9 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Services.IStudioService, EXE201.Server.Services.StudioService>();
             builder.Services.AddScoped<EXE201.Server.Repositories.IUserRepository, EXE201.Server.Repositories.UserRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IAuthService, EXE201.Server.Services.AuthService>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.IAddressRepository, EXE201.Server.Repositories.AddressRepository>();
+            builder.Services.AddScoped<EXE201.Server.Services.IAddressService, EXE201.Server.Services.AddressService>();
+            builder.Services.AddScoped<EXE201.Server.Services.IAdminService, EXE201.Server.Services.AdminService>();
 
             var jwtSettings = builder.Configuration.GetSection("Jwt");
             builder.Services.AddAuthentication(options =>

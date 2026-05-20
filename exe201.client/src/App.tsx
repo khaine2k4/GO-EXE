@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import AdminLayout from './components/AdminLayout'
 import HomePage from './pages/HomePage'
 import GalleryPage from './pages/GalleryPage'
 import PhotosetsPage from './pages/PhotosetsPage'
@@ -20,7 +21,9 @@ import RegisterPage from './pages/RegisterPage'
 import PremierPage from './pages/PremierPage'
 import AdminSupportPage from './pages/AdminSupportPage'
 import FAQPage from './pages/FAQPage'
+import ProfilePage from './pages/ProfilePage'
 import { useAppStore } from './store/AppStore'
+
 
 function RequireAuth({ children, role }: { children: React.ReactNode; role?: string }) {
   const { state } = useAppStore()
@@ -38,6 +41,14 @@ export default function App() {
       {/* Auth pages — no layout */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+
+
+      {/* Admin Dedicated Workspace Sidebar Layout */}
+      <Route element={<RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>}>
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/orders" element={<AdminOrdersPage />} />
+        <Route path="/admin/support" element={<AdminSupportPage />} />
+      </Route>
 
       {/* Protected pages inside Layout */}
       <Route element={<Layout />}>
@@ -72,6 +83,9 @@ export default function App() {
         <Route path="/faq" element={
           <RequireAuth><FAQPage /></RequireAuth>
         } />
+        <Route path="/profile" element={
+          <RequireAuth><ProfilePage /></RequireAuth>
+        } />
 
         {/* Photographer */}
         <Route path="/photographer/portfolio" element={
@@ -85,17 +99,6 @@ export default function App() {
         } />
         <Route path="/photographer/wallet" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerWalletPage /></RequireAuth>
-        } />
-
-        {/* Admin */}
-        <Route path="/admin/users" element={
-          <RequireAuth role="ADMIN"><AdminUsersPage /></RequireAuth>
-        } />
-        <Route path="/admin/orders" element={
-          <RequireAuth role="ADMIN"><AdminOrdersPage /></RequireAuth>
-        } />
-        <Route path="/admin/support" element={
-          <RequireAuth role="ADMIN"><AdminSupportPage /></RequireAuth>
         } />
 
         {/* Redirect root based on role if logged in */}

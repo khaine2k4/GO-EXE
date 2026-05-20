@@ -126,6 +126,13 @@ export default function Layout() {
                             {item.label}
                           </Link>
                         ))}
+                        <Link
+                          to="/profile"
+                          onClick={() => setProfileOpen(false)}
+                          className="block rounded-xl px-3 py-2.5 text-sm font-bold text-indigo-600 hover:bg-indigo-50"
+                        >
+                          ⚙️ Hồ sơ & Bảo mật
+                        </Link>
                         <button
                           type="button"
                           onClick={handleLogout}

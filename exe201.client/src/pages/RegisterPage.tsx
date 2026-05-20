@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
 import type { Role } from '../types'
+import api from '../api/axios'
 
 const TAGS_OPTIONS = ['Wedding', 'Portrait', 'Lifestyle', 'Street', 'Couple', 'Landscape', 'Travel', 'Fashion', 'Commercial', 'Documentary']
 
@@ -37,24 +38,59 @@ export default function RegisterPage() {
         }
         if (password.length < 6) { setError('Mật khẩu tối thiểu 6 ký tự.'); return }
         setLoading(true)
-        await new Promise((r) => setTimeout(r, 700))
+        
         try {
-            const user = actions.register({
-                name, email, password, role,
-                bio, location, tags,
-                startingPrice: parseInt(startingPrice) || 1000000,
-            })
+            // 1. Gọi API đăng ký
+            await api.post('/auth/register', {
+                name,
+                email,
+                password,
+                role, // USER hoặc PHOTOGRAPHER
+                bio: role === 'PHOTOGRAPHER' ? bio : null,
+                location: role === 'PHOTOGRAPHER' ? location : null
+            });
+
+            // 2. Tự động đăng nhập sau khi đăng ký thành công để tạo trải nghiệm mượt mà
+            const loginRes = await api.post('/auth/login', {
+                email,
+                password
+            });
+
+            const { token, user: loggedUser } = loginRes.data;
+
+            // Lưu token và thông tin user vào localStorage
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(loggedUser));
+            
+            // Cập nhật state trong store
+            actions.setCurrentUser({
+                id: String(loggedUser.id),
+                name: loggedUser.name,
+                email: loggedUser.email,
+                role: loggedUser.role,
+                password: '',
+                createdAt: new Date().toISOString()
+            });
+
             toast.push({
                 type: 'success',
-                title: role === 'PHOTOGRAPHER' ? 'Đăng ký thành công! Chờ admin duyệt.' : `Chào mừng, ${user.name}!`,
-                message: role === 'PHOTOGRAPHER' ? 'Hồ sơ của bạn đang được xem xét.' : '',
-            })
-            if (user.role === 'PHOTOGRAPHER') nav('/photographer/dashboard')
-            else nav('/')
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Đăng ký thất bại')
+                title: role === 'PHOTOGRAPHER' ? 'Đăng ký thành công! Đang chờ admin duyệt.' : `Chào mừng, ${loggedUser.name}!`,
+                message: role === 'PHOTOGRAPHER' ? 'Hồ sơ Studio của bạn đang được xem xét.' : '',
+            });
+
+            if (loggedUser.role === 'STUDIO_OWNER') {
+                nav('/photographer/dashboard');
+            } else {
+                nav('/');
+            }
+        } catch (err: any) {
+            if (err.response && err.response.data) {
+                setError(err.response.data);
+            } else {
+                setError('Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.');
+            }
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     }
 

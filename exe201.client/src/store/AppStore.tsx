@@ -45,9 +45,12 @@ type AppActions = {
     bio?: string; location?: string; tags?: string[]; startingPrice?: number
   }) => AuthUser
 
-  // Admin: photographer approval
-  approvePhotographer: (photographerId: string) => void
-  rejectPhotographer: (photographerId: string) => void
+  // Admin: photographer approval + account management
+  approvePhotographer: (photographerId: string) => Promise<void>
+  rejectPhotographer: (photographerId: string, reason: string) => Promise<void>
+  lockUser: (userId: string) => Promise<void>
+  unlockUser: (userId: string) => Promise<void>
+  updateUserRole: (userId: string, role: Role) => Promise<void>
 
   // Photographer: Update profile
   updatePhotographer: (patch: Partial<Photographer>) => void
@@ -105,12 +108,24 @@ type Action =
   | { type: 'ADD_TRANSACTION'; tx: Transaction }
   | { type: 'ADD_BUSY_DATE'; photographerId: string; date: string }
   | { type: 'ADD_PHOTOSET'; photoset: Photoset }
+  | { type: 'SET_USERS_FROM_API'; users: AuthUser[] }
+  | { type: 'SET_PHOTOGRAPHERS_FROM_API'; photographers: Photographer[] }
+  | { type: 'UPDATE_USER_ROLE_LOCAL'; id: string; role: Role }
+  | { type: 'UPDATE_USER_STATUS_LOCAL'; id: string; status: string }
 
 // ── Reducer ───────────────────────────────────────────────────
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_USER':
+      if (action.user) {
+        if (action.user.role === 'STUDIO_OWNER' as any) {
+          action.user.role = 'PHOTOGRAPHER';
+        } else if (action.user.role === 'CUSTOMER' as any) {
+          action.user.role = 'USER';
+        }
+      }
       return { ...state, currentUser: action.user }
+
 
     case 'ADD_USER':
       return { ...state, users: [...state.users, action.user] }
@@ -181,6 +196,28 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_PHOTOSET':
       return { ...state, photosets: [action.photoset, ...state.photosets] }
 
+    case 'SET_USERS_FROM_API':
+      return { ...state, users: action.users }
+
+    case 'SET_PHOTOGRAPHERS_FROM_API':
+      return { ...state, photographers: action.photographers }
+
+    case 'UPDATE_USER_ROLE_LOCAL':
+      return {
+        ...state,
+        users: state.users.map((u) =>
+          u.id === action.id ? { ...u, role: action.role } : u
+        ),
+      }
+
+    case 'UPDATE_USER_STATUS_LOCAL':
+      return {
+        ...state,
+        users: state.users.map((u) =>
+          u.id === action.id ? { ...u, status: action.status } : u
+        ),
+      }
+
     default:
       return state
   }
@@ -203,8 +240,13 @@ function loadState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AppState>
       const loadedPhotographers = Array.isArray(parsed.photographers) ? parsed.photographers : photographers
+      const user = parsed.currentUser ?? null
+      if (user) {
+        if (user.role === 'STUDIO_OWNER' as any) user.role = 'PHOTOGRAPHER';
+        if (user.role === 'CUSTOMER' as any) user.role = 'USER';
+      }
       return {
-        currentUser: parsed.currentUser ?? null,
+        currentUser: user,
         users: Array.isArray(parsed.users) ? parsed.users : mockUsers,
         photographers: mergePhotographersWithMockAlbums(loadedPhotographers),
         photosets: Array.isArray(parsed.photosets) ? parsed.photosets : photosets,
@@ -242,12 +284,16 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       api.get('/auth/me')
         .then(response => {
           const user = response.data;
+          let normalizedRole = user.role;
+          if (normalizedRole === 'STUDIO_OWNER') normalizedRole = 'PHOTOGRAPHER';
+          else if (normalizedRole === 'CUSTOMER') normalizedRole = 'USER';
+
           dispatch({
             type: 'SET_USER', user: {
               id: String(user.id),
               name: user.name,
               email: user.email,
-              role: user.role,
+              role: normalizedRole,
               password: '',
               createdAt: new Date().toISOString()
             }
@@ -260,6 +306,55 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         });
     }
   }, [])
+
+  // Khi admin đăng nhập → tải danh sách users và studios thật từ backend
+  useEffect(() => {
+    const user = state.currentUser
+    if (!user || user.role !== 'ADMIN') return
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    Promise.all([
+      api.get<any[]>('/admin/users'),
+      api.get<any[]>('/admin/studios'),
+    ])
+      .then(([usersRes, studiosRes]) => {
+        const mappedUsers: AuthUser[] = usersRes.data.map((u: any) => ({
+          id: String(u.id),
+          name: u.name,
+          email: u.email,
+          role: (u.role === 'CUSTOMER' ? 'USER' : u.role === 'STUDIO_OWNER' ? 'PHOTOGRAPHER' : u.role) as Role,
+          password: '',
+          avatarUrl: u.avatarUrl ?? undefined,
+          createdAt: new Date().toISOString(),
+          status: u.status,
+        }))
+
+        const mappedPhotographers: Photographer[] = studiosRes.data.map((s: any) => ({
+          id: String(s.id),
+          name: s.studioName ?? s.name,
+          location: [s.city, s.district].filter(Boolean).join(', ') || 'Việt Nam',
+          bio: s.bio ?? '',
+          avatarUrl:
+            s.logoUrl ??
+            s.avatarUrl ??
+            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(s.studioName ?? s.name)}&backgroundColor=6366f1`,
+          coverUrl: s.coverUrl ?? '',
+          startingPrice: 0,
+          rating: 0,
+          reviewCount: 0,
+          tags: [],
+          busyDates: [],
+          status: ((s.status ?? 'PENDING') as PhotographerStatus),
+          portfolio: [],
+          albums: [],
+        }))
+
+        dispatch({ type: 'SET_USERS_FROM_API', users: mappedUsers })
+        dispatch({ type: 'SET_PHOTOGRAPHERS_FROM_API', photographers: mappedPhotographers })
+      })
+      .catch((err) => console.error('Tải dữ liệu Admin thất bại:', err))
+  }, [state.currentUser?.id, state.currentUser?.role])
 
   const actions = useMemo<AppActions>(() => ({
     // ── Auth ──────────────────────────────────────────────────
@@ -316,12 +411,46 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       return user
     },
 
-    // ── Admin: Approval ───────────────────────────────────────
-    approvePhotographer(id) {
+    // ── Admin: Approval + User Management ────────────────────
+    async approvePhotographer(id) {
+      try {
+        await api.put(`/admin/studios/${id}/approve`)
+      } catch (err) {
+        console.error('Phê duyệt Studio thất bại:', err)
+      }
       dispatch({ type: 'SET_PHOTOGRAPHER_STATUS', id, status: 'APPROVED' })
     },
-    rejectPhotographer(id) {
+    async rejectPhotographer(id, reason) {
+      try {
+        await api.put(`/admin/studios/${id}/reject`, { rejectionReason: reason })
+      } catch (err) {
+        console.error('Từ chối Studio thất bại:', err)
+      }
       dispatch({ type: 'SET_PHOTOGRAPHER_STATUS', id, status: 'REJECTED' })
+    },
+    async lockUser(userId) {
+      try {
+        await api.put(`/admin/users/${userId}/status`, { status: 'LOCKED' })
+        dispatch({ type: 'UPDATE_USER_STATUS_LOCAL', id: userId, status: 'LOCKED' })
+      } catch (err) {
+        console.error('Khóa tài khoản thất bại:', err)
+      }
+    },
+    async unlockUser(userId) {
+      try {
+        await api.put(`/admin/users/${userId}/status`, { status: 'ACTIVE' })
+        dispatch({ type: 'UPDATE_USER_STATUS_LOCAL', id: userId, status: 'ACTIVE' })
+      } catch (err) {
+        console.error('Mở khóa tài khoản thất bại:', err)
+      }
+    },
+    async updateUserRole(userId, role) {
+      try {
+        await api.put(`/admin/users/${userId}/role`, { roleName: role })
+        dispatch({ type: 'UPDATE_USER_ROLE_LOCAL', id: userId, role })
+      } catch (err) {
+        console.error('Cập nhật role thất bại:', err)
+      }
     },
 
     // ── Photographer: Edit Profile ────────────────────────────

@@ -25,5 +25,39 @@ namespace EXE201.Server.Repositories
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.UserId == id);
         }
+
+        public async Task<User?> GetUserByEmailAsync(string email)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        public async Task<User> CreateUserAsync(User user)
+        {
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
+            return user;
+        }
+
+        public async Task<User> UpdateUserAsync(User user)
+        {
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+            return user;
+        }
+
+        public async Task<Role?> GetRoleByNameAsync(string roleName)
+        {
+            return await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == roleName);
+        }
+
+        public async Task<List<User>> GetAllUsersAsync()
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .Where(u => u.DeletedAt == null)
+                .ToListAsync();
+        }
     }
 }
