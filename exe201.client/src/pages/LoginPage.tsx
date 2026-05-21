@@ -270,7 +270,6 @@ export default function LoginPage() {
                                     shape="rectangular"
                                     theme="outline"
                                     size="large"
-                                    locale="vi"
                                     width="380"
                                 />
                             </div>
