@@ -195,3 +195,57 @@ input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
 }
+
+/* Premium Ambient Animations */
+@keyframes blob-float {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.15);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
+.animate-blob-slow {
+  animation: blob-float 15s infinite alternate ease-in-out;
+}
+
+.animate-blob-reverse {
+  animation: blob-float 20s infinite alternate-reverse ease-in-out;
+}
+
+/* Photographic Studio Decorative Grids */
+.photo-grid-ambient {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(79, 70, 229, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(79, 70, 229, 0.03) 1px, transparent 1px);
+}
+
+.lens-flare-accent {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(59, 130, 246, 0.05) 50%, transparent 100%);
+  filter: blur(40px);
+}
+
+/* Modern inputs and buttons */
+.focus-ring-premium {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.focus-ring-premium:focus-within {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12), 0 4px 12px rgba(79, 70, 229, 0.05);
+}
+
+/* Override browser autofill background on fields to keep them clean and consistent */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #090d16 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+

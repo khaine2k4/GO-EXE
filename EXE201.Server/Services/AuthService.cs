@@ -5,6 +5,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Google.Apis.Auth;
 
 namespace EXE201.Server.Services
 {
@@ -50,6 +51,8 @@ namespace EXE201.Server.Services
                     dto.District = studio.District;
                     dto.AddressLine = studio.AddressLine;
                     dto.CoverUrl = studio.CoverUrl;
+                    dto.StudioStatus = studio.Status;
+                    dto.BanReason = studio.BanReason;
                 }
             }
 
@@ -111,6 +114,88 @@ namespace EXE201.Server.Services
                 Token = tokenString,
                 User = userDto
             };
+        }
+
+        public async Task<LoginResponseDto?> GoogleLoginAsync(string credential)
+        {
+            // 1. Verify Google ID token
+            GoogleJsonWebSignature.Payload payload;
+            try
+            {
+                var settings = new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _configuration["Google:ClientId"]! }
+                };
+                payload = await GoogleJsonWebSignature.ValidateAsync(credential, settings);
+            }
+            catch
+            {
+                return null; // Token không hợp lệ
+            }
+
+            // 2. Tìm user theo email, nếu chưa có thì tạo mới
+            var user = await _userRepository.GetUserByEmailAsync(payload.Email);
+
+            if (user == null)
+            {
+                // Tạo tài khoản mới với role CUSTOMER
+                var role = await _userRepository.GetRoleByNameAsync("CUSTOMER");
+                if (role == null) return null;
+
+                user = new User
+                {
+                    RoleId = role.RoleId,
+                    FullName = payload.Name ?? payload.Email,
+                    Email = payload.Email,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()), // random pw
+                    Status = "ACTIVE",
+                    EmailVerified = true,
+                    AvatarUrl = payload.Picture ?? $"https://api.dicebear.com/7.x/initials/svg?seed={Uri.EscapeDataString(payload.Name ?? payload.Email)}&backgroundColor=6366f1",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                };
+
+                user = await _userRepository.CreateUserAsync(user);
+                // Reload with role
+                user = await _userRepository.GetUserByIdAsync(user.UserId) ?? user;
+            }
+            else if (user.Status != "ACTIVE")
+            {
+                return null; // Tài khoản bị khóa
+            }
+
+            // 3. Cập nhật avatar nếu Google có ảnh mới hơn
+            if (!string.IsNullOrEmpty(payload.Picture) && user.AvatarUrl != payload.Picture)
+            {
+                user.AvatarUrl = payload.Picture;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _userRepository.UpdateUserAsync(user);
+            }
+
+            // 4. Generate JWT
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "CUSTOMER")
+                }),
+                Expires = DateTime.UtcNow.AddDays(7),
+                Issuer = _configuration["Jwt:Issuer"],
+                Audience = _configuration["Jwt:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(token);
+
+            user.LastLoginAt = DateTime.UtcNow;
+            await _userRepository.UpdateUserAsync(user);
+
+            var userDto = await MapToUserDto(user);
+            return new LoginResponseDto { Token = tokenString, User = userDto };
         }
 
         public async Task<UserDto?> GetMeAsync(long userId)

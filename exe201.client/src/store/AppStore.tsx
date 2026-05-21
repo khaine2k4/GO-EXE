@@ -116,15 +116,50 @@ type Action =
 // ── Reducer ───────────────────────────────────────────────────
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'SET_USER':
-      if (action.user) {
-        if (action.user.role === 'STUDIO_OWNER' as any) {
-          action.user.role = 'PHOTOGRAPHER';
-        } else if (action.user.role === 'CUSTOMER' as any) {
-          action.user.role = 'USER';
+    case 'SET_USER': {
+      let normalizedUser = action.user
+      if (normalizedUser) {
+        if (normalizedUser.role === 'STUDIO_OWNER' as any) {
+          normalizedUser.role = 'PHOTOGRAPHER'
+        } else if (normalizedUser.role === 'CUSTOMER' as any) {
+          normalizedUser.role = 'USER'
         }
       }
-      return { ...state, currentUser: action.user }
+
+      const nextState = { ...state, currentUser: normalizedUser }
+
+      if (normalizedUser && normalizedUser.role === 'PHOTOGRAPHER') {
+        const existingPhotographer = state.photographers.find((p) => p.id === normalizedUser!.id)
+        
+        const mappedPhotographer: Photographer = {
+          id: normalizedUser.id,
+          name: normalizedUser.studioName || normalizedUser.name,
+          location: [normalizedUser.city, normalizedUser.district].filter(Boolean).join(', ') || 'Việt Nam',
+          bio: normalizedUser.bio || '',
+          avatarUrl: normalizedUser.logoUrl || normalizedUser.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(normalizedUser.studioName || normalizedUser.name)}&backgroundColor=6366f1`,
+          coverUrl: normalizedUser.coverUrl || 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=1600&auto=format&fit=crop&q=80',
+          startingPrice: existingPhotographer?.startingPrice ?? 1000000,
+          rating: existingPhotographer?.rating ?? 5.0,
+          reviewCount: existingPhotographer?.reviewCount ?? 0,
+          tags: existingPhotographer?.tags?.length ? existingPhotographer.tags : ['Wedding', 'Portrait'],
+          busyDates: existingPhotographer?.busyDates ?? [],
+          status: (normalizedUser.studioStatus || (normalizedUser.status === 'ACTIVE' ? 'APPROVED' : normalizedUser.status === 'LOCKED' ? 'REJECTED' : 'PENDING')) as PhotographerStatus,
+          portfolio: existingPhotographer?.portfolio ?? [],
+          albums: existingPhotographer?.albums ?? [],
+        }
+
+        const exists = state.photographers.some((p) => p.id === normalizedUser!.id)
+        if (exists) {
+          nextState.photographers = state.photographers.map((p) =>
+            p.id === normalizedUser!.id ? { ...p, ...mappedPhotographer } : p
+          )
+        } else {
+          nextState.photographers = [...state.photographers, mappedPhotographer]
+        }
+      }
+
+      return nextState
+    }
 
 
     case 'ADD_USER':
@@ -138,8 +173,18 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       }
 
-    case 'ADD_PHOTOGRAPHER':
+    case 'ADD_PHOTOGRAPHER': {
+      const exists = state.photographers.some((p) => p.id === action.photographer.id)
+      if (exists) {
+        return {
+          ...state,
+          photographers: state.photographers.map((p) =>
+            p.id === action.photographer.id ? { ...p, ...action.photographer } : p
+          ),
+        }
+      }
       return { ...state, photographers: [...state.photographers, action.photographer] }
+    }
 
     case 'UPDATE_PHOTOGRAPHER':
       return {
@@ -280,7 +325,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   // Tự động gọi API /me để lấy lại thông tin user khi F5
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token && !state.currentUser) {
+    if (token) {
       api.get('/auth/me')
         .then(response => {
           const user = response.data;
@@ -295,7 +340,17 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
               email: user.email,
               role: normalizedRole,
               password: '',
-              createdAt: new Date().toISOString()
+              createdAt: new Date().toISOString(),
+              status: user.status,
+              avatarUrl: user.avatarUrl,
+              studioName: user.studioName,
+              logoUrl: user.logoUrl,
+              bio: user.bio,
+              city: user.city,
+              district: user.district,
+              coverUrl: user.coverUrl,
+              studioStatus: user.studioStatus,
+              banReason: user.banReason,
             }
           });
         })
@@ -303,6 +358,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           console.error('Tự động đăng nhập thất bại:', err);
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          dispatch({ type: 'SET_USER', user: null });
         });
     }
   }, [])

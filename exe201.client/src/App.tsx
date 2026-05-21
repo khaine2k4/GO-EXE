@@ -20,6 +20,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import PremierPage from './pages/PremierPage'
 import AdminSupportPage from './pages/AdminSupportPage'
+import AdminReviewsPage from './pages/AdminReviewsPage'
 import FAQPage from './pages/FAQPage'
 import ProfilePage from './pages/ProfilePage'
 import { useAppStore } from './store/AppStore'
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
+        <Route path="/admin/reviews" element={<AdminReviewsPage />} />
       </Route>
 
       {/* Protected pages inside Layout */}

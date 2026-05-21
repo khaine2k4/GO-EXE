@@ -47,10 +47,10 @@ const userStatusOptions: { value: UserStatus; label: string }[] = [
 ]
 
 const roleOptions: { value: UserRole; label: string }[] = [
-  { value: 'ALL', label: 'Tất cả role' },
-  { value: 'CUSTOMER', label: 'Customer' },
-  { value: 'STUDIO_OWNER', label: 'Studio owner' },
-  { value: 'ADMIN', label: 'Admin' },
+  { value: 'ALL', label: 'Tất cả vai trò' },
+  { value: 'CUSTOMER', label: 'Khách hàng' },
+  { value: 'STUDIO_OWNER', label: 'Chủ Studio' },
+  { value: 'ADMIN', label: 'Quản trị viên' },
 ]
 
 export default function AdminUsersPage() {
@@ -68,6 +68,7 @@ export default function AdminUsersPage() {
   const [actionId, setActionId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [rejectingStudio, setRejectingStudio] = useState<AdminStudioDto | null>(null)
+  const [banningStudio, setBanningStudio] = useState<AdminStudioDto | null>(null)
   const [reasonText, setReasonText] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -162,10 +163,10 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-5 pb-12">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Tổng studio" value={stats.totalStudios} />
+        <Metric label="Tổng Studio" value={stats.totalStudios} />
         <Metric label="Chờ duyệt" value={stats.pendingStudios} tone="amber" />
         <Metric label="Đã duyệt" value={stats.approvedStudios} tone="emerald" />
-        <Metric label="Tổng user" value={stats.totalUsers} />
+        <Metric label="Người dùng" value={stats.totalUsers} />
         <Metric label="Bị khóa" value={stats.lockedUsers} tone="rose" />
       </div>
 
@@ -174,7 +175,7 @@ export default function AdminUsersPage() {
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex w-fit rounded-lg bg-slate-200/70 p-1">
               <TabButton active={tab === 'studios'} onClick={() => switchTab('studios')} label="Studio" count={stats.totalStudios} />
-              <TabButton active={tab === 'users'} onClick={() => switchTab('users')} label="User" count={stats.totalUsers} />
+              <TabButton active={tab === 'users'} onClick={() => switchTab('users')} label="Người dùng" count={stats.totalUsers} />
             </div>
 
             <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
@@ -230,6 +231,8 @@ export default function AdminUsersPage() {
             actionId={actionId}
             onApprove={(studio) => runAction(`approve-${studio.id}`, () => api.put(`/admin/studios/${studio.id}/approve`))}
             onReject={setRejectingStudio}
+            onBan={setBanningStudio}
+            onUnban={(studio) => runAction(`unban-${studio.id}`, () => api.put(`/admin/studios/${studio.id}/unban`))}
           />
         ) : (
           <UserTable
@@ -242,7 +245,7 @@ export default function AdminUsersPage() {
         )}
 
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-xs text-slate-500">
-          <span>Hiển thị {rowsCount} dòng</span>
+          <span>Hiển thị {rowsCount} kết quả</span>
           {(searchTerm || studioStatus !== 'ALL' || userStatus !== 'ALL' || userRole !== 'ALL') && (
             <button type="button" onClick={clearFilters} className="font-medium text-indigo-600 hover:text-indigo-700">
               Xóa bộ lọc
@@ -266,6 +269,25 @@ export default function AdminUsersPage() {
               if (!reasonText.trim()) return
               runAction(`reject-${rejectingStudio.id}`, () => api.put(`/admin/studios/${rejectingStudio.id}/reject`, { rejectionReason: reasonText.trim() })).then(() => {
                 setRejectingStudio(null)
+                setReasonText('')
+              })
+            }}
+          />
+        )}
+        {banningStudio && (
+          <BanModal
+            studio={banningStudio}
+            reason={reasonText}
+            setReason={setReasonText}
+            loading={actionId === `ban-${banningStudio.id}`}
+            onClose={() => {
+              setBanningStudio(null)
+              setReasonText('')
+            }}
+            onSubmit={() => {
+              if (!reasonText.trim()) return
+              runAction(`ban-${banningStudio.id}`, () => api.put(`/admin/studios/${banningStudio.id}/ban`, { banReason: reasonText.trim() })).then(() => {
+                setBanningStudio(null)
                 setReasonText('')
               })
             }}
@@ -316,7 +338,7 @@ function SelectBox({ icon, value, onChange, options }: { icon: React.ReactNode; 
   )
 }
 
-function StudioTable({ studios, loading, actionId, onApprove, onReject }: { studios: AdminStudioDto[]; loading: boolean; actionId: string | null; onApprove: (studio: AdminStudioDto) => void; onReject: (studio: AdminStudioDto) => void }) {
+function StudioTable({ studios, loading, actionId, onApprove, onReject, onBan, onUnban }: { studios: AdminStudioDto[]; loading: boolean; actionId: string | null; onApprove: (studio: AdminStudioDto) => void; onReject: (studio: AdminStudioDto) => void; onBan: (studio: AdminStudioDto) => void; onUnban: (studio: AdminStudioDto) => void }) {
   if (loading) return <TableSkeleton columns={5} />
   if (studios.length === 0) return <EmptyState text="Không có studio phù hợp." />
 
@@ -371,6 +393,16 @@ function StudioTable({ studios, loading, actionId, onApprove, onReject }: { stud
                         Từ chối
                       </button>
                     </>
+                  ) : studio.status === 'APPROVED' ? (
+                    <button type="button" onClick={() => onBan(studio)} disabled={actionId === `ban-${studio.id}`} className="inline-flex h-9 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-60">
+                      <Lock className="h-4 w-4" />
+                      Ban
+                    </button>
+                  ) : studio.status === 'BANNED' ? (
+                    <button type="button" onClick={() => onUnban(studio)} disabled={actionId === `unban-${studio.id}`} className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60">
+                      <Unlock className="h-4 w-4" />
+                      Gỡ ban
+                    </button>
                   ) : (
                     <span className="text-xs text-slate-400">Không có thao tác</span>
                   )}
@@ -455,7 +487,7 @@ function StatusBadge({ status }: { status: string }) {
     PENDING: 'border-amber-200 bg-amber-50 text-amber-700',
     LOCKED: 'border-rose-200 bg-rose-50 text-rose-700',
     REJECTED: 'border-rose-200 bg-rose-50 text-rose-700',
-    BANNED: 'border-slate-200 bg-slate-50 text-slate-600',
+    BANNED: 'border-rose-200 bg-rose-50 text-rose-750',
     INACTIVE: 'border-slate-200 bg-slate-50 text-slate-600',
     UNVERIFIED: 'border-blue-200 bg-blue-50 text-blue-700',
   }
@@ -506,6 +538,31 @@ function RejectModal({ studio, reason, setReason, loading, onClose, onSubmit }: 
           <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">Hủy</button>
           <button type="button" onClick={onSubmit} disabled={loading || !reason.trim()} className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-medium text-white hover:bg-rose-700 disabled:bg-slate-200 disabled:text-slate-400">
             {loading ? 'Đang xử lý...' : 'Xác nhận'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+function BanModal({ studio, reason, setReason, loading, onClose, onSubmit }: { studio: AdminStudioDto; reason: string; setReason: (value: string) => void; loading: boolean; onClose: () => void; onSubmit: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }} className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-950">Ban studio (Khóa hoạt động)</h2>
+            <p className="mt-1 text-sm text-slate-500">{studio.studioName ?? studio.name}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5} autoFocus placeholder="Nhập lý do ban studio..." className="mt-5 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-rose-400 focus:bg-white focus:ring-4 focus:ring-rose-500/10" />
+        <div className="mt-5 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">Hủy</button>
+          <button type="button" onClick={onSubmit} disabled={loading || !reason.trim()} className="h-10 rounded-lg bg-rose-600 px-4 text-sm font-medium text-white hover:bg-rose-700 disabled:bg-slate-200 disabled:text-slate-400">
+            {loading ? 'Đang xử lý...' : 'Xác nhận Ban'}
           </button>
         </div>
       </motion.div>

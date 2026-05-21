@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import { Camera, ChevronDown, LogOut, Menu, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 
@@ -56,9 +56,11 @@ export default function Layout() {
       <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link to={homePath} className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
-              <Camera className="h-5 w-5" />
-            </span>
+            <img
+              src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+              alt="PhotoMarket Logo"
+              className="h-10 w-10 rounded-xl object-cover shadow-sm"
+            />
             <span className="text-lg font-black tracking-tight">
               Photo<span className="text-indigo-600">Market</span>
             </span>
@@ -192,11 +194,19 @@ export default function Layout() {
         </AnimatePresence>
       </header>
 
+
+      {myPhotographer?.status === 'BANNED' && (
+        <div className="border-b border-red-300 bg-red-100 px-4 py-2 text-center text-sm font-semibold text-red-800">
+          ⛔ Studio của bạn đã bị Ban và tạm ngưng toàn bộ hoạt động. Vui lòng vào Dashboard để xem lý do chi tiết.
+        </div>
+      )}
+
       {myPhotographer?.status === 'PENDING' && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-800">
           Hồ sơ của bạn đang chờ Admin duyệt. Bạn chưa thể nhận booking.
         </div>
       )}
+
 
       <main className="mx-auto min-h-[calc(100vh-8rem)] w-full max-w-7xl px-4 py-8 sm:px-6">
         <Outlet />

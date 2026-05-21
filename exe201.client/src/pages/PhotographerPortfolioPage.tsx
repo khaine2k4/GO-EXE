@@ -196,6 +196,44 @@ export default function PhotographerPortfolioPage() {
         </div>
       </div>
 
+      {/* Glassmorphic Notice Banner */}
+      {photographer.status !== 'APPROVED' && (
+        <div className={`mb-8 mx-2 overflow-hidden rounded-[32px] border p-6 md:p-8 backdrop-blur-xl transition-all shadow-lg animate-in fade-in duration-500 ${
+          photographer.status === 'REJECTED' 
+            ? 'border-rose-500/20 bg-rose-500/10 text-rose-900 shadow-rose-500/5' 
+            : 'border-amber-500/20 bg-amber-500/10 text-amber-900 shadow-amber-500/5'
+        }`}>
+          <div className="flex flex-col md:flex-row gap-5 items-start md:items-center">
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+              photographer.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-600' : 'bg-amber-500/20 text-amber-600'
+            }`}>
+              {photographer.status === 'REJECTED' ? (
+                <svg className="h-6 w-6 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              ) : (
+                <svg className="h-6 w-6 stroke-[2.5] animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className={`text-[15px] font-black uppercase tracking-widest ${
+                photographer.status === 'REJECTED' ? 'text-rose-800' : 'text-amber-800'
+              }`}>
+                {photographer.status === 'REJECTED' ? 'Hồ sơ đã bị Từ Chối Phê Duyệt' : 'Hồ sơ đang chờ Phê Duyệt từ Admin'}
+              </h3>
+              <p className="mt-2 text-sm font-medium leading-relaxed opacity-90">
+                {photographer.status === 'REJECTED' 
+                  ? 'Hồ sơ Studio của bạn đã bị từ chối phê duyệt do chưa đạt yêu cầu. Vui lòng liên hệ với Ban Quản trị hoặc cập nhật thông tin chính xác, hình ảnh chất lượng cao để được xét duyệt lại.'
+                  : 'Hồ sơ Studio của bạn đang chờ Ban Quản trị phê duyệt. Trong thời gian này, bạn có thể hoàn thiện thông tin cá nhân nhưng chưa thể tạo gói dịch vụ, album ảnh hoặc đăng tải các tác phẩm mới. Chúng tôi sẽ thông báo ngay khi có kết quả.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats Dashboard */}
       <div className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4 px-2">
         {[
@@ -230,23 +268,58 @@ export default function PhotographerPortfolioPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setCreatePackageOpen(true)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-6 text-[10px] font-black uppercase tracking-widest text-indigo-700 transition-all shadow-sm hover:bg-indigo-100 active:scale-95"
+                  onClick={() => {
+                    const isApproved = photographer.status === 'APPROVED'
+                    if (!isApproved) {
+                      toast.push({ type: 'error', title: 'Chức năng bị khóa 🔒', message: photographer.status === 'REJECTED' ? 'Hồ sơ của bạn đã bị từ chối. Hãy cập nhật lại để gửi duyệt.' : 'Vui lòng chờ Admin duyệt hồ sơ để sử dụng chức năng này.' })
+                      return
+                    }
+                    setCreatePackageOpen(true)
+                  }}
+                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-6 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 ${
+                    photographer.status === 'APPROVED' 
+                      ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100' 
+                      : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                  }`}
                 >
-                  <Package className="h-4 w-4" /> TẠO GÓI
+                  {photographer.status === 'APPROVED' ? <Package className="h-4 w-4" /> : <svg className="h-4 w-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>} TẠO GÓI
                 </button>
                 <button
-                  onClick={() => setCreateAlbumOpen(true)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 text-[10px] font-black uppercase tracking-widest text-slate-700 transition-all shadow-sm hover:bg-slate-50 active:scale-95"
+                  onClick={() => {
+                    const isApproved = photographer.status === 'APPROVED'
+                    if (!isApproved) {
+                      toast.push({ type: 'error', title: 'Chức năng bị khóa 🔒', message: photographer.status === 'REJECTED' ? 'Hồ sơ của bạn đã bị từ chối. Hãy cập nhật lại để gửi duyệt.' : 'Vui lòng chờ Admin duyệt hồ sơ để sử dụng chức năng này.' })
+                      return
+                    }
+                    setCreateAlbumOpen(true)
+                  }}
+                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-6 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 ${
+                    photographer.status === 'APPROVED' 
+                      ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' 
+                      : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                  }`}
                 >
-                  <FolderPlus className="h-4 w-4" /> TẠO ALBUM
+                  {photographer.status === 'APPROVED' ? <FolderPlus className="h-4 w-4" /> : <svg className="h-4 w-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>} TẠO ALBUM
                 </button>
                 <button
-                  onClick={handleUploadMock}
+                  onClick={() => {
+                    const isApproved = photographer.status === 'APPROVED'
+                    if (!isApproved) {
+                      toast.push({ type: 'error', title: 'Chức năng bị khóa 🔒', message: photographer.status === 'REJECTED' ? 'Hồ sơ của bạn đã bị từ chối. Hãy cập nhật lại để gửi duyệt.' : 'Vui lòng chờ Admin duyệt hồ sơ để sử dụng chức năng này.' })
+                      return
+                    }
+                    handleUploadMock()
+                  }}
                   disabled={uploading}
-                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-6 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 ${uploading ? 'bg-slate-50 border-slate-200 text-slate-300' : 'bg-white border-slate-200 text-indigo-600 hover:border-indigo-100 hover:bg-indigo-50/50 shadow-indigo-100/20'}`}
+                  className={`inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-6 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 ${
+                    uploading
+                      ? 'bg-slate-50 border-slate-200 text-slate-300'
+                      : photographer.status === 'APPROVED'
+                        ? 'bg-white border-slate-200 text-indigo-600 hover:border-indigo-100 hover:bg-indigo-50/50 shadow-indigo-100/20'
+                        : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                  }`}
                 >
-                  <UploadCloud className="h-4 w-4" /> {uploading ? 'ĐANG TẢI...' : 'THÊM ẢNH MỚI'}
+                  {photographer.status === 'APPROVED' ? <UploadCloud className="h-4 w-4" /> : <svg className="h-4 w-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>} {uploading ? 'ĐANG TẢI...' : 'THÊM ẢNH MỚI'}
                 </button>
               </div>
             </div>

@@ -203,5 +203,87 @@ namespace EXE201.Server.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+        [HttpPut("studios/{id}/ban")]
+        public async Task<IActionResult> BanStudio(long id, [FromBody] BanStudioRequestDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.BanReason))
+            {
+                return BadRequest("Lý do ban không được để trống.");
+            }
+
+            try
+            {
+                var adminId = GetAdminId();
+                var success = await _adminService.BanStudioAsync(id, dto.BanReason, adminId);
+                if (!success)
+                {
+                    return NotFound("Không tìm thấy Studio.");
+                }
+                return Ok(new { message = "Đã ban Studio thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("studios/{id}/unban")]
+        public async Task<IActionResult> UnbanStudio(long id)
+        {
+            try
+            {
+                var adminId = GetAdminId();
+                var success = await _adminService.UnbanStudioAsync(id, adminId);
+                if (!success)
+                {
+                    return NotFound("Không tìm thấy Studio.");
+                }
+                return Ok(new { message = "Đã gỡ ban Studio thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("reviews")]
+        public async Task<IActionResult> GetReviews([FromQuery] string? search, [FromQuery] bool? isHidden)
+        {
+            try
+            {
+                var reviews = await _adminService.GetReviewsAsync(search, isHidden);
+                return Ok(reviews);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("reviews/{id}/hide")]
+        public async Task<IActionResult> ToggleHideReview(long id, [FromBody] HideReviewRequestDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest("Dữ liệu yêu cầu không hợp lệ.");
+            }
+
+            try
+            {
+                var adminId = GetAdminId();
+                var success = await _adminService.ToggleHideReviewAsync(id, dto.IsHidden, dto.HiddenNote, adminId);
+                if (!success)
+                {
+                    return NotFound("Không tìm thấy review.");
+                }
+                var state = dto.IsHidden ? "ẩn" : "hiển thị";
+                return Ok(new { message = $"Đã {state} review thành công!" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }

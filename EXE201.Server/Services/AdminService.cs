@@ -335,5 +335,100 @@ namespace EXE201.Server.Services
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> BanStudioAsync(long studioId, string reason, long adminId)
+        {
+            var studio = await _studioRepository.GetStudioByIdAsync(studioId)
+                         ?? await _studioRepository.GetStudioByOwnerIdAsync(studioId);
+            if (studio == null) return false;
+
+            studio.Status = "BANNED";
+            studio.BannedBy = adminId;
+            studio.BannedAt = DateTime.UtcNow;
+            studio.BanReason = reason;
+            studio.UpdatedAt = DateTime.UtcNow;
+            studio.UpdatedBy = adminId;
+
+            await _studioRepository.UpdateStudioAsync(studio);
+            return true;
+        }
+
+        public async Task<bool> UnbanStudioAsync(long studioId, long adminId)
+        {
+            var studio = await _studioRepository.GetStudioByIdAsync(studioId)
+                         ?? await _studioRepository.GetStudioByOwnerIdAsync(studioId);
+            if (studio == null) return false;
+
+            studio.Status = "APPROVED";
+            studio.BannedBy = null;
+            studio.BannedAt = null;
+            studio.BanReason = null;
+            studio.UpdatedAt = DateTime.UtcNow;
+            studio.UpdatedBy = adminId;
+
+            await _studioRepository.UpdateStudioAsync(studio);
+            return true;
+        }
+
+        public async Task<List<AdminReviewDto>> GetReviewsAsync(string? search = null, bool? isHidden = null)
+        {
+            var query = _context.Reviews
+                .Include(r => r.Customer)
+                .Include(r => r.Studio)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.ToLower();
+                query = query.Where(r =>
+                    r.Customer.FullName.ToLower().Contains(q) ||
+                    r.Studio.StudioName.ToLower().Contains(q) ||
+                    (r.Comment != null && r.Comment.ToLower().Contains(q)));
+            }
+
+            if (isHidden.HasValue)
+            {
+                query = query.Where(r => r.IsHidden == isHidden.Value);
+            }
+
+            var reviews = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
+
+            return reviews.Select(r => new AdminReviewDto
+            {
+                Id = r.ReviewId,
+                CustomerName = r.Customer.FullName,
+                StudioName = r.Studio.StudioName,
+                Rating = r.Rating,
+                Comment = r.Comment,
+                IsHidden = r.IsHidden,
+                HiddenNote = r.HiddenNote,
+                CreatedAt = r.CreatedAt.ToString("O")
+            }).ToList();
+        }
+
+        public async Task<bool> ToggleHideReviewAsync(long reviewId, bool isHidden, string? note, long adminId)
+        {
+            var review = await _context.Reviews.FirstOrDefaultAsync(r => r.ReviewId == reviewId);
+            if (review == null) return false;
+
+            review.IsHidden = isHidden;
+            if (isHidden)
+            {
+                review.HiddenBy = adminId;
+                review.HiddenAt = DateTime.UtcNow;
+                review.HiddenNote = note;
+            }
+            else
+            {
+                review.HiddenBy = null;
+                review.HiddenAt = null;
+                review.HiddenNote = null;
+            }
+            review.UpdatedAt = DateTime.UtcNow;
+            review.UpdatedBy = adminId;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }

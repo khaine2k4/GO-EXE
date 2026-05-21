@@ -59,7 +59,7 @@ export type Booking = {
 }
 
 // ── Photographer approval ────────────────────────────────────
-export type PhotographerStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export type PhotographerStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'BANNED'
 
 // Album: partner tạo album, ảnh hiện Portfolio Showcase & Khám phá
 export type AlbumImage = { id: string; url: string; title?: string }
@@ -102,6 +102,15 @@ export type AuthUser = {
   avatarUrl?: string
   createdAt: string
   status?: string      // 'ACTIVE' | 'LOCKED' từ DB
+  // Studio/Photographer fields
+  studioName?: string
+  logoUrl?: string
+  bio?: string
+  city?: string
+  district?: string
+  coverUrl?: string
+  studioStatus?: string
+  banReason?: string
 }
 
 // ── Transaction (wallet) ─────────────────────────────────────
