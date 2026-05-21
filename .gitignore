@@ -1,30 +1,91 @@
-.vs/ 
-bin/ 
-obj/ 
-node_modules/ 
-exe201.client/dist/ 
+# ====================================================================
+# GO-EXE / EXE201 Project GitIgnore Configuration
+# Supports: ASP.NET Core (C#), React/Vite/TS (Node.js), Editors, and local DBs
+# ====================================================================
+
+# --------------------------------------------------------------------
+# 1. Operating System Files
+# --------------------------------------------------------------------
+[Dd]s_[Ss]tore
+[Tt]humbs.db
+*.db
+*.sqlite
+*.sqlite-journal
+
+# --------------------------------------------------------------------
+# 2. Visual Studio & .NET Core Specific
+# --------------------------------------------------------------------
+.vs/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
-*.db
-*.sqlite
-*.log
-*.tmp
-*.cache
-appsettings.*.local.json
-
-# Visual Studio user/session files
-*.csproj.user
-*.esproj.user
 *.slnLaunch.user
-EXE201.slnLaunch.user
+*Launch.user
 
-# Local notes / temporary planning files
+# NuGet Packages
+*.nuget.props
+*.nuget.targets
+
+# C# User/Session files (Should never be tracked)
+EXE201.Server/EXE201.Server.csproj.user
+exe201.Server/EXE201.Server.csproj.user
+
+# --------------------------------------------------------------------
+# 3. Node.js & Frontend Specific (exe201.client)
+# --------------------------------------------------------------------
+node_modules/
+/exe201.client/node_modules/
+/exe201.client/dist/
+/exe201.client/dist-ssr/
+/exe201.client/build/
+exe201.client/exe201.client.esproj.user
+
+# Frontend Environment Variables & Secrets
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --------------------------------------------------------------------
+# 4. Editors & IDEs (VS Code, WebStorm, Rider)
+# --------------------------------------------------------------------
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# --------------------------------------------------------------------
+# 5. Local Database / Application Data
+# --------------------------------------------------------------------
+App_Data/
+
+# --------------------------------------------------------------------
+# 6. Local Notes & Work-In-Progress
+# --------------------------------------------------------------------
 booking_flow.md
 exe.md
 message.txt
 
-# Local secrets / machine-specific config
-exe201.Server/appsettings.json
-exe201.Server/appsettings.Development.json
+# --------------------------------------------------------------------
+# 7. Local Configuration Overrides & Secrets
+# --------------------------------------------------------------------
+# Standard practice is to track appsettings.json & appsettings.Development.json
+# with generic/default values, and use local JSON files for overrides.
+appsettings.local.json
+appsettings.Development.local.json
+appsettings.*.local.json
+appsettings.json.user
+
