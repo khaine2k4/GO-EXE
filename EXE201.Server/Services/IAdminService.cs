@@ -13,5 +13,9 @@ namespace EXE201.Server.Services
         Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null);
         Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null);
         Task<bool> ResolveReportAsync(long reportId, string status, string? handlerNote, long adminId);
+        Task<bool> BanStudioAsync(long studioId, string reason, long adminId);
+        Task<bool> UnbanStudioAsync(long studioId, long adminId);
+        Task<List<AdminReviewDto>> GetReviewsAsync(string? search = null, bool? isHidden = null);
+        Task<bool> ToggleHideReviewAsync(long reviewId, bool isHidden, string? note, long adminId);
     }
 }

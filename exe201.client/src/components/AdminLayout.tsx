@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Bell, Camera, ChevronLeft, LifeBuoy, LogOut, Menu, ShieldCheck, Users, X } from 'lucide-react'
+import { ArrowLeft, Bell, ChevronLeft, LifeBuoy, LogOut, Menu, MessageSquare, ShieldCheck, Users, X } from 'lucide-react'
 import { useAppStore } from '../store/AppStore'
 
 export default function AdminLayout() {
@@ -26,6 +26,7 @@ export default function AdminLayout() {
       { to: '/admin/users', label: 'Người dùng', icon: Users, badge: pendingApprovalsCount || undefined },
       { to: '/admin/orders', label: 'Booking & thanh toán', icon: ShieldCheck, badge: openDisputesCount || undefined },
       { to: '/admin/support', label: 'Reports', icon: LifeBuoy },
+      { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
     ],
     [openDisputesCount, pendingApprovalsCount]
   )
@@ -33,6 +34,7 @@ export default function AdminLayout() {
   const pageTitle = useMemo(() => {
     if (location.pathname.includes('/admin/orders')) return 'Booking & thanh toán'
     if (location.pathname.includes('/admin/support')) return 'Reports'
+    if (location.pathname.includes('/admin/reviews')) return 'Quản lý Reviews'
     return 'Người dùng & studio'
   }, [location.pathname])
 
@@ -57,9 +59,11 @@ export default function AdminLayout() {
         className="fixed bottom-0 left-0 top-0 z-40 hidden flex-col border-r border-slate-200 bg-white/95 text-slate-700 shadow-[8px_0_32px_rgba(15,23,42,0.04)] backdrop-blur md:flex"
       >
         <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-900/10">
-            <Camera className="h-5 w-5" />
-          </div>
+          <img
+            src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+            alt="Logo"
+            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-lg shadow-slate-900/5"
+          />
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-slate-950">PhotoMarket</div>
@@ -111,9 +115,11 @@ export default function AdminLayout() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-slate-950/50 md:hidden" />
             <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="fixed bottom-0 left-0 top-0 z-50 w-72 border-r border-slate-200 bg-white p-4 text-slate-700 md:hidden">
               <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white">
-                  <Camera className="h-5 w-5" />
-                </div>
+                <img
+                  src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+                  alt="Logo"
+                  className="h-10 w-10 rounded-xl object-cover"
+                />
                 <div>
                   <div className="text-sm font-semibold text-slate-950">PhotoMarket</div>
                   <div className="text-xs text-slate-400">Admin Console</div>

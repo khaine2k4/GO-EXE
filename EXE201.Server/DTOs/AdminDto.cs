@@ -55,4 +55,27 @@ namespace EXE201.Server.DTOs
         public string Status { get; set; } = null!;
         public string? HandlerNote { get; set; }
     }
+
+    public class BanStudioRequestDto
+    {
+        public string BanReason { get; set; } = null!;
+    }
+
+    public class AdminReviewDto
+    {
+        public long Id { get; set; }
+        public string CustomerName { get; set; } = null!;
+        public string StudioName { get; set; } = null!;
+        public byte Rating { get; set; }
+        public string? Comment { get; set; }
+        public bool IsHidden { get; set; }
+        public string? HiddenNote { get; set; }
+        public string CreatedAt { get; set; } = null!;
+    }
+
+    public class HideReviewRequestDto
+    {
+        public bool IsHidden { get; set; }
+        public string? HiddenNote { get; set; }
+    }
 }

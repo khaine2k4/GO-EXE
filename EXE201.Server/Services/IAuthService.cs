@@ -5,6 +5,7 @@ namespace EXE201.Server.Services
     public interface IAuthService
     {
         Task<LoginResponseDto?> LoginAsync(LoginRequestDto request);
+        Task<LoginResponseDto?> GoogleLoginAsync(string credential);
         Task<UserDto?> GetMeAsync(long userId);
         Task<UserDto?> RegisterAsync(RegisterRequestDto request);
         Task<UserDto?> UpdateProfileAsync(long userId, UpdateProfileRequestDto request);

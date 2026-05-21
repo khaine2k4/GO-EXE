@@ -6,6 +6,11 @@ namespace EXE201.Server.DTOs
         public string Password { get; set; } = null!;
     }
 
+    public class GoogleLoginRequestDto
+    {
+        public string Credential { get; set; } = null!; // Google ID token (credential)
+    }
+
     public class LoginResponseDto
     {
         public string Token { get; set; } = null!;
@@ -33,6 +38,8 @@ namespace EXE201.Server.DTOs
         public string? District { get; set; }
         public string? AddressLine { get; set; }
         public string? CoverUrl { get; set; }
+        public string? StudioStatus { get; set; }
+        public string? BanReason { get; set; }
     }
 
     public class RegisterRequestDto

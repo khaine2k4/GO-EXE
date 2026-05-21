@@ -151,6 +151,13 @@ export default function ProfilePage() {
                 ...currentUser!,
                 name: updatedUser.name,
                 avatarUrl: updatedUser.avatarUrl,
+                status: updatedUser.status,
+                studioName: updatedUser.studioName,
+                logoUrl: updatedUser.logoUrl,
+                bio: updatedUser.bio,
+                city: updatedUser.city,
+                district: updatedUser.district,
+                coverUrl: updatedUser.coverUrl,
             })
 
             // Cập nhật lại localStorage

@@ -35,6 +35,24 @@ namespace EXE201.Server.Controllers
             return Ok(response);
         }
 
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Credential))
+            {
+                return BadRequest("Google credential không được để trống.");
+            }
+
+            var response = await _authService.GoogleLoginAsync(request.Credential);
+
+            if (response == null)
+            {
+                return Unauthorized("Google token không hợp lệ hoặc tài khoản bị khóa.");
+            }
+
+            return Ok(response);
+        }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
         {

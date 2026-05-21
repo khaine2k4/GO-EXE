@@ -40,6 +40,7 @@ export default function PhotographerDashboardPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null)
 
   const photographer = state.photographers.find((p) => p.id === state.currentUser?.id)
+  const banReason = state.currentUser?.banReason
   const myBookings = state.bookings.filter((b) => b.photographerId === state.currentUser?.id)
   const filtered = activeTab === 'ALL' ? myBookings : myBookings.filter((b) => b.status === activeTab)
 
@@ -54,6 +55,11 @@ export default function PhotographerDashboardPage() {
   const earnings = releasedTxs.reduce((s, tx) => s + tx.amount, 0)
 
   async function handleConfirmJob(bookingId: string) {
+    if (photographer?.status !== 'APPROVED') {
+      const isBanned = photographer?.status === 'BANNED'
+      toast.push({ type: 'error', title: isBanned ? 'Studio bị Ban 🔒' : 'Chức năng bị khóa 🔒', message: isBanned ? 'Studio của bạn đã bị ban. Vui lòng liên hệ Ban Quản trị để biết thêm thông tin.' : photographer?.status === 'REJECTED' ? 'Hồ sơ của bạn đã bị từ chối. Hãy cập nhật lại để gửi duyệt.' : 'Vui lòng chờ Admin duyệt hồ sơ để sử dụng chức năng này.' })
+      return
+    }
     setLoadingId(bookingId)
     await new Promise((r) => setTimeout(r, 600))
     actions.confirmJob(bookingId)
@@ -62,14 +68,17 @@ export default function PhotographerDashboardPage() {
   }
 
   async function handleDeliver(bookingId: string) {
+    if (photographer?.status !== 'APPROVED') {
+      const isBanned = photographer?.status === 'BANNED'
+      toast.push({ type: 'error', title: isBanned ? 'Studio bị Ban 🔒' : 'Chức năng bị khóa 🔒', message: isBanned ? 'Studio của bạn đã bị ban. Vui lòng liên hệ Ban Quản trị để biết thêm thông tin.' : photographer?.status === 'REJECTED' ? 'Hồ sơ của bạn đã bị từ chối. Hãy cập nhật lại để gửi duyệt.' : 'Vui lòng chờ Admin duyệt hồ sơ để sử dụng chức năng này.' })
+      return
+    }
     setLoadingId(bookingId)
     await new Promise((r) => setTimeout(r, 800))
     actions.deliverPhotos(bookingId, MOCK_DELIVERY_URLS)
     toast.push({ type: 'success', title: 'Giao ảnh thành công! ✨', message: 'Hồ sơ đã được gửi đến khách hàng.' })
     setLoadingId(null)
   }
-
-  const isPending = photographer?.status === 'PENDING'
 
   return (
     <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -83,13 +92,67 @@ export default function PhotographerDashboardPage() {
             </p>
           )}
         </div>
-
-        {isPending && (
-          <div className="inline-flex items-center gap-2.5 rounded-2xl bg-amber-50 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-amber-600 ring-1 ring-inset ring-amber-100 shadow-sm">
-            ⏳ Hồ sơ đang được xét duyệt
-          </div>
-        )}
       </div>
+
+      {/* Glassmorphic Notice Banner */}
+      {photographer && photographer.status !== 'APPROVED' && (
+        <div className={`mb-10 mx-2 overflow-hidden rounded-[32px] border p-6 md:p-8 backdrop-blur-xl transition-all shadow-lg animate-in fade-in duration-500 ${
+          photographer.status === 'BANNED'
+            ? 'border-red-600/30 bg-red-600/10 text-red-950 shadow-red-600/5'
+            : photographer.status === 'REJECTED' 
+            ? 'border-rose-500/20 bg-rose-500/10 text-rose-900 shadow-rose-500/5' 
+            : 'border-amber-500/20 bg-amber-500/10 text-amber-900 shadow-amber-500/5'
+        }`}>
+          <div className="flex flex-col md:flex-row gap-5 items-start md:items-center">
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+              photographer.status === 'BANNED' ? 'bg-red-600/20 text-red-700'
+              : photographer.status === 'REJECTED' ? 'bg-rose-500/20 text-rose-600' 
+              : 'bg-amber-500/20 text-amber-600'
+            }`}>
+              {photographer.status === 'BANNED' ? (
+                <svg className="h-6 w-6 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              ) : photographer.status === 'REJECTED' ? (
+                <svg className="h-6 w-6 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              ) : (
+                <svg className="h-6 w-6 stroke-[2.5] animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className={`text-[15px] font-black uppercase tracking-widest ${
+                photographer.status === 'BANNED' ? 'text-red-800'
+                : photographer.status === 'REJECTED' ? 'text-rose-800' 
+                : 'text-amber-800'
+              }`}>
+                {photographer.status === 'BANNED' ? '⛔ Studio Đã Bị Ban — Tạm Ngưng Hoạt Động'
+                 : photographer.status === 'REJECTED' ? 'Hồ sơ đã bị Từ Chối Phê Duyệt' 
+                 : 'Hồ sơ đang chờ Phê Duyệt từ Admin'}
+              </h3>
+              <p className="mt-2 text-sm font-medium leading-relaxed opacity-90">
+                {photographer.status === 'BANNED'
+                  ? <>
+                      Studio của bạn đã bị Ban bởi Ban Quản trị. Toàn bộ chức năng đặt lịch, nhận job và giao ảnh đã bị vô hiệu hóa.
+                      {banReason && (
+                        <span className="mt-2 block rounded-xl border border-red-400/30 bg-red-600/10 px-4 py-3 font-bold text-red-900">
+                          📋 Lý do: {banReason}
+                        </span>
+                      )}
+                      <span className="mt-2 block opacity-70">Vui lòng liên hệ Ban Quản trị để được hỗ trợ và khiếu nại.</span>
+                    </>
+                  : photographer.status === 'REJECTED'
+                  ? 'Hồ sơ Studio của bạn đã bị từ chối phê duyệt do chưa đạt yêu cầu. Vui lòng liên hệ với Ban Quản trị hoặc cập nhật thông tin chính xác, hình ảnh chất lượng cao để được xét duyệt lại.'
+                  : 'Hồ sơ Studio của bạn đang chờ Ban Quản trị phê duyệt. Trong thời gian này, bạn có thể hoàn thiện thông tin cá nhân nhưng chưa thể tạo gói dịch vụ, album ảnh hoặc đăng tải các tác phẩm mới. Chúng tôi sẽ thông báo ngay khi có kết quả.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Stats - Premium Cards */}
       <div className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4 px-2">
@@ -192,15 +255,33 @@ export default function PhotographerDashboardPage() {
 
                       <div className="mt-auto flex gap-3">
                         {booking.status === 'PENDING' && (
-                          <button onClick={() => handleConfirmJob(booking.id)} disabled={isLoading}
-                            className={`flex-1 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98] ${isLoading ? 'opacity-50' : 'hover:bg-indigo-700'}`}>
+                          <button 
+                            onClick={() => handleConfirmJob(booking.id)} 
+                            disabled={isLoading || photographer?.status !== 'APPROVED'}
+                            className={`flex-1 inline-flex h-12 items-center justify-center gap-2 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] ${
+                              photographer?.status !== 'APPROVED' 
+                                ? 'bg-slate-400 cursor-not-allowed shadow-none' 
+                                : isLoading 
+                                  ? 'bg-indigo-600 opacity-50' 
+                                  : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+                            }`}
+                          >
                             <CheckCircle className="h-4 w-4" />
                             {isLoading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN JOB'}
                           </button>
                         )}
                         {booking.status === 'CONFIRMED' && (
-                          <button onClick={() => handleDeliver(booking.id)} disabled={isLoading}
-                            className={`flex-1 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-600/20 transition-all active:scale-[0.98] ${isLoading ? 'opacity-50' : 'hover:bg-indigo-700'}`}>
+                          <button 
+                            onClick={() => handleDeliver(booking.id)} 
+                            disabled={isLoading || photographer?.status !== 'APPROVED'}
+                            className={`flex-1 inline-flex h-12 items-center justify-center gap-2 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] ${
+                              photographer?.status !== 'APPROVED' 
+                                ? 'bg-slate-400 cursor-not-allowed shadow-none' 
+                                : isLoading 
+                                  ? 'bg-indigo-600 opacity-50' 
+                                  : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+                            }`}
+                          >
                             <UploadCloud className="h-4 w-4" />
                             {isLoading ? 'ĐANG TẢI...' : 'GIAO ẢNH'}
                           </button>
