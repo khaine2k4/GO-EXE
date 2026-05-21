@@ -31,6 +31,19 @@ namespace EXE201.Server.Controllers
             return dashboard == null ? NotFound() : Ok(dashboard);
         }
 
+        [HttpGet("{studioId:long}/reviews")]
+        public async Task<IActionResult> GetReviews(long studioId)
+        {
+            return Ok(await _catalogService.GetStudioReviewsAsync(studioId));
+        }
+
+        [HttpGet("{studioId:long}/rating-summary")]
+        public async Task<IActionResult> GetRatingSummary(long studioId)
+        {
+            var summary = await _catalogService.GetStudioRatingSummaryAsync(studioId);
+            return summary == null ? NotFound() : Ok(summary);
+        }
+
         private long GetCurrentUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     }
 }

@@ -13,8 +13,11 @@ import PhotographerPortfolioPage from './pages/PhotographerPortfolioPage'
 import PhotographerDashboardPage from './pages/PhotographerDashboardPage'
 import PhotographerWalletPage from './pages/PhotographerWalletPage'
 import PhotographerBookingDetailPage from './pages/PhotographerBookingDetailPage'
+import PhotographerServicesPage from './pages/PhotographerServicesPage'
+import PhotographerPackagesPage from './pages/PhotographerPackagesPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminOrdersPage from './pages/AdminOrdersPage'
+import AdminCategoriesPage from './pages/AdminCategoriesPage'
 import NotFoundPage from './pages/NotFoundPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -50,6 +53,7 @@ export default function App() {
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
         <Route path="/admin/reviews" element={<AdminReviewsPage />} />
+        <Route path="/admin/categories" element={<AdminCategoriesPage />} />
       </Route>
 
       {/* Protected pages inside Layout */}
@@ -92,6 +96,12 @@ export default function App() {
         {/* Photographer */}
         <Route path="/photographer/portfolio" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerPortfolioPage /></RequireAuth>
+        } />
+        <Route path="/photographer/services" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerServicesPage /></RequireAuth>
+        } />
+        <Route path="/photographer/packages" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerPackagesPage /></RequireAuth>
         } />
         <Route path="/photographer/dashboard" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerDashboardPage /></RequireAuth>

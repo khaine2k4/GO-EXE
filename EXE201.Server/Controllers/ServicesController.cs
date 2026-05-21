@@ -19,6 +19,7 @@ namespace EXE201.Server.Controllers
 
         [HttpGet]
         public async Task<IActionResult> Search(
+            [FromQuery] string? keyword,
             [FromQuery] string? search,
             [FromQuery] long? categoryId,
             [FromQuery] string? city,
@@ -28,7 +29,7 @@ namespace EXE201.Server.Controllers
             [FromQuery] bool includeInactive = false)
         {
             var canSeeInactive = includeInactive && User.IsInRole("ADMIN");
-            var services = await _catalogService.SearchServicesAsync(search, categoryId, city, minPrice, maxPrice, studioId, canSeeInactive);
+            var services = await _catalogService.SearchServicesAsync(keyword ?? search, categoryId, city, minPrice, maxPrice, studioId, canSeeInactive);
             return Ok(services);
         }
 
@@ -51,7 +52,7 @@ namespace EXE201.Server.Controllers
         [Authorize(Roles = "STUDIO_OWNER")]
         public async Task<IActionResult> Create([FromBody] UpsertServiceRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("Service name is required.");
+            if (string.IsNullOrWhiteSpace(request.ServiceName ?? request.Name)) return BadRequest("Service name is required.");
             try
             {
                 var service = await _catalogService.CreateServiceAsync(GetCurrentUserId(), request);
@@ -67,9 +68,16 @@ namespace EXE201.Server.Controllers
         [Authorize(Roles = "STUDIO_OWNER")]
         public async Task<IActionResult> Update(long id, [FromBody] UpsertServiceRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("Service name is required.");
-            var service = await _catalogService.UpdateServiceAsync(GetCurrentUserId(), id, request);
-            return service == null ? NotFound() : Ok(service);
+            if (string.IsNullOrWhiteSpace(request.ServiceName ?? request.Name)) return BadRequest("Service name is required.");
+            try
+            {
+                var service = await _catalogService.UpdateServiceAsync(GetCurrentUserId(), id, request);
+                return service == null ? NotFound() : Ok(service);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPut("{id:long}/status")]

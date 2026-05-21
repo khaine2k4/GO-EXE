@@ -7,31 +7,21 @@ using Microsoft.AspNetCore.Mvc;
 namespace EXE201.Server.Controllers
 {
     [ApiController]
-    [Route("api/packages")]
-    public class PackagesController : ControllerBase
+    [Route("api/studio/packages")]
+    [Authorize(Roles = "STUDIO_OWNER")]
+    public class StudioPackagesController : ControllerBase
     {
         private readonly ICatalogService _catalogService;
 
-        public PackagesController(ICatalogService catalogService)
+        public StudioPackagesController(ICatalogService catalogService)
         {
             _catalogService = catalogService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get([FromQuery] long? serviceId, [FromQuery] long? studioId)
-        {
-            return Ok(await _catalogService.GetPackagesAsync(serviceId, studioId));
-        }
-
-        [HttpGet("{id:long}")]
-        public async Task<IActionResult> GetById(long id)
-        {
-            var package = await _catalogService.GetPackageAsync(id);
-            return package == null ? NotFound() : Ok(package);
-        }
+        public async Task<IActionResult> GetMine() => Ok(await _catalogService.GetOwnerPackagesAsync(GetCurrentUserId()));
 
         [HttpPost]
-        [Authorize(Roles = "STUDIO_OWNER")]
         public async Task<IActionResult> Create([FromBody] UpsertPackageRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.PackageName ?? request.Name) || request.Price <= 0) return BadRequest("Package name and price are required.");
@@ -40,7 +30,6 @@ namespace EXE201.Server.Controllers
         }
 
         [HttpPut("{id:long}")]
-        [Authorize(Roles = "STUDIO_OWNER")]
         public async Task<IActionResult> Update(long id, [FromBody] UpsertPackageRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.PackageName ?? request.Name) || request.Price <= 0) return BadRequest("Package name and price are required.");
@@ -49,7 +38,6 @@ namespace EXE201.Server.Controllers
         }
 
         [HttpDelete("{id:long}")]
-        [Authorize(Roles = "STUDIO_OWNER")]
         public async Task<IActionResult> Delete(long id)
         {
             var success = await _catalogService.DeletePackageAsync(GetCurrentUserId(), id);
@@ -57,7 +45,6 @@ namespace EXE201.Server.Controllers
         }
 
         [HttpPut("{id:long}/price")]
-        [Authorize(Roles = "STUDIO_OWNER")]
         public async Task<IActionResult> UpdatePrice(long id, [FromBody] UpdatePackagePriceRequest request)
         {
             if (request.Price <= 0) return BadRequest("Price must be greater than 0.");

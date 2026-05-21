@@ -7,34 +7,29 @@ using Microsoft.AspNetCore.Mvc;
 namespace EXE201.Server.Controllers
 {
     [ApiController]
-    [Route("api/categories")]
-    public class CategoriesController : ControllerBase
+    [Route("api/admin/categories")]
+    [Authorize(Roles = "ADMIN")]
+    public class AdminCategoriesController : ControllerBase
     {
         private readonly ICatalogService _catalogService;
 
-        public CategoriesController(ICatalogService catalogService)
+        public AdminCategoriesController(ICatalogService catalogService)
         {
             _catalogService = catalogService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetCategories([FromQuery] bool includeInactive = false)
-        {
-            return Ok(await _catalogService.GetCategoriesAsync(includeInactive && User.IsInRole("ADMIN")));
-        }
+        public async Task<IActionResult> Get() => Ok(await _catalogService.GetCategoriesAsync(true));
 
         [HttpPost]
-        [Authorize(Roles = "ADMIN")]
-        public async Task<IActionResult> CreateCategory([FromBody] UpsertCategoryRequest request)
+        public async Task<IActionResult> Create([FromBody] UpsertCategoryRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.CategoryName ?? request.Name)) return BadRequest("Category name is required.");
-            var category = await _catalogService.CreateCategoryAsync(request, GetCurrentUserId());
-            return Ok(category);
+            return Ok(await _catalogService.CreateCategoryAsync(request, GetCurrentUserId()));
         }
 
         [HttpPut("{id:long}")]
-        [Authorize(Roles = "ADMIN")]
-        public async Task<IActionResult> UpdateCategory(long id, [FromBody] UpsertCategoryRequest request)
+        public async Task<IActionResult> Update(long id, [FromBody] UpsertCategoryRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.CategoryName ?? request.Name)) return BadRequest("Category name is required.");
             var category = await _catalogService.UpdateCategoryAsync(id, request, GetCurrentUserId());
@@ -42,8 +37,7 @@ namespace EXE201.Server.Controllers
         }
 
         [HttpDelete("{id:long}")]
-        [Authorize(Roles = "ADMIN")]
-        public async Task<IActionResult> DeleteCategory(long id)
+        public async Task<IActionResult> Delete(long id)
         {
             var success = await _catalogService.DeleteCategoryAsync(id, GetCurrentUserId());
             return success ? Ok(new { message = "Category disabled." }) : NotFound();

@@ -24,10 +24,11 @@ namespace EXE201.Server.Services
 
         public async Task<CategoryResponse> CreateCategoryAsync(UpsertCategoryRequest request, long adminId)
         {
+            var name = GetCategoryName(request);
             var now = DateTime.UtcNow;
             var category = new Category
             {
-                CategoryName = request.Name,
+                CategoryName = name,
                 Description = request.Description,
                 IconUrl = request.IconUrl,
                 IsActive = request.IsActive,
@@ -47,7 +48,7 @@ namespace EXE201.Server.Services
             var category = await _context.Categories.FirstOrDefaultAsync(c => c.CategoryId == id);
             if (category == null) return null;
 
-            category.CategoryName = request.Name;
+            category.CategoryName = GetCategoryName(request);
             category.Description = request.Description;
             category.IconUrl = request.IconUrl;
             category.IsActive = request.IsActive;
@@ -119,13 +120,15 @@ namespace EXE201.Server.Services
         {
             var studio = await GetOwnedStudioAsync(ownerId);
             if (studio == null) throw new InvalidOperationException("Studio not found.");
+            var categoryExists = await _context.Categories.AnyAsync(c => c.CategoryId == request.CategoryId && c.IsActive);
+            if (!categoryExists) throw new InvalidOperationException("Category not found or inactive.");
 
             var now = DateTime.UtcNow;
             var service = new Service
             {
                 StudioId = studio.StudioId,
                 CategoryId = request.CategoryId,
-                ServiceName = request.Name,
+                ServiceName = GetServiceName(request),
                 Description = request.Description,
                 ThumbnailUrl = request.ThumbnailUrl,
                 City = request.City ?? studio.City,
@@ -147,9 +150,11 @@ namespace EXE201.Server.Services
         {
             var service = await GetOwnedServiceAsync(ownerId, id);
             if (service == null) return null;
+            var categoryExists = await _context.Categories.AnyAsync(c => c.CategoryId == request.CategoryId && c.IsActive);
+            if (!categoryExists) throw new InvalidOperationException("Category not found or inactive.");
 
             service.CategoryId = request.CategoryId;
-            service.ServiceName = request.Name;
+            service.ServiceName = GetServiceName(request);
             service.Description = request.Description;
             service.ThumbnailUrl = request.ThumbnailUrl;
             service.City = request.City;
@@ -209,11 +214,30 @@ namespace EXE201.Server.Services
             return true;
         }
 
-        public async Task<List<PackageResponse>> GetPackagesAsync(long? serviceId)
+        public async Task<List<PackageResponse>> GetPackagesAsync(long? serviceId, long? studioId = null, bool includeInactive = false)
         {
-            var query = _context.Packages.Where(p => p.DeletedAt == null).AsQueryable();
+            var query = _context.Packages
+                .Include(p => p.Service)
+                .Where(p => p.DeletedAt == null && (includeInactive || p.IsActive))
+                .AsQueryable();
             if (serviceId.HasValue) query = query.Where(p => p.ServiceId == serviceId);
+            if (studioId.HasValue) query = query.Where(p => p.Service.StudioId == studioId);
             return await query.OrderBy(p => p.SortOrder).ThenBy(p => p.Price).Select(p => MapPackage(p)).ToListAsync();
+        }
+
+        public async Task<List<PackageResponse>> GetOwnerPackagesAsync(long ownerId)
+        {
+            var studio = await GetOwnedStudioAsync(ownerId);
+            if (studio == null) return new List<PackageResponse>();
+            return await GetPackagesAsync(null, studio.StudioId, true);
+        }
+
+        public async Task<PackageResponse?> GetPackageAsync(long id)
+        {
+            return await _context.Packages
+                .Where(p => p.PackageId == id && p.DeletedAt == null && p.IsActive)
+                .Select(p => MapPackage(p))
+                .FirstOrDefaultAsync();
         }
 
         public async Task<PackageResponse?> CreatePackageAsync(long ownerId, UpsertPackageRequest request)
@@ -225,7 +249,7 @@ namespace EXE201.Server.Services
             var package = new Package
             {
                 ServiceId = request.ServiceId,
-                PackageName = request.Name,
+                PackageName = GetPackageName(request),
                 Description = request.Description,
                 Price = request.Price,
                 DurationHours = request.DurationHours,
@@ -256,7 +280,7 @@ namespace EXE201.Server.Services
             }
 
             package.ServiceId = request.ServiceId;
-            package.PackageName = request.Name;
+            package.PackageName = GetPackageName(request);
             package.Description = request.Description;
             package.Price = request.Price;
             package.DurationHours = request.DurationHours;
@@ -264,6 +288,19 @@ namespace EXE201.Server.Services
             package.Inclusions = request.Inclusions;
             package.IsActive = request.IsActive;
             package.SortOrder = request.SortOrder;
+            package.UpdatedAt = DateTime.UtcNow;
+            package.UpdatedBy = ownerId;
+            await _context.SaveChangesAsync();
+            return MapPackage(package);
+        }
+
+        public async Task<PackageResponse?> UpdatePackagePriceAsync(long ownerId, long id, decimal price)
+        {
+            var package = await _context.Packages.Include(p => p.Service).FirstOrDefaultAsync(p => p.PackageId == id && p.DeletedAt == null);
+            var studio = await GetOwnedStudioAsync(ownerId);
+            if (package == null || studio == null || package.Service.StudioId != studio.StudioId) return null;
+
+            package.Price = price;
             package.UpdatedAt = DateTime.UtcNow;
             package.UpdatedBy = ownerId;
             await _context.SaveChangesAsync();
@@ -292,6 +329,13 @@ namespace EXE201.Server.Services
             if (serviceId.HasValue) query = query.Where(p => p.ServiceId == serviceId);
 
             return await query.OrderBy(p => p.SortOrder).ThenByDescending(p => p.UploadedAt).Select(p => MapPortfolio(p)).ToListAsync();
+        }
+
+        public async Task<List<PortfolioResponse>> GetOwnerPortfolioAsync(long ownerId)
+        {
+            var studio = await GetOwnedStudioAsync(ownerId);
+            if (studio == null) return new List<PortfolioResponse>();
+            return await GetPortfolioAsync(studio.StudioId, null);
         }
 
         public async Task<PortfolioResponse?> AddPortfolioAsync(long ownerId, AddPortfolioRequest request)
@@ -370,6 +414,7 @@ namespace EXE201.Server.Services
         public async Task<StudioDashboardResponse?> GetStudioDashboardAsync(long ownerId)
         {
             var studio = await _context.Studios
+                .Include(s => s.Services).ThenInclude(s => s.Category)
                 .Include(s => s.Services).ThenInclude(s => s.Packages)
                 .Include(s => s.StudioPortfolios)
                 .Include(s => s.Bookings).ThenInclude(b => b.Status)
@@ -385,16 +430,48 @@ namespace EXE201.Server.Services
                 Status = studio.Status,
                 TotalServices = studio.Services.Count(s => !s.IsHidden),
                 ActiveServices = studio.Services.Count(s => !s.IsHidden && s.IsActive),
+                HiddenServices = studio.Services.Count(s => s.IsHidden || !s.IsActive),
                 TotalPackages = studio.Services.SelectMany(s => s.Packages).Count(p => p.DeletedAt == null),
                 PortfolioImages = studio.StudioPortfolios.Count,
+                TotalPortfolios = studio.StudioPortfolios.Count,
+                TotalBookings = studio.Bookings.Count,
                 PendingBookings = studio.Bookings.Count(b => b.Status.StatusName == "PENDING"),
                 ConfirmedBookings = studio.Bookings.Count(b => b.Status.StatusName == "CONFIRMED"),
                 CompletedBookings = completed.Count,
                 GrossRevenue = completed.Sum(b => b.TotalPrice),
                 StudioRevenue = completed.Sum(b => b.StudioRevenue),
+                TotalRevenue = completed.Sum(b => b.TotalPrice),
                 Rating = studio.AvgRating,
-                ReviewCount = studio.TotalReviews
+                AvgRating = studio.AvgRating,
+                ReviewCount = studio.TotalReviews,
+                TotalReviews = studio.TotalReviews,
+                RecentServices = studio.Services.Where(s => !s.IsHidden).OrderByDescending(s => s.CreatedAt).Take(5).Select(MapServiceSummary).ToList(),
+                RecentPackages = studio.Services.SelectMany(s => s.Packages).Where(p => p.DeletedAt == null).OrderByDescending(p => p.CreatedAt).Take(5).Select(MapPackage).ToList()
             };
+        }
+
+        public async Task<List<ReviewResponse>> GetStudioReviewsAsync(long studioId)
+        {
+            return await _context.Reviews
+                .Include(r => r.Customer)
+                .Where(r => r.StudioId == studioId && !r.IsHidden)
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new ReviewResponse
+                {
+                    Id = r.ReviewId,
+                    CustomerName = r.Customer.FullName,
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt.ToString("O")
+                })
+                .ToListAsync();
+        }
+
+        public async Task<RatingSummaryResponse?> GetStudioRatingSummaryAsync(long studioId)
+        {
+            var studio = await _context.Studios.FirstOrDefaultAsync(s => s.StudioId == studioId && s.DeletedAt == null);
+            if (studio == null) return null;
+            return new RatingSummaryResponse { AvgRating = studio.AvgRating, TotalReviews = studio.TotalReviews };
         }
 
         private IQueryable<Service> BaseServicesQuery(bool includeInactive)
@@ -417,6 +494,15 @@ namespace EXE201.Server.Services
             if (studio == null) return null;
             return await _context.Services.FirstOrDefaultAsync(s => s.ServiceId == serviceId && s.StudioId == studio.StudioId && !s.IsHidden);
         }
+
+        private static string GetCategoryName(UpsertCategoryRequest request) =>
+            (request.CategoryName ?? request.Name ?? string.Empty).Trim();
+
+        private static string GetServiceName(UpsertServiceRequest request) =>
+            (request.ServiceName ?? request.Name ?? string.Empty).Trim();
+
+        private static string GetPackageName(UpsertPackageRequest request) =>
+            (request.PackageName ?? request.Name ?? string.Empty).Trim();
 
         private static CategoryResponse MapCategory(Category c) => new()
         {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Bell, ChevronLeft, LifeBuoy, LogOut, Menu, MessageSquare, ShieldCheck, Users, X } from 'lucide-react'
+import { ArrowLeft, Bell, ChevronLeft, FolderTree, LifeBuoy, LogOut, Menu, MessageSquare, ShieldCheck, Users, X } from 'lucide-react'
 import { useAppStore } from '../store/AppStore'
 
 export default function AdminLayout() {
@@ -27,6 +27,7 @@ export default function AdminLayout() {
       { to: '/admin/orders', label: 'Booking & thanh toán', icon: ShieldCheck, badge: openDisputesCount || undefined },
       { to: '/admin/support', label: 'Reports', icon: LifeBuoy },
       { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
+      { to: '/admin/categories', label: 'Categories', icon: FolderTree },
     ],
     [openDisputesCount, pendingApprovalsCount]
   )
@@ -35,6 +36,7 @@ export default function AdminLayout() {
     if (location.pathname.includes('/admin/orders')) return 'Booking & thanh toán'
     if (location.pathname.includes('/admin/support')) return 'Reports'
     if (location.pathname.includes('/admin/reviews')) return 'Quản lý Reviews'
+    if (location.pathname.includes('/admin/categories')) return 'Categories'
     return 'Người dùng & studio'
   }, [location.pathname])
 

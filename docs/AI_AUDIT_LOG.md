@@ -9,3 +9,15 @@
 - Verification:
   - `dotnet build EXE201.Server\exe201.Server.csproj --no-restore -p:UseAppHost=false -o C:\tmp\exe201-build-check` succeeded.
   - Full solution build was blocked because an existing `EXE201.Server` process locked the normal debug output files.
+
+## 2026-05-22 - Hoang UC API/FE Integration
+
+- Added route-compatible studio owner APIs under `/api/studio/*` for dashboard, services, portfolios, and packages.
+- Added admin category management route under `/api/admin/categories`.
+- Extended public catalog APIs for service keyword search, package lookup, studio reviews, and rating summary.
+- Updated frontend customer listing/detail/studio detail pages to load services, categories, packages, portfolios, and reviews from APIs instead of mock store state.
+- Added studio service CRUD, portfolio management, package management, and admin category management pages.
+- Verification:
+  - `dotnet build EXE201.Server\EXE201.Server.csproj -o D:\CODE\EXE\.buildcheck` succeeded.
+  - `dotnet build EXE201.sln` was blocked by running process `exe201.Server (18892)` locking normal debug output files.
+  - `npm run build` inside `exe201.client` succeeded.

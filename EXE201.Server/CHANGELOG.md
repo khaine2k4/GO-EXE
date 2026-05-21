@@ -15,3 +15,11 @@ The following steps were used to generate this project:
 - Kept existing Auth/Admin/Public controllers unchanged.
 - Added public studio detail and studio-owner dashboard endpoints for Service/Package/Portfolio MVP coverage.
 - Added owner-scoped service listing at `GET /api/services/mine` and restricted inactive service visibility to admins on public search.
+
+## 2026-05-22 - Hoang Core MVP API routes
+
+- Added `/api/studio/dashboard`, `/api/studio/services`, `/api/studio/portfolios`, and `/api/studio/packages` routes for studio-owner dashboard and management flows.
+- Added `/api/admin/categories` for admin category CRUD with soft deactivate behavior.
+- Added `GET /api/packages/{id}`, `PUT /api/packages/{id}/price`, `GET /api/studios/{studioId}/reviews`, and `GET /api/studios/{studioId}/rating-summary`.
+- Updated service search to accept `keyword` and package search to accept `studioId`.
+- Updated service/category/package request DTOs to accept both existing `name` and prompt-aligned `serviceName`, `categoryName`, and `packageName` payloads.

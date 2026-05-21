@@ -19,15 +19,21 @@ namespace EXE201.Server.Services
         Task<ServiceImageResponse?> AddServiceImageAsync(long ownerId, long serviceId, AddServiceImageRequest request);
         Task<bool> DeleteServiceImageAsync(long ownerId, long imageId);
 
-        Task<List<PackageResponse>> GetPackagesAsync(long? serviceId);
+        Task<List<PackageResponse>> GetPackagesAsync(long? serviceId, long? studioId = null, bool includeInactive = false);
+        Task<List<PackageResponse>> GetOwnerPackagesAsync(long ownerId);
+        Task<PackageResponse?> GetPackageAsync(long id);
         Task<PackageResponse?> CreatePackageAsync(long ownerId, UpsertPackageRequest request);
         Task<PackageResponse?> UpdatePackageAsync(long ownerId, long id, UpsertPackageRequest request);
+        Task<PackageResponse?> UpdatePackagePriceAsync(long ownerId, long id, decimal price);
         Task<bool> DeletePackageAsync(long ownerId, long id);
 
         Task<List<PortfolioResponse>> GetPortfolioAsync(long? studioId, long? serviceId);
+        Task<List<PortfolioResponse>> GetOwnerPortfolioAsync(long ownerId);
         Task<PortfolioResponse?> AddPortfolioAsync(long ownerId, AddPortfolioRequest request);
         Task<bool> DeletePortfolioAsync(long ownerId, long id);
         Task<StudioPublicResponse?> GetStudioAsync(long id);
         Task<StudioDashboardResponse?> GetStudioDashboardAsync(long ownerId);
+        Task<List<ReviewResponse>> GetStudioReviewsAsync(long studioId);
+        Task<RatingSummaryResponse?> GetStudioRatingSummaryAsync(long studioId);
     }
 }
