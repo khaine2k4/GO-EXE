@@ -54,7 +54,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
+    <div className="min-h-screen bg-[var(--color-fog)] text-[var(--color-ink)]">
       <button
         type="button"
         onClick={() => setMobileOpen((value) => !value)}
@@ -66,18 +66,18 @@ export default function AdminLayout() {
       <motion.aside
         animate={{ width: collapsed ? 88 : 264 }}
         transition={{ duration: 0.25 }}
-        className="fixed bottom-0 left-0 top-0 z-40 hidden flex-col border-r border-slate-200 bg-white/95 text-slate-700 shadow-[8px_0_32px_rgba(15,23,42,0.04)] backdrop-blur md:flex"
+        className="fixed bottom-0 left-0 top-0 z-40 hidden flex-col border-r border-[var(--color-border)] bg-white text-slate-700 md:flex"
       >
-        <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5">
+        <div className="flex h-16 items-center gap-3 border-b border-[var(--color-border)] px-5">
           <img
             src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
             alt="Logo"
-            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-lg shadow-slate-900/5"
+            className="h-10 w-10 shrink-0 rounded-full object-cover shadow-sm"
           />
           {!collapsed && (
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-slate-950">PhotoMarket</div>
-              <div className="text-xs text-slate-400">Admin Console</div>
+              <div className="truncate text-sm font-semibold text-[var(--color-ink)]">PhotoMarket</div>
+              <div className="text-xs text-[var(--color-graphite)]">Admin Console</div>
             </div>
           )}
           <button type="button" onClick={() => setCollapsed((value) => !value)} className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
@@ -91,8 +91,8 @@ export default function AdminLayout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `group relative flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition ${
-                  isActive ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/10' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'
+                `group relative flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition ${
+                  isActive ? 'bg-[var(--color-fog)] text-[var(--color-ink)]' : 'text-slate-500 hover:bg-[var(--color-fog)] hover:text-[var(--color-ink)]'
                 }`
               }
             >
@@ -107,8 +107,8 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        <div className="border-t border-slate-100 p-3">
-          <Link to="/" className="mb-2 flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950">
+        <div className="border-t border-[var(--color-border)] p-3">
+          <Link to="/" className="mb-2 flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-500 hover:bg-[var(--color-fog)] hover:text-[var(--color-ink)]">
             <ArrowLeft className="h-5 w-5" />
             {!collapsed && <span>Về trang chính</span>}
           </Link>
@@ -141,7 +141,7 @@ export default function AdminLayout() {
                     key={item.to}
                     to={item.to}
                     onClick={() => setMobileOpen(false)}
-                    className={({ isActive }) => `flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium ${isActive ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950'}`}
+                    className={({ isActive }) => `flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium ${isActive ? 'bg-[var(--color-fog)] text-[var(--color-ink)]' : 'text-slate-500 hover:bg-[var(--color-fog)] hover:text-[var(--color-ink)]'}`}
                   >
                     <item.icon className="h-5 w-5" />
                     <span>{item.label}</span>
@@ -155,10 +155,10 @@ export default function AdminLayout() {
       </AnimatePresence>
 
       <motion.div animate={{ marginLeft: collapsed ? 88 : 264 }} transition={{ duration: 0.25 }} className="min-h-screen md:block" style={{ marginLeft: typeof window !== 'undefined' && window.innerWidth < 768 ? 0 : undefined }}>
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/80 px-5 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[var(--color-border)] bg-white/86 px-5 backdrop-blur-xl">
           <div className="min-w-0">
-            <div className="text-xs font-medium text-slate-400">Admin / {pageTitle}</div>
-            <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight text-slate-950">{pageTitle}</h1>
+            <div className="text-xs font-medium text-[var(--color-graphite)]">Admin / {pageTitle}</div>
+            <h1 className="mt-0.5 truncate text-xl font-semibold text-[var(--color-ink)]">{pageTitle}</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -176,7 +176,9 @@ export default function AdminLayout() {
         <main className="p-4 sm:p-6">
           <AnimatePresence mode="wait">
             <motion.div key={location.pathname} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-              <Outlet />
+              <div className="dashboard-shell">
+                <Outlet />
+              </div>
             </motion.div>
           </AnimatePresence>
         </main>

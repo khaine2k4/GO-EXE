@@ -1,5 +1,22 @@
 # AI Audit Log
 
+## 2026-05-23 - Premium Frontend UI Refactor
+
+- Applied the `docs/DESIGN.md` visual direction to the frontend:
+  - Added light theme tokens, Apple-like system typography, fog canvas, neutral borders, Azure CTA color, 24px-28px cards, and pill CTAs in global CSS.
+  - Refactored the shared customer layout navigation/footer and admin shell/sidebar/topbar styling without changing route guards or auth logic.
+  - Refactored `HomePage`, `PhotosetsPage`, `PhotosetDetailPage`, `PhotographerProfilePage`, and `PhotoCard` for image-first customer browsing, clearer search/filter controls, visible price/rating, portfolio galleries, and a sticky service-detail booking panel.
+  - Revised homepage after UI review: replaced the tech-style hero with a photography collage, hid zero-value stats behind benefit cards, switched featured content to real service cards from `/services`, added city/category/price search params, and aligned primary navbar labels to English marketplace terms.
+  - Added `GET /api/studios` for approved public studio search and refactored `GalleryPage` to load database studios instead of AppStore/mock photographers.
+- Preserved existing API calls and endpoint contracts for home data, services, categories, service detail, studio detail, and reviews; added only the public studio list route.
+- Did not introduce mock data replacements, new infrastructure, payment gateway logic, or backend endpoint changes.
+- Verification:
+  - `npm run build` inside `exe201.client` succeeded.
+  - `dotnet build EXE201.Server\exe201.Server.csproj --no-restore -p:UseAppHost=false -o C:\tmp\exe201-studios-build-check` succeeded; temporary output was removed after verification.
+  - Restarted backend on `http://localhost:5289`; `GET /api/studios` returned `200 OK` with database studio data.
+  - `dotnet build EXE201.sln` was blocked by running process `exe201.Server (32012)` locking `EXE201.Server\bin\Debug\net8.0\exe201.Server.exe`.
+  - `dotnet build EXE201.Server\exe201.Server.csproj --no-restore -p:UseAppHost=false -o C:\tmp\exe201-ui-build-check` succeeded; temporary output was removed after verification.
+
 ## 2026-05-22
 
 - Added security fixes from the QA audit:

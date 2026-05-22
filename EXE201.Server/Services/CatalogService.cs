@@ -84,6 +84,9 @@ namespace EXE201.Server.Services
         public Task<bool> DeletePortfolioAsync(long ownerId, long id)
             => _catalogRepository.DeletePortfolioAsync(ownerId, id);
 
+        public Task<List<StudioSummaryResponse>> SearchStudiosAsync(string? search, string? city, long? categoryId)
+            => _catalogRepository.SearchStudiosAsync(search, city, categoryId);
+
         public Task<StudioPublicResponse?> GetStudioAsync(long id)
             => _catalogRepository.GetStudioAsync(id);
 
