@@ -12,12 +12,20 @@ import CustomerBookingDetailPage from './pages/CustomerBookingDetailPage'
 import PhotographerPortfolioPage from './pages/PhotographerPortfolioPage'
 import PhotographerDashboardPage from './pages/PhotographerDashboardPage'
 import PhotographerWalletPage from './pages/PhotographerWalletPage'
+import PhotographerRevenuePage from './pages/PhotographerRevenuePage'
+import PhotographerCommissionsPage from './pages/PhotographerCommissionsPage'
+import PhotographerBookingStatsPage from './pages/PhotographerBookingStatsPage'
+import PhotographerCommissionSettingPage from './pages/PhotographerCommissionSettingPage'
 import PhotographerBookingDetailPage from './pages/PhotographerBookingDetailPage'
 import PhotographerServicesPage from './pages/PhotographerServicesPage'
 import PhotographerPackagesPage from './pages/PhotographerPackagesPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminOrdersPage from './pages/AdminOrdersPage'
 import AdminCategoriesPage from './pages/AdminCategoriesPage'
+import AdminServicesPage from './pages/AdminServicesPage'
+import AdminPaymentsPage from './pages/AdminPaymentsPage'
+import AdminRevenuePage from './pages/AdminRevenuePage'
+import AdminCommissionsPage from './pages/AdminCommissionsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -32,8 +40,17 @@ import { useAppStore } from './store/AppStore'
 function RequireAuth({ children, role }: { children: React.ReactNode; role?: string }) {
   const { state } = useAppStore()
   if (!state.currentUser) return <Navigate to="/login" replace />
-  if (role && state.currentUser.role !== role) return <Navigate to="/" replace />
+  if (role && !roleMatches(state.currentUser.role, role)) return <Navigate to="/" replace />
   return <>{children}</>
+}
+
+function roleMatches(actual: string, expected: string) {
+  if (actual === expected) return true
+  if (expected === 'CUSTOMER') return actual === 'USER'
+  if (expected === 'STUDIO_OWNER') return actual === 'PHOTOGRAPHER'
+  if (expected === 'USER') return actual === 'CUSTOMER'
+  if (expected === 'PHOTOGRAPHER') return actual === 'STUDIO_OWNER'
+  return false
 }
 
 export default function App() {
@@ -51,6 +68,10 @@ export default function App() {
       <Route element={<RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>}>
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
+        <Route path="/admin/services" element={<AdminServicesPage />} />
+        <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+        <Route path="/admin/revenue" element={<AdminRevenuePage />} />
+        <Route path="/admin/commissions" element={<AdminCommissionsPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
         <Route path="/admin/reviews" element={<AdminReviewsPage />} />
         <Route path="/admin/categories" element={<AdminCategoriesPage />} />
@@ -78,10 +99,10 @@ export default function App() {
           <RequireAuth><PhotographerProfilePage /></RequireAuth>
         } />
         <Route path="/customer/bookings" element={
-          <RequireAuth role="USER"><CustomerBookingsPage /></RequireAuth>
+          <RequireAuth role="CUSTOMER"><CustomerBookingsPage /></RequireAuth>
         } />
         <Route path="/customer/bookings/:id" element={
-          <RequireAuth role="USER"><CustomerBookingDetailPage /></RequireAuth>
+          <RequireAuth role="CUSTOMER"><CustomerBookingDetailPage /></RequireAuth>
         } />
         <Route path="/premier" element={
           <RequireAuth><PremierPage /></RequireAuth>
@@ -105,6 +126,18 @@ export default function App() {
         } />
         <Route path="/photographer/dashboard" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerDashboardPage /></RequireAuth>
+        } />
+        <Route path="/photographer/revenue" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerRevenuePage /></RequireAuth>
+        } />
+        <Route path="/photographer/commissions" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerCommissionsPage /></RequireAuth>
+        } />
+        <Route path="/photographer/booking-stats" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingStatsPage /></RequireAuth>
+        } />
+        <Route path="/photographer/commission-setting" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerCommissionSettingPage /></RequireAuth>
         } />
         <Route path="/photographer/bookings/:id" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingDetailPage /></RequireAuth>

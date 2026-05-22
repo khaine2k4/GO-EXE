@@ -120,6 +120,7 @@ namespace EXE201.Server.Repositories
         {
             var studio = await GetOwnedStudioAsync(ownerId);
             if (studio == null) throw new InvalidOperationException("Studio not found.");
+            if (studio.Status != "APPROVED") throw new InvalidOperationException("Studio must be approved before creating services.");
             var categoryExists = await _context.Categories.AnyAsync(c => c.CategoryId == request.CategoryId && c.IsActive);
             if (!categoryExists) throw new InvalidOperationException("Category not found or inactive.");
 

@@ -2,6 +2,18 @@
 
 ## 2026-05-22
 
+- Added security fixes from the QA audit:
+  - Blocked unapproved studios from creating services.
+  - Added per-request active-user enforcement for authenticated JWT requests.
+  - Preserved `UserDto.Status` as account status and mapped studio approval state to `UserDto.StudioStatus`.
+  - Fixed garbled admin service moderation response messages.
+  - Removed AppStore mock credential login and mock initial state seeding.
+  - Updated customer route guards to accept backend `CUSTOMER` role while retaining frontend role normalization compatibility.
+- Verification:
+  - `dotnet build EXE201.Server\exe201.Server.csproj -o D:\CODE\EXE\tmp-verify-build` succeeded; temporary output was removed after verification.
+  - `dotnet build EXE201.sln` was blocked by running process `exe201.Server (32012)` locking normal debug output files.
+  - `npm run build` inside `exe201.client` succeeded.
+
 - Added backend DTOs, services, and controllers for real Core MVP catalog, portfolio, schedule, booking, and payment APIs.
 - Used the existing database-first EF Core model and did not add duplicate tables.
 - Added Hoang UC support endpoints for public studio detail, studio dashboard, and owner-scoped service listing.

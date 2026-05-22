@@ -78,4 +78,113 @@ namespace EXE201.Server.DTOs
         public bool IsHidden { get; set; }
         public string? HiddenNote { get; set; }
     }
+
+    public class AdminServiceDto
+    {
+        public long ServiceId { get; set; }
+        public string ServiceName { get; set; } = null!;
+        public long StudioId { get; set; }
+        public string StudioName { get; set; } = null!;
+        public long CategoryId { get; set; }
+        public string CategoryName { get; set; } = null!;
+        public string? City { get; set; }
+        public decimal? MinPrice { get; set; }
+        public decimal? MaxPrice { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsHidden { get; set; }
+        public long? HiddenBy { get; set; }
+        public string? HiddenByName { get; set; }
+        public string? HiddenAt { get; set; }
+        public string CreatedAt { get; set; } = null!;
+        public string UpdatedAt { get; set; } = null!;
+        public int PackageCount { get; set; }
+    }
+
+    public class AdminServiceModerationRequestDto
+    {
+        public string? Reason { get; set; }
+    }
+
+    public class AdminPaymentDto
+    {
+        public long PaymentId { get; set; }
+        public string PaymentCode { get; set; } = null!;
+        public long BookingId { get; set; }
+        public string BookingCode { get; set; } = null!;
+        public long CustomerId { get; set; }
+        public string CustomerName { get; set; } = null!;
+        public string CustomerEmail { get; set; } = null!;
+        public long StudioId { get; set; }
+        public string StudioName { get; set; } = null!;
+        public decimal Amount { get; set; }
+        public string CurrencyCode { get; set; } = null!;
+        public string PaymentMethod { get; set; } = null!;
+        public string PaymentStatus { get; set; } = null!;
+        public string? TransactionCode { get; set; }
+        public string? ProviderRef { get; set; }
+        public string? FailureReason { get; set; }
+        public string? PaidAt { get; set; }
+        public string? RefundedAt { get; set; }
+        public string CreatedAt { get; set; } = null!;
+        public string UpdatedAt { get; set; } = null!;
+    }
+
+    public class AdminPaymentDetailDto : AdminPaymentDto
+    {
+        public string BookingStatus { get; set; } = null!;
+        public string? ShootingDate { get; set; }
+        public string? ShootingLocation { get; set; }
+        public string PackageName { get; set; } = null!;
+        public decimal GrossAmount { get; set; }
+        public decimal CommissionPercent { get; set; }
+        public decimal CommissionAmount { get; set; }
+        public decimal StudioRevenue { get; set; }
+        public string? RefundReason { get; set; }
+    }
+
+    public class UpdateAdminPaymentStatusRequestDto
+    {
+        public string Status { get; set; } = null!;
+        public string? Reason { get; set; }
+        public string? TransactionCode { get; set; }
+    }
+
+    public class AdminRevenueSummaryDto
+    {
+        public decimal GrossRevenue { get; set; }
+        public decimal PlatformCommission { get; set; }
+        public decimal StudioPayout { get; set; }
+        public int CompletedBookings { get; set; }
+        public int PaidPayments { get; set; }
+        public decimal RefundedAmount { get; set; }
+        public decimal AverageCommissionRate { get; set; }
+    }
+
+    public class AdminMonthlyRevenueDto
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public decimal GrossRevenue { get; set; }
+        public decimal PlatformCommission { get; set; }
+        public decimal StudioPayout { get; set; }
+        public int CompletedBookings { get; set; }
+    }
+
+    public class AdminCommissionDto
+    {
+        public long BookingId { get; set; }
+        public string BookingCode { get; set; } = null!;
+        public long StudioId { get; set; }
+        public string StudioName { get; set; } = null!;
+        public string CustomerName { get; set; } = null!;
+        public string ServiceName { get; set; } = null!;
+        public decimal GrossAmount { get; set; }
+        public decimal CommissionPercent { get; set; }
+        public decimal CommissionAmount { get; set; }
+        public decimal StudioRevenue { get; set; }
+        public string PaymentStatus { get; set; } = null!;
+        public string BookingStatus { get; set; } = null!;
+        public string? CompletedAt { get; set; }
+        public string? PaidAt { get; set; }
+    }
 }
