@@ -78,13 +78,13 @@ GO
 -- ────────────────────────────────────────────────────────────────────────
 SET IDENTITY_INSERT [booking_statuses] ON;
 INSERT INTO [booking_statuses] ([status_id], [status_name]) VALUES
-(1, 'PENDING'),
-(2, 'CONFIRMED'),
-(3, 'CANCELLED'),
-(4, 'REJECTED'),
+(1, 'PENDING_PAYMENT'),
+(2, 'PENDING_CONFIRMATION'),
+(3, 'CONFIRMED'),
+(4, 'IN_PROGRESS'),
 (5, 'COMPLETED'),
-(6, 'DISPUTED'),
-(7, 'REFUNDED');
+(6, 'CANCELLED'),
+(7, 'REJECTED');
 SET IDENTITY_INSERT [booking_statuses] OFF;
 GO
 
@@ -106,10 +106,10 @@ SET IDENTITY_INSERT [payment_statuses] ON;
 INSERT INTO [payment_statuses] ([payment_status_id], [status_name]) VALUES
 (1, 'PENDING'),
 (2, 'PAID'),
-(3, 'HOLDING'),
-(4, 'RELEASED'),
+(3, 'FAILED'),
+(4, 'REFUND_PENDING'),
 (5, 'REFUNDED'),
-(6, 'FAILED');
+(6, 'DISPUTED');
 SET IDENTITY_INSERT [payment_statuses] OFF;
 GO
 
@@ -282,16 +282,16 @@ INSERT INTO [bookings] ([booking_id], [customer_id], [studio_id], [package_id], 
 (2, 7, 2, 4, 4, 5, 'BK20260520-002', CAST(GETDATE() AS DATE), N'Hồ Xuân Hương, Đà Lạt', N'Gói VIP Đà Lạt trọn gói 2 ngày chụp', 15000000, 10.00, 1500000, 13500000, DATEADD(hour, -48, SYSUTCDATETIME()), SYSUTCDATETIME(), DATEADD(day, -7, SYSUTCDATETIME()), SYSUTCDATETIME()),
 (3, 8, 3, 6, 6, 5, 'BK20260520-003', CAST(GETDATE() AS DATE), N'Khách sạn Lotte Cầu Giấy', N'Hội thảo doanh nghiệp quy mô 100 khách', 2000000, 10.00, 200000, 1800000, DATEADD(hour, -12, SYSUTCDATETIME()), SYSUTCDATETIME(), DATEADD(day, -2, SYSUTCDATETIME()), SYSUTCDATETIME()),
 -- 2 Lịch đã xác nhận chuẩn bị chụp
-(4, 9, 4, 8, 8, 2, 'BK20260520-004', CAST(DATEADD(day, 1, GETDATE()) AS DATE), N'Studio Nam Art Đà Nẵng', N'Chụp ảnh lookbook độc quyền cá nhân bảo mật', 5000000, 12.00, 600000, 4400000, SYSUTCDATETIME(), NULL, DATEADD(day, -1, SYSUTCDATETIME()), SYSUTCDATETIME()),
-(5, 10, 1, 3, 3, 2, 'BK20260520-005', CAST(DATEADD(day, 1, GETDATE()) AS DATE), N'Công viên Vinhomes Central Park', N'Chụp chân dung thời trang màu nắng vintage', 1800000, 10.00, 180000, 1620000, SYSUTCDATETIME(), NULL, DATEADD(day, -2, SYSUTCDATETIME()), SYSUTCDATETIME()),
+(4, 9, 4, 8, 8, 3, 'BK20260520-004', CAST(DATEADD(day, 1, GETDATE()) AS DATE), N'Studio Nam Art Đà Nẵng', N'Chụp ảnh lookbook độc quyền cá nhân bảo mật', 5000000, 12.00, 600000, 4400000, SYSUTCDATETIME(), NULL, DATEADD(day, -1, SYSUTCDATETIME()), SYSUTCDATETIME()),
+(5, 10, 1, 3, 3, 3, 'BK20260520-005', CAST(DATEADD(day, 1, GETDATE()) AS DATE), N'Công viên Vinhomes Central Park', N'Chụp chân dung thời trang màu nắng vintage', 1800000, 10.00, 180000, 1620000, SYSUTCDATETIME(), NULL, DATEADD(day, -2, SYSUTCDATETIME()), SYSUTCDATETIME()),
 -- 2 Lịch đang chờ studio phản hồi phê duyệt
 (6, 6, 2, 5, 5, 1, 'BK20260520-006', CAST(DATEADD(day, 2, GETDATE()) AS DATE), N'Căn hộ chung cư Landmark 81', N'Lưu niệm gia đình nhỏ nhân ngày thôi nôi bé', 2500000, 10.00, 250000, 2250000, NULL, NULL, SYSUTCDATETIME(), SYSUTCDATETIME()),
 (7, 7, 3, 7, 7, 1, 'BK20260520-007', CAST(DATEADD(day, 2, GETDATE()) AS DATE), N'Studio Nam Cầu Giấy', N'Hình lưu niệm sinh nhật tròn 1 tuổi bé yêu', 1500000, 10.00, 150000, 1350000, NULL, NULL, SYSUTCDATETIME(), SYSUTCDATETIME()),
 -- 2 Lịch đã bị hủy/từ chối
-(8, 8, 4, 9, 9, 3, 'BK20260520-008', CAST(GETDATE() AS DATE), N'Nhà hàng Seafood King Đà Nẵng', N'Khách hàng báo hủy do thay đổi lịch khai trương nhà hàng', 3000000, 12.00, 360000, 2640000, NULL, NULL, DATEADD(day, -3, SYSUTCDATETIME()), SYSUTCDATETIME()),
-(9, 9, 1, 10, 10, 4, 'BK20260520-009', CAST(GETDATE() AS DATE), N'Legacy Studio Bình Dương', N'Studio từ chối do trùng lịch lớn đột xuất', 2500000, 10.00, 250000, 2250000, NULL, NULL, DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME()),
+(8, 8, 4, 9, 9, 6, 'BK20260520-008', CAST(GETDATE() AS DATE), N'Nhà hàng Seafood King Đà Nẵng', N'Khách hàng báo hủy do thay đổi lịch khai trương nhà hàng', 3000000, 12.00, 360000, 2640000, NULL, NULL, DATEADD(day, -3, SYSUTCDATETIME()), SYSUTCDATETIME()),
+(9, 9, 1, 10, 10, 7, 'BK20260520-009', CAST(GETDATE() AS DATE), N'Legacy Studio Bình Dương', N'Studio từ chối do trùng lịch lớn đột xuất', 2500000, 10.00, 250000, 2250000, NULL, NULL, DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME()),
 -- 1 Lịch đang có tranh chấp
-(10, 10, 2, 5, 11, 6, 'BK20260520-010', CAST(DATEADD(day, -1, GETDATE()) AS DATE), N'Phòng chụp Mai Wedding Q3', N'Khách phàn nàn ảnh trả bị mờ out nét, đòi hoàn tiền', 2500000, 10.00, 250000, 2250000, DATEADD(day, -1, SYSUTCDATETIME()), NULL, DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME());
+(10, 10, 2, 5, 11, 3, 'BK20260520-010', CAST(DATEADD(day, -1, GETDATE()) AS DATE), N'Phòng chụp Mai Wedding Q3', N'Khách phàn nàn ảnh trả bị mờ out nét, đòi hoàn tiền', 2500000, 10.00, 250000, 2250000, DATEADD(day, -1, SYSUTCDATETIME()), NULL, DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME());
 SET IDENTITY_INSERT [bookings] OFF;
 GO
 
@@ -308,8 +308,8 @@ INSERT INTO [payments] ([payment_id], [booking_id], [method_id], [payment_status
 (6, 6, 2, 1, 'PAY-BK006-VN', 2500000, 'VND', NULL, NULL, NULL, SYSUTCDATETIME(), SYSUTCDATETIME()),
 (7, 7, 2, 1, 'PAY-BK007-VN', 1500000, 'VND', NULL, NULL, NULL, SYSUTCDATETIME(), SYSUTCDATETIME()),
 (8, 8, 3, 5, 'PAY-BK008-BT', 3000000, 'VND', 'TX9900112233', 'BANK-887766', SYSUTCDATETIME(), DATEADD(day, -3, SYSUTCDATETIME()), SYSUTCDATETIME()),
-(9, 9, 2, 6, 'PAY-BK009-VN', 2500000, 'VND', NULL, NULL, NULL, DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME()),
-(10, 10, 3, 3, 'PAY-BK010-BT', 2500000, 'VND', 'TX7788990011', 'BANK-554433', SYSUTCDATETIME(), DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME());
+(9, 9, 2, 3, 'PAY-BK009-VN', 2500000, 'VND', NULL, NULL, NULL, DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME()),
+(10, 10, 3, 6, 'PAY-BK010-BT', 2500000, 'VND', 'TX7788990011', 'BANK-554433', SYSUTCDATETIME(), DATEADD(day, -4, SYSUTCDATETIME()), SYSUTCDATETIME());
 SET IDENTITY_INSERT [payments] OFF;
 GO
 
@@ -331,16 +331,16 @@ GO
 -- ────────────────────────────────────────────────────────────────────────
 SET IDENTITY_INSERT [booking_logs] ON;
 INSERT INTO [booking_logs] ([log_id], [booking_id], [old_status], [new_status], [note], [changed_by], [changed_at]) VALUES
-(1, 1, 'PENDING', 'CONFIRMED', N'Studio Hùng xác nhận nhận lịch chụp phóng sự', 2, DATEADD(day, -4, SYSUTCDATETIME())),
+(1, 1, 'PENDING_PAYMENT', 'CONFIRMED', N'Studio Hùng xác nhận nhận lịch chụp phóng sự', 2, DATEADD(day, -4, SYSUTCDATETIME())),
 (2, 1, 'CONFIRMED', 'COMPLETED', N'Bàn giao toàn bộ album ảnh hoàn thiện cho khách hàng', 2, SYSUTCDATETIME()),
-(3, 2, 'PENDING', 'CONFIRMED', N'Studio Mai nhận tour VIP Đà Lạt, chuẩn bị trang phục váy cưới', 3, DATEADD(day, -6, SYSUTCDATETIME())),
+(3, 2, 'PENDING_PAYMENT', 'CONFIRMED', N'Studio Mai nhận tour VIP Đà Lạt, chuẩn bị trang phục váy cưới', 3, DATEADD(day, -6, SYSUTCDATETIME())),
 (4, 2, 'CONFIRMED', 'COMPLETED', N'Bàn giao album gỗ cao cấp tận tay khách hàng', 3, SYSUTCDATETIME()),
-(5, 3, 'PENDING', 'CONFIRMED', N'Nam Studio nhận chụp sự kiện Lotte Cầu Giấy', 4, DATEADD(day, -1, SYSUTCDATETIME())),
+(5, 3, 'PENDING_PAYMENT', 'CONFIRMED', N'Nam Studio nhận chụp sự kiện Lotte Cầu Giấy', 4, DATEADD(day, -1, SYSUTCDATETIME())),
 (6, 3, 'CONFIRMED', 'COMPLETED', N'Bàn giao file qua link Google Drive nhanh trong ngày', 4, SYSUTCDATETIME()),
-(7, 4, 'PENDING', 'CONFIRMED', N'Studio Tuấn Art xác nhận xếp lịch buổi chụp boudoir riêng tư', 5, SYSUTCDATETIME()),
-(8, 5, 'PENDING', 'CONFIRMED', N'Hùng Studio xếp lịch slot chụp ngoại cảnh Landmark 81', 2, SYSUTCDATETIME()),
-(9, 8, 'PENDING', 'CANCELLED', N'Khách hàng hủy lịch do nhà hàng dời lịch khai trương', 8, SYSUTCDATETIME()),
-(10, 10, 'PENDING', 'DISPUTED', N'Khách hàng gửi báo cáo tranh chấp chất lượng ảnh bị out nét', 10, SYSUTCDATETIME());
+(7, 4, 'PENDING_PAYMENT', 'CONFIRMED', N'Studio Tuấn Art xác nhận xếp lịch buổi chụp boudoir riêng tư', 5, SYSUTCDATETIME()),
+(8, 5, 'PENDING_PAYMENT', 'CONFIRMED', N'Hùng Studio xếp lịch slot chụp ngoại cảnh Landmark 81', 2, SYSUTCDATETIME()),
+(9, 8, 'PENDING_PAYMENT', 'CANCELLED', N'Khách hàng hủy lịch do nhà hàng dời lịch khai trương', 8, SYSUTCDATETIME()),
+(10, 10, 'PENDING_PAYMENT', 'CONFIRMED', N'Khách hàng gửi báo cáo tranh chấp chất lượng ảnh bị out nét', 10, SYSUTCDATETIME());
 SET IDENTITY_INSERT [booking_logs] OFF;
 GO
 

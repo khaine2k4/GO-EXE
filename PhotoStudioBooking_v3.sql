@@ -136,6 +136,7 @@ CREATE TABLE studios (
     lat                DECIMAL(10,7),
     lng                DECIMAL(10,7),
     commission_percent DECIMAL(5,2)  NOT NULL DEFAULT 10,
+    slot_duration_minutes INT        NOT NULL DEFAULT 60 CONSTRAINT CK_studios_slot_duration CHECK (slot_duration_minutes IN (30, 60, 90, 120, 180, 240)),
 
     -- Denormalized counters
     avg_rating         DECIMAL(3,2)  NOT NULL DEFAULT 0,
@@ -413,12 +414,12 @@ CREATE INDEX IX_bookings_date     ON bookings(shooting_date);
 CREATE INDEX IX_bookings_code     ON bookings(booking_code);
 
 -- [FIX-07] Filtered unique index: chỉ enforce 1 booking/slot với trạng thái ACTIVE
--- CANCELLED(4) và REJECTED(3) không bị đếm → slot có thể được đặt lại
--- (status_id: PENDING=1, CONFIRMED=2, REJECTED=3, CANCELLED=4, IN_PROGRESS=5, COMPLETED=6, DISPUTED=7)
+-- CANCELLED(6) và REJECTED(7) không bị đếm → slot có thể được đặt lại
+-- (status_id: PENDING_PAYMENT=1, PENDING_CONFIRMATION=2, CONFIRMED=3, IN_PROGRESS=4, COMPLETED=5, CANCELLED=6, REJECTED=7)
 -- Note: SQL Server filtered index KHÔNG hỗ trợ NOT IN → dùng <> AND <>
 CREATE UNIQUE INDEX UX_bookings_slot_active
     ON bookings(slot_id)
-    WHERE status_id <> 3 AND status_id <> 4;   -- bỏ qua REJECTED(3) và CANCELLED(4)
+    WHERE status_id <> 6 AND status_id <> 7;   -- bỏ qua CANCELLED(6) và REJECTED(7)
 GO
 
 -- ================================================================
@@ -469,12 +470,15 @@ CREATE TABLE payments (
     payment_code      VARCHAR(30)    NOT NULL UNIQUE,
     amount            DECIMAL(12,0)  NOT NULL,
     currency_code     VARCHAR(10)    NOT NULL DEFAULT 'VND',  -- [FIX-05]
+    payment_provider  VARCHAR(50)    NOT NULL DEFAULT 'VNPAY_SANDBOX',
     transaction_code  VARCHAR(255),
     provider_ref      VARCHAR(255),
     failure_reason    NVARCHAR(MAX),
     paid_at           DATETIME2,
     refunded_at       DATETIME2,
     refund_reason     NVARCHAR(MAX),
+    refund_method     VARCHAR(20)    NULL,
+    refund_pending_reason NVARCHAR(255) NULL,
     created_at        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
 
@@ -486,6 +490,35 @@ GO
 CREATE INDEX IX_payments_booking ON payments(booking_id);
 CREATE INDEX IX_payments_status  ON payments(payment_status_id);
 CREATE INDEX IX_payments_paid    ON payments(paid_at DESC) WHERE paid_at IS NOT NULL;
+GO
+
+-- ================================================================
+-- 18b. SETTLEMENTS
+-- ================================================================
+CREATE TABLE settlements (
+    settlement_id        BIGINT         PRIMARY KEY IDENTITY(1,1),
+    booking_id           BIGINT         NOT NULL,
+    studio_id            BIGINT         NOT NULL,
+    gross_amount         DECIMAL(12,0)  NOT NULL,
+    platform_fee_percent DECIMAL(5,2)   NOT NULL DEFAULT 10,
+    platform_fee_amount  DECIMAL(12,0)  NOT NULL DEFAULT 0,
+    studio_amount        DECIMAL(12,0)  NOT NULL DEFAULT 0,
+    
+    -- 'PENDING' | 'READY' | 'PAID' | 'FAILED' | 'CANCELLED'
+    status               VARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    
+    -- 'MANUAL' | 'PAYOS_PAYOUT' | 'BANK_TRANSFER'
+    payout_method        VARCHAR(50)    NOT NULL DEFAULT 'MANUAL',
+    
+    paid_at              DATETIME2      NULL,
+    created_at           DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at           DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT FK_settlements_bookings FOREIGN KEY (booking_id) REFERENCES bookings(booking_id),
+    CONSTRAINT FK_settlements_studios FOREIGN KEY (studio_id) REFERENCES studios(studio_id)
+);
+GO
+CREATE INDEX IX_settlements_studio_status ON settlements(studio_id, status);
 GO
 
 -- ================================================================
@@ -780,9 +813,8 @@ BEGIN
     DECLARE @seq_val    BIGINT = NEXT VALUE FOR seq_booking_code;
     DECLARE @date_part  VARCHAR(8) = CONVERT(VARCHAR(8), GETDATE(), 112);
     DECLARE @booking_code VARCHAR(25) = 'BK-' + @date_part + '-' + RIGHT('00000000' + CAST(@seq_val AS VARCHAR(8)), 8);
-
     DECLARE @status_pending BIGINT;
-    SELECT @status_pending = status_id FROM booking_statuses WHERE status_name = 'PENDING';
+    SELECT @status_pending = status_id FROM booking_statuses WHERE status_name = 'PENDING_PAYMENT';
 
     DECLARE @commission_amount DECIMAL(12,0) = @total_price * @commission_pct / 100;
     DECLARE @studio_revenue    DECIMAL(12,0) = @total_price - @commission_amount;
@@ -802,12 +834,12 @@ BEGIN
 
     SET @new_booking_id = SCOPE_IDENTITY();
 
-    -- Mark slot as BOOKED immediately (prevents any 2nd booking even before confirm)
-    UPDATE time_slots SET status = 'BOOKED' WHERE slot_id = @slot_id;
+    -- Mark slot as HOLDING immediately (prevents any 2nd booking even before confirm)
+    UPDATE time_slots SET status = 'HOLDING' WHERE slot_id = @slot_id;
 
     -- Audit log
     INSERT INTO booking_logs (booking_id, old_status, new_status, changed_by, note)
-    VALUES (@new_booking_id, NULL, 'PENDING', @customer_id, N'Booking created');
+    VALUES (@new_booking_id, NULL, 'PENDING_PAYMENT', @customer_id, N'Booking created');
 
     COMMIT;
 END;
@@ -1007,14 +1039,24 @@ INSERT INTO roles (role_name, description) VALUES
 ('STUDIO_OWNER', N'Chủ studio cung cấp dịch vụ');
 
 INSERT INTO booking_statuses (status_name) VALUES
-('PENDING'), ('CONFIRMED'), ('REJECTED'),
-('CANCELLED'), ('IN_PROGRESS'), ('COMPLETED'), ('DISPUTED');
+('PENDING_PAYMENT'),
+('PENDING_CONFIRMATION'),
+('CONFIRMED'),
+('IN_PROGRESS'),
+('COMPLETED'),
+('CANCELLED'),
+('REJECTED');
 
 INSERT INTO payment_methods (method_name) VALUES
 ('VNPAY'), ('MOMO'), ('CASH'), ('BANK_TRANSFER'), ('PAYPAL');
 
 INSERT INTO payment_statuses (status_name) VALUES
-('PENDING'), ('PAID'), ('FAILED'), ('REFUNDED'), ('CANCELLED');
+('PENDING'),
+('PAID'),
+('FAILED'),
+('REFUND_PENDING'),
+('REFUNDED'),
+('DISPUTED');
 
 INSERT INTO report_types (type_name) VALUES
 ('STUDIO_REPORT'), ('BOOKING_ISSUE'), ('SPAM'),
