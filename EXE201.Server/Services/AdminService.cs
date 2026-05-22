@@ -1,7 +1,6 @@
 using exe201.Server.Models;
-using EXE201.Server.Repositories;
 using EXE201.Server.DTOs;
-using Microsoft.EntityFrameworkCore;
+using EXE201.Server.Repositories;
 
 namespace EXE201.Server.Services
 {
@@ -9,13 +8,16 @@ namespace EXE201.Server.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly IStudioRepository _studioRepository;
-        private readonly PhotoStudioBookingContext _context;
+        private readonly IAdminRepository _adminRepository;
 
-        public AdminService(IUserRepository userRepository, IStudioRepository studioRepository, PhotoStudioBookingContext context)
+        public AdminService(
+            IUserRepository userRepository,
+            IStudioRepository studioRepository,
+            IAdminRepository adminRepository)
         {
             _userRepository = userRepository;
             _studioRepository = studioRepository;
-            _context = context;
+            _adminRepository = adminRepository;
         }
 
         private async Task<UserDto> MapToUserDto(User user)
@@ -47,8 +49,7 @@ namespace EXE201.Server.Services
                     dto.District = studio.District;
                     dto.AddressLine = studio.AddressLine;
                     dto.CoverUrl = studio.CoverUrl;
-                    // Đối với studio, DTO status sẽ đại diện cho trạng thái phê duyệt của studio
-                    dto.Status = studio.Status;
+                    dto.StudioStatus = studio.Status;
                 }
             }
 
@@ -59,7 +60,6 @@ namespace EXE201.Server.Services
         {
             var users = await _userRepository.GetAllUsersAsync();
 
-            // Server-side search
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var q = search.ToLower();
@@ -69,15 +69,12 @@ namespace EXE201.Server.Services
                 ).ToList();
             }
 
-            // Status filter
             if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
                 users = users.Where(u => u.Status == status).ToList();
 
-            // Role filter
             if (!string.IsNullOrWhiteSpace(role) && role != "ALL")
                 users = users.Where(u => u.Role != null && u.Role.RoleName == role).ToList();
 
-            // Sort
             users = (sortBy ?? "name") switch
             {
                 "email" => users.OrderBy(u => u.Email).ToList(),
@@ -87,11 +84,11 @@ namespace EXE201.Server.Services
             };
 
             var dtos = new List<UserDto>();
-            foreach (var u in users)
+            foreach (var user in users)
             {
-                var dto = await MapToUserDto(u);
-                dtos.Add(dto);
+                dtos.Add(await MapToUserDto(user));
             }
+
             return dtos;
         }
 
@@ -100,7 +97,7 @@ namespace EXE201.Server.Services
             var user = await _userRepository.GetUserByIdAsync(userId);
             if (user == null) return false;
 
-            user.Status = status; // "ACTIVE" or "LOCKED"
+            user.Status = status;
             user.UpdatedBy = adminId;
             user.UpdatedAt = DateTime.UtcNow;
 
@@ -128,7 +125,6 @@ namespace EXE201.Server.Services
         {
             var studios = await _studioRepository.GetAllStudiosAsync();
 
-            // Server-side search
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var q = search.ToLower();
@@ -139,11 +135,9 @@ namespace EXE201.Server.Services
                 ).ToList();
             }
 
-            // Status filter
             if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
                 studios = studios.Where(s => s.Status == status).ToList();
 
-            // Sort
             studios = (sortBy ?? "name") switch
             {
                 "rating" => studios.OrderByDescending(s => s.AvgRating).ToList(),
@@ -152,40 +146,40 @@ namespace EXE201.Server.Services
             };
 
             var dtos = new List<UserDto>();
-            foreach (var s in studios)
+            foreach (var studio in studios)
             {
-                var owner = s.Owner ?? await _userRepository.GetUserByIdAsync(s.OwnerId);
+                var owner = studio.Owner ?? await _userRepository.GetUserByIdAsync(studio.OwnerId);
                 if (owner == null) continue;
 
-                var dto = new UserDto
+                dtos.Add(new UserDto
                 {
                     Id = owner.UserId,
                     Name = owner.FullName,
                     Email = owner.Email,
                     Role = owner.Role?.RoleName ?? "STUDIO_OWNER",
-                    Status = s.Status,
+                    Status = studio.Status,
                     Phone = owner.Phone,
                     AvatarUrl = owner.AvatarUrl,
                     Gender = owner.Gender,
                     Dob = owner.Dob?.ToString("yyyy-MM-dd"),
-                    StudioName = s.StudioName,
-                    LogoUrl = s.LogoUrl,
-                    StudioPhone = s.Phone,
-                    StudioEmail = s.Email,
-                    Bio = s.Description,
-                    City = s.City,
-                    District = s.District,
-                    AddressLine = s.AddressLine,
-                    CoverUrl = s.CoverUrl
-                };
-                dtos.Add(dto);
+                    StudioName = studio.StudioName,
+                    LogoUrl = studio.LogoUrl,
+                    StudioPhone = studio.Phone,
+                    StudioEmail = studio.Email,
+                    Bio = studio.Description,
+                    City = studio.City,
+                    District = studio.District,
+                    AddressLine = studio.AddressLine,
+                    CoverUrl = studio.CoverUrl
+                });
             }
+
             return dtos;
         }
 
         public async Task<bool> ApproveStudioAsync(long studioId, long adminId)
         {
-            var studio = await _studioRepository.GetStudioByIdAsync(studioId) 
+            var studio = await _studioRepository.GetStudioByIdAsync(studioId)
                          ?? await _studioRepository.GetStudioByOwnerIdAsync(studioId);
             if (studio == null) return false;
 
@@ -213,126 +207,6 @@ namespace EXE201.Server.Services
             studio.UpdatedBy = adminId;
 
             await _studioRepository.UpdateStudioAsync(studio);
-            return true;
-        }
-
-        public async Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null)
-        {
-            var query = _context.Bookings
-                .Include(b => b.Customer)
-                .Include(b => b.Studio)
-                .Include(b => b.Package)
-                .Include(b => b.Status)
-                .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
-                .AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var q = search.ToLower();
-                query = query.Where(b =>
-                    b.BookingCode.ToLower().Contains(q) ||
-                    b.Customer.FullName.ToLower().Contains(q) ||
-                    b.Studio.StudioName.ToLower().Contains(q) ||
-                    b.Package.PackageName.ToLower().Contains(q));
-            }
-
-            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
-                query = query.Where(b => b.Status.StatusName == status);
-
-            if (!string.IsNullOrWhiteSpace(paymentStatus) && paymentStatus != "ALL")
-                query = query.Where(b => b.Payments.Any(p => p.PaymentStatus.StatusName == paymentStatus));
-
-            query = (sortBy ?? "newest") switch
-            {
-                "oldest" => query.OrderBy(b => b.CreatedAt),
-                "amount" => query.OrderByDescending(b => b.TotalPrice),
-                "status" => query.OrderBy(b => b.Status.StatusName).ThenByDescending(b => b.CreatedAt),
-                _ => query.OrderByDescending(b => b.CreatedAt),
-            };
-
-            var bookings = await query.ToListAsync();
-
-            return bookings.Select(b => new AdminBookingDto
-            {
-                Id = b.BookingId,
-                BookingCode = b.BookingCode,
-                CustomerName = b.Customer.FullName,
-                StudioName = b.Studio.StudioName,
-                PackageName = b.Package.PackageName,
-                ShootingDate = b.ShootingDate.ToString("yyyy-MM-dd"),
-                Status = b.Status.StatusName,
-                TotalPrice = b.TotalPrice,
-                CommissionPercent = b.CommissionPercent,
-                CommissionAmount = b.CommissionAmount,
-                StudioRevenue = b.StudioRevenue,
-                PaymentStatus = b.Payments.OrderByDescending(p => p.CreatedAt).Select(p => p.PaymentStatus.StatusName).FirstOrDefault(),
-                PaymentAmount = b.Payments.OrderByDescending(p => p.CreatedAt).Select(p => (decimal?)p.Amount).FirstOrDefault(),
-                PaymentCode = b.Payments.OrderByDescending(p => p.CreatedAt).Select(p => p.PaymentCode).FirstOrDefault(),
-                City = b.Studio.City,
-                DisputeNote = b.DisputeNote,
-                CreatedAt = b.CreatedAt.ToString("O")
-            }).ToList();
-        }
-
-        public async Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null)
-        {
-            var query = _context.Reports
-                .Include(r => r.Reporter)
-                .Include(r => r.ReportType)
-                .AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var q = search.ToLower();
-                query = query.Where(r =>
-                    r.Reporter.FullName.ToLower().Contains(q) ||
-                    r.TargetType.ToLower().Contains(q) ||
-                    (r.Description != null && r.Description.ToLower().Contains(q)) ||
-                    r.ReportType.TypeName.ToLower().Contains(q));
-            }
-
-            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
-                query = query.Where(r => r.Status == status);
-
-            if (!string.IsNullOrWhiteSpace(targetType) && targetType != "ALL")
-                query = query.Where(r => r.TargetType == targetType);
-
-            query = (sortBy ?? "newest") switch
-            {
-                "oldest" => query.OrderBy(r => r.CreatedAt),
-                "status" => query.OrderBy(r => r.Status).ThenByDescending(r => r.CreatedAt),
-                "type" => query.OrderBy(r => r.ReportType.TypeName),
-                _ => query.OrderByDescending(r => r.CreatedAt),
-            };
-
-            var reports = await query.ToListAsync();
-
-            return reports.Select(r => new AdminReportDto
-            {
-                Id = r.ReportId,
-                TypeName = r.ReportType.TypeName,
-                ReporterName = r.Reporter.FullName,
-                TargetType = r.TargetType,
-                TargetId = r.TargetId,
-                Description = r.Description,
-                Status = r.Status,
-                HandlerNote = r.HandlerNote,
-                CreatedAt = r.CreatedAt.ToString("O"),
-                ResolvedAt = r.ResolvedAt.HasValue ? r.ResolvedAt.Value.ToString("O") : null
-            }).ToList();
-        }
-
-        public async Task<bool> ResolveReportAsync(long reportId, string status, string? handlerNote, long adminId)
-        {
-            var report = await _context.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId);
-            if (report == null) return false;
-
-            report.Status = status;
-            report.HandlerNote = handlerNote;
-            report.HandledBy = adminId;
-            report.ResolvedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
             return true;
         }
 
@@ -370,65 +244,49 @@ namespace EXE201.Server.Services
             return true;
         }
 
-        public async Task<List<AdminReviewDto>> GetReviewsAsync(string? search = null, bool? isHidden = null)
-        {
-            var query = _context.Reviews
-                .Include(r => r.Customer)
-                .Include(r => r.Studio)
-                .AsQueryable();
+        public Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null)
+            => _adminRepository.GetBookingsAsync(search, status, paymentStatus, sortBy);
 
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var q = search.ToLower();
-                query = query.Where(r =>
-                    r.Customer.FullName.ToLower().Contains(q) ||
-                    r.Studio.StudioName.ToLower().Contains(q) ||
-                    (r.Comment != null && r.Comment.ToLower().Contains(q)));
-            }
+        public Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null)
+            => _adminRepository.GetReportsAsync(search, status, targetType, sortBy);
 
-            if (isHidden.HasValue)
-            {
-                query = query.Where(r => r.IsHidden == isHidden.Value);
-            }
+        public Task<bool> ResolveReportAsync(long reportId, string status, string? handlerNote, long adminId)
+            => _adminRepository.ResolveReportAsync(reportId, status, handlerNote, adminId);
 
-            var reviews = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
+        public Task<List<AdminReviewDto>> GetReviewsAsync(string? search = null, bool? isHidden = null)
+            => _adminRepository.GetReviewsAsync(search, isHidden);
 
-            return reviews.Select(r => new AdminReviewDto
-            {
-                Id = r.ReviewId,
-                CustomerName = r.Customer.FullName,
-                StudioName = r.Studio.StudioName,
-                Rating = r.Rating,
-                Comment = r.Comment,
-                IsHidden = r.IsHidden,
-                HiddenNote = r.HiddenNote,
-                CreatedAt = r.CreatedAt.ToString("O")
-            }).ToList();
-        }
+        public Task<bool> ToggleHideReviewAsync(long reviewId, bool isHidden, string? note, long adminId)
+            => _adminRepository.ToggleHideReviewAsync(reviewId, isHidden, note, adminId);
 
-        public async Task<bool> ToggleHideReviewAsync(long reviewId, bool isHidden, string? note, long adminId)
-        {
-            var review = await _context.Reviews.FirstOrDefaultAsync(r => r.ReviewId == reviewId);
-            if (review == null) return false;
+        public Task<List<AdminServiceDto>> GetServicesAsync(string? search = null, string? status = null, long? categoryId = null, long? studioId = null, bool? isHidden = null, string? sortBy = null)
+            => _adminRepository.GetServicesAsync(search, status, categoryId, studioId, isHidden, sortBy);
 
-            review.IsHidden = isHidden;
-            if (isHidden)
-            {
-                review.HiddenBy = adminId;
-                review.HiddenAt = DateTime.UtcNow;
-                review.HiddenNote = note;
-            }
-            else
-            {
-                review.HiddenBy = null;
-                review.HiddenAt = null;
-                review.HiddenNote = null;
-            }
-            review.UpdatedAt = DateTime.UtcNow;
-            review.UpdatedBy = adminId;
+        public Task<AdminServiceDto?> HideServiceAsync(long serviceId, long adminId, string? reason = null)
+            => _adminRepository.HideServiceAsync(serviceId, adminId, reason);
 
-            await _context.SaveChangesAsync();
-            return true;
-        }
+        public Task<AdminServiceDto?> UnhideServiceAsync(long serviceId, long adminId)
+            => _adminRepository.UnhideServiceAsync(serviceId, adminId);
+
+        public Task<AdminServiceDto?> SoftDeleteServiceAsync(long serviceId, long adminId, string? reason = null)
+            => _adminRepository.SoftDeleteServiceAsync(serviceId, adminId, reason);
+
+        public Task<List<AdminPaymentDto>> GetPaymentsAsync(string? search = null, string? status = null, string? method = null, long? studioId = null, DateTime? from = null, DateTime? to = null, string? sortBy = null)
+            => _adminRepository.GetPaymentsAsync(search, status, method, studioId, from, to, sortBy);
+
+        public Task<AdminPaymentDetailDto?> GetPaymentDetailAsync(long paymentId)
+            => _adminRepository.GetPaymentDetailAsync(paymentId);
+
+        public Task<AdminPaymentDetailDto?> UpdatePaymentStatusAsync(long paymentId, UpdateAdminPaymentStatusRequestDto request, long adminId)
+            => _adminRepository.UpdatePaymentStatusAsync(paymentId, request, adminId);
+
+        public Task<AdminRevenueSummaryDto> GetRevenueSummaryAsync(DateTime? from = null, DateTime? to = null)
+            => _adminRepository.GetRevenueSummaryAsync(from, to);
+
+        public Task<List<AdminMonthlyRevenueDto>> GetMonthlyRevenueAsync(DateTime? from = null, DateTime? to = null)
+            => _adminRepository.GetMonthlyRevenueAsync(from, to);
+
+        public Task<List<AdminCommissionDto>> GetCommissionsAsync(long? studioId = null, string? search = null, DateTime? from = null, DateTime? to = null, string? sortBy = null)
+            => _adminRepository.GetCommissionsAsync(studioId, search, from, to, sortBy);
     }
 }

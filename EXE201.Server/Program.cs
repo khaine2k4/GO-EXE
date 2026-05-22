@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 
 namespace EXE201.Server
@@ -12,7 +15,9 @@ namespace EXE201.Server
 
             // Add services to the container.
             builder.Services.AddControllers();
-            builder.Services.AddDbContext<exe201.Server.Models.PhotoStudioBookingContext>();
+            builder.Services.AddProblemDetails();
+            builder.Services.AddDbContext<exe201.Server.Models.PhotoStudioBookingContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
@@ -31,7 +36,14 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Services.IAuthService, EXE201.Server.Services.AuthService>();
             builder.Services.AddScoped<EXE201.Server.Repositories.IAddressRepository, EXE201.Server.Repositories.AddressRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IAddressService, EXE201.Server.Services.AddressService>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.IAdminRepository, EXE201.Server.Repositories.AdminRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IAdminService, EXE201.Server.Services.AdminService>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.ICatalogRepository, EXE201.Server.Repositories.CatalogRepository>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.IStudioRevenueRepository, EXE201.Server.Repositories.StudioRevenueRepository>();
+            builder.Services.AddScoped<EXE201.Server.Services.ICatalogService, EXE201.Server.Services.CatalogService>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.IBookingWorkflowRepository, EXE201.Server.Repositories.BookingWorkflowRepository>();
+            builder.Services.AddScoped<EXE201.Server.Services.IBookingWorkflowService, EXE201.Server.Services.BookingWorkflowService>();
+            builder.Services.AddScoped<EXE201.Server.Services.IStudioRevenueService, EXE201.Server.Services.StudioRevenueService>();
 
             var jwtSettings = builder.Configuration.GetSection("Jwt");
             builder.Services.AddAuthentication(options =>
@@ -55,7 +67,39 @@ namespace EXE201.Server
 
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "EXE201.Server",
+                    Version = "v1"
+                });
+
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "Bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Nhập JWT token theo dạng: Bearer {token}"
+                });
+
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
 
             var app = builder.Build();
 
@@ -68,10 +112,37 @@ namespace EXE201.Server
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+            else
+            {
+                app.UseExceptionHandler();
+            }
 
             app.UseHttpsRedirection();
             app.UseCors("AllowAll");
             app.UseAuthentication();
+            app.Use(async (context, next) =>
+            {
+                if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    var userIdValue = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                    if (!long.TryParse(userIdValue, out var userId))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return;
+                    }
+
+                    using var scope = context.RequestServices.CreateScope();
+                    var users = scope.ServiceProvider.GetRequiredService<EXE201.Server.Repositories.IUserRepository>();
+                    var user = await users.GetUserByIdAsync(userId);
+                    if (user == null || user.Status != "ACTIVE")
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return;
+                    }
+                }
+
+                await next();
+            });
             app.UseAuthorization();
 
 

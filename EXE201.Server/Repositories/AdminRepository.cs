@@ -1,0 +1,626 @@
+using exe201.Server.Models;
+using EXE201.Server.DTOs;
+using Microsoft.EntityFrameworkCore;
+
+namespace EXE201.Server.Repositories
+{
+    public class AdminRepository : IAdminRepository
+    {
+        private readonly PhotoStudioBookingContext _context;
+
+        public AdminRepository(PhotoStudioBookingContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null)
+        {
+            var query = _context.Bookings
+                .Include(b => b.Customer)
+                .Include(b => b.Studio)
+                .Include(b => b.Package)
+                .Include(b => b.Status)
+                .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.ToLower();
+                query = query.Where(b =>
+                    b.BookingCode.ToLower().Contains(q) ||
+                    b.Customer.FullName.ToLower().Contains(q) ||
+                    b.Studio.StudioName.ToLower().Contains(q) ||
+                    b.Package.PackageName.ToLower().Contains(q));
+            }
+
+            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
+                query = query.Where(b => b.Status.StatusName == status);
+
+            if (!string.IsNullOrWhiteSpace(paymentStatus) && paymentStatus != "ALL")
+                query = query.Where(b => b.Payments.Any(p => p.PaymentStatus.StatusName == paymentStatus));
+
+            query = (sortBy ?? "newest") switch
+            {
+                "oldest" => query.OrderBy(b => b.CreatedAt),
+                "amount" => query.OrderByDescending(b => b.TotalPrice),
+                "status" => query.OrderBy(b => b.Status.StatusName).ThenByDescending(b => b.CreatedAt),
+                _ => query.OrderByDescending(b => b.CreatedAt),
+            };
+
+            var bookings = await query.ToListAsync();
+
+            return bookings.Select(b => new AdminBookingDto
+            {
+                Id = b.BookingId,
+                BookingCode = b.BookingCode,
+                CustomerName = b.Customer.FullName,
+                StudioName = b.Studio.StudioName,
+                PackageName = b.Package.PackageName,
+                ShootingDate = b.ShootingDate.ToString("yyyy-MM-dd"),
+                Status = b.Status.StatusName,
+                TotalPrice = b.TotalPrice,
+                CommissionPercent = b.CommissionPercent,
+                CommissionAmount = b.CommissionAmount,
+                StudioRevenue = b.StudioRevenue,
+                PaymentStatus = b.Payments.OrderByDescending(p => p.CreatedAt).Select(p => p.PaymentStatus.StatusName).FirstOrDefault(),
+                PaymentAmount = b.Payments.OrderByDescending(p => p.CreatedAt).Select(p => (decimal?)p.Amount).FirstOrDefault(),
+                PaymentCode = b.Payments.OrderByDescending(p => p.CreatedAt).Select(p => p.PaymentCode).FirstOrDefault(),
+                City = b.Studio.City,
+                DisputeNote = b.DisputeNote,
+                CreatedAt = b.CreatedAt.ToString("O")
+            }).ToList();
+        }
+
+        public async Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null)
+        {
+            var query = _context.Reports
+                .Include(r => r.Reporter)
+                .Include(r => r.ReportType)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.ToLower();
+                query = query.Where(r =>
+                    r.Reporter.FullName.ToLower().Contains(q) ||
+                    r.TargetType.ToLower().Contains(q) ||
+                    (r.Description != null && r.Description.ToLower().Contains(q)) ||
+                    r.ReportType.TypeName.ToLower().Contains(q));
+            }
+
+            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
+                query = query.Where(r => r.Status == status);
+
+            if (!string.IsNullOrWhiteSpace(targetType) && targetType != "ALL")
+                query = query.Where(r => r.TargetType == targetType);
+
+            query = (sortBy ?? "newest") switch
+            {
+                "oldest" => query.OrderBy(r => r.CreatedAt),
+                "status" => query.OrderBy(r => r.Status).ThenByDescending(r => r.CreatedAt),
+                "type" => query.OrderBy(r => r.ReportType.TypeName),
+                _ => query.OrderByDescending(r => r.CreatedAt),
+            };
+
+            var reports = await query.ToListAsync();
+
+            return reports.Select(r => new AdminReportDto
+            {
+                Id = r.ReportId,
+                TypeName = r.ReportType.TypeName,
+                ReporterName = r.Reporter.FullName,
+                TargetType = r.TargetType,
+                TargetId = r.TargetId,
+                Description = r.Description,
+                Status = r.Status,
+                HandlerNote = r.HandlerNote,
+                CreatedAt = r.CreatedAt.ToString("O"),
+                ResolvedAt = r.ResolvedAt.HasValue ? r.ResolvedAt.Value.ToString("O") : null
+            }).ToList();
+        }
+
+        public async Task<bool> ResolveReportAsync(long reportId, string status, string? handlerNote, long adminId)
+        {
+            var report = await _context.Reports.FirstOrDefaultAsync(r => r.ReportId == reportId);
+            if (report == null) return false;
+
+            report.Status = status;
+            report.HandlerNote = handlerNote;
+            report.HandledBy = adminId;
+            report.ResolvedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<List<AdminReviewDto>> GetReviewsAsync(string? search = null, bool? isHidden = null)
+        {
+            var query = _context.Reviews
+                .Include(r => r.Customer)
+                .Include(r => r.Studio)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.ToLower();
+                query = query.Where(r =>
+                    r.Customer.FullName.ToLower().Contains(q) ||
+                    r.Studio.StudioName.ToLower().Contains(q) ||
+                    (r.Comment != null && r.Comment.ToLower().Contains(q)));
+            }
+
+            if (isHidden.HasValue)
+                query = query.Where(r => r.IsHidden == isHidden.Value);
+
+            var reviews = await query.OrderByDescending(r => r.CreatedAt).ToListAsync();
+
+            return reviews.Select(r => new AdminReviewDto
+            {
+                Id = r.ReviewId,
+                CustomerName = r.Customer.FullName,
+                StudioName = r.Studio.StudioName,
+                Rating = r.Rating,
+                Comment = r.Comment,
+                IsHidden = r.IsHidden,
+                HiddenNote = r.HiddenNote,
+                CreatedAt = r.CreatedAt.ToString("O")
+            }).ToList();
+        }
+
+        public async Task<bool> ToggleHideReviewAsync(long reviewId, bool isHidden, string? note, long adminId)
+        {
+            var review = await _context.Reviews.FirstOrDefaultAsync(r => r.ReviewId == reviewId);
+            if (review == null) return false;
+
+            review.IsHidden = isHidden;
+            if (isHidden)
+            {
+                review.HiddenBy = adminId;
+                review.HiddenAt = DateTime.UtcNow;
+                review.HiddenNote = note;
+            }
+            else
+            {
+                review.HiddenBy = null;
+                review.HiddenAt = null;
+                review.HiddenNote = null;
+            }
+            review.UpdatedAt = DateTime.UtcNow;
+            review.UpdatedBy = adminId;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<List<AdminServiceDto>> GetServicesAsync(string? search = null, string? status = null, long? categoryId = null, long? studioId = null, bool? isHidden = null, string? sortBy = null)
+        {
+            var query = _context.Services
+                .Include(s => s.Studio)
+                .Include(s => s.Category)
+                .Include(s => s.Packages)
+                .Include(s => s.HiddenByNavigation)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim().ToLower();
+                query = query.Where(s =>
+                    s.ServiceName.ToLower().Contains(q) ||
+                    s.Studio.StudioName.ToLower().Contains(q));
+            }
+
+            if (categoryId.HasValue)
+                query = query.Where(s => s.CategoryId == categoryId.Value);
+
+            if (studioId.HasValue)
+                query = query.Where(s => s.StudioId == studioId.Value);
+
+            if (isHidden.HasValue)
+                query = query.Where(s => s.IsHidden == isHidden.Value);
+
+            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
+            {
+                query = status.ToUpperInvariant() switch
+                {
+                    "ACTIVE" => query.Where(s => s.IsActive),
+                    "INACTIVE" => query.Where(s => !s.IsActive),
+                    _ => query
+                };
+            }
+
+            query = (sortBy ?? "newest") switch
+            {
+                "oldest" => query.OrderBy(s => s.CreatedAt),
+                "name" => query.OrderBy(s => s.ServiceName),
+                "studio" => query.OrderBy(s => s.Studio.StudioName).ThenBy(s => s.ServiceName),
+                "category" => query.OrderBy(s => s.Category.CategoryName).ThenBy(s => s.ServiceName),
+                "hidden" => query.OrderByDescending(s => s.IsHidden).ThenByDescending(s => s.UpdatedAt),
+                _ => query.OrderByDescending(s => s.CreatedAt),
+            };
+
+            var services = await query.ToListAsync();
+            return services.Select(MapAdminService).ToList();
+        }
+
+        public async Task<AdminServiceDto?> HideServiceAsync(long serviceId, long adminId, string? reason = null)
+        {
+            var service = await GetServiceForModerationAsync(serviceId);
+            if (service == null) return null;
+
+            ApplyServiceHiddenState(service, adminId);
+            await _context.SaveChangesAsync();
+            service.HiddenByNavigation = await _context.Users.FindAsync(adminId);
+
+            return MapAdminService(service);
+        }
+
+        public async Task<AdminServiceDto?> UnhideServiceAsync(long serviceId, long adminId)
+        {
+            var service = await GetServiceForModerationAsync(serviceId);
+            if (service == null) return null;
+
+            service.IsHidden = false;
+            service.HiddenBy = null;
+            service.HiddenAt = null;
+            service.UpdatedAt = DateTime.UtcNow;
+            service.UpdatedBy = adminId;
+            await _context.SaveChangesAsync();
+
+            return MapAdminService(service);
+        }
+
+        public async Task<AdminServiceDto?> SoftDeleteServiceAsync(long serviceId, long adminId, string? reason = null)
+        {
+            var service = await GetServiceForModerationAsync(serviceId);
+            if (service == null) return null;
+
+            ApplyServiceHiddenState(service, adminId);
+            await _context.SaveChangesAsync();
+            service.HiddenByNavigation = await _context.Users.FindAsync(adminId);
+
+            return MapAdminService(service);
+        }
+
+        public async Task<List<AdminPaymentDto>> GetPaymentsAsync(string? search = null, string? status = null, string? method = null, long? studioId = null, DateTime? from = null, DateTime? to = null, string? sortBy = null)
+        {
+            var query = PaymentQuery();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim().ToLower();
+                query = query.Where(p =>
+                    p.PaymentCode.ToLower().Contains(q) ||
+                    (p.Booking.BookingCode != null && p.Booking.BookingCode.ToLower().Contains(q)) ||
+                    (p.TransactionCode != null && p.TransactionCode.ToLower().Contains(q)) ||
+                    p.Booking.Customer.FullName.ToLower().Contains(q) ||
+                    p.Booking.Customer.Email.ToLower().Contains(q) ||
+                    p.Booking.Studio.StudioName.ToLower().Contains(q));
+            }
+
+            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
+                query = query.Where(p => p.PaymentStatus.StatusName == status);
+
+            if (!string.IsNullOrWhiteSpace(method) && method != "ALL")
+                query = query.Where(p => p.Method.MethodName == method);
+
+            if (studioId.HasValue)
+                query = query.Where(p => p.Booking.StudioId == studioId.Value);
+
+            if (from.HasValue)
+                query = query.Where(p => p.CreatedAt >= from.Value);
+
+            if (to.HasValue)
+                query = query.Where(p => p.CreatedAt <= to.Value);
+
+            query = (sortBy ?? "newest") switch
+            {
+                "oldest" => query.OrderBy(p => p.CreatedAt),
+                "amount_desc" => query.OrderByDescending(p => p.Amount),
+                "amount_asc" => query.OrderBy(p => p.Amount),
+                "status" => query.OrderBy(p => p.PaymentStatus.StatusName).ThenByDescending(p => p.CreatedAt),
+                _ => query.OrderByDescending(p => p.CreatedAt),
+            };
+
+            var payments = await query.ToListAsync();
+            return payments.Select(MapAdminPayment).ToList();
+        }
+
+        public async Task<AdminPaymentDetailDto?> GetPaymentDetailAsync(long paymentId)
+        {
+            var payment = await PaymentQuery().FirstOrDefaultAsync(p => p.PaymentId == paymentId);
+            return payment == null ? null : MapAdminPaymentDetail(payment);
+        }
+
+        public async Task<AdminPaymentDetailDto?> UpdatePaymentStatusAsync(long paymentId, UpdateAdminPaymentStatusRequestDto request, long adminId)
+        {
+            var normalizedStatus = request.Status.Trim().ToUpperInvariant();
+            var allowedStatuses = new[] { "PENDING", "PAID", "FAILED", "REFUNDED", "CANCELLED" };
+            if (!allowedStatuses.Contains(normalizedStatus))
+                throw new InvalidOperationException("Payment status is not supported for manual admin update.");
+
+            var payment = await PaymentQuery().FirstOrDefaultAsync(p => p.PaymentId == paymentId);
+            if (payment == null) return null;
+
+            var status = await _context.PaymentStatuses.FirstOrDefaultAsync(s => s.StatusName == normalizedStatus);
+            if (status == null)
+                throw new InvalidOperationException("Payment status does not exist in database.");
+
+            payment.PaymentStatusId = status.PaymentStatusId;
+            payment.PaymentStatus = status;
+            payment.UpdatedAt = DateTime.UtcNow;
+
+            if (!string.IsNullOrWhiteSpace(request.TransactionCode))
+                payment.TransactionCode = request.TransactionCode.Trim();
+
+            if (normalizedStatus == "PAID")
+            {
+                payment.PaidAt ??= DateTime.UtcNow;
+                payment.FailureReason = null;
+            }
+            else if (normalizedStatus == "FAILED")
+            {
+                payment.FailureReason = request.Reason;
+            }
+            else if (normalizedStatus == "REFUNDED")
+            {
+                payment.RefundedAt ??= DateTime.UtcNow;
+                payment.RefundReason = request.Reason;
+            }
+            else if (normalizedStatus == "PENDING")
+            {
+                payment.FailureReason = null;
+            }
+            else if (normalizedStatus == "CANCELLED")
+            {
+                payment.FailureReason = request.Reason;
+            }
+
+            await _context.SaveChangesAsync();
+            return MapAdminPaymentDetail(payment);
+        }
+
+        public async Task<AdminRevenueSummaryDto> GetRevenueSummaryAsync(DateTime? from = null, DateTime? to = null)
+        {
+            var bookings = await ValidRevenueBookingsQuery(from, to).ToListAsync();
+            var paidPaymentIds = bookings
+                .SelectMany(b => b.Payments)
+                .Where(p => p.PaymentStatus.StatusName == "PAID")
+                .Select(p => p.PaymentId)
+                .Distinct()
+                .Count();
+
+            var refundedAmount = await _context.Payments
+                .Include(p => p.PaymentStatus)
+                .Where(p => p.PaymentStatus.StatusName == "REFUNDED")
+                .Where(p => !from.HasValue || (p.RefundedAt.HasValue && p.RefundedAt.Value >= from.Value))
+                .Where(p => !to.HasValue || (p.RefundedAt.HasValue && p.RefundedAt.Value <= to.Value))
+                .SumAsync(p => (decimal?)p.Amount) ?? 0m;
+
+            return new AdminRevenueSummaryDto
+            {
+                GrossRevenue = bookings.Sum(b => b.TotalPrice),
+                PlatformCommission = bookings.Sum(b => b.CommissionAmount),
+                StudioPayout = bookings.Sum(b => b.StudioRevenue),
+                CompletedBookings = bookings.Count,
+                PaidPayments = paidPaymentIds,
+                RefundedAmount = refundedAmount,
+                AverageCommissionRate = bookings.Count == 0 ? 0m : Math.Round(bookings.Average(b => b.CommissionPercent), 2)
+            };
+        }
+
+        public async Task<List<AdminMonthlyRevenueDto>> GetMonthlyRevenueAsync(DateTime? from = null, DateTime? to = null)
+        {
+            return await ValidRevenueBookingsQuery(from, to)
+                .GroupBy(b => new { b.CompletedAt!.Value.Year, b.CompletedAt.Value.Month })
+                .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                .Select(g => new AdminMonthlyRevenueDto
+                {
+                    Year = g.Key.Year,
+                    Month = g.Key.Month,
+                    GrossRevenue = g.Sum(b => b.TotalPrice),
+                    PlatformCommission = g.Sum(b => b.CommissionAmount),
+                    StudioPayout = g.Sum(b => b.StudioRevenue),
+                    CompletedBookings = g.Count()
+                })
+                .ToListAsync();
+        }
+
+        public async Task<List<AdminCommissionDto>> GetCommissionsAsync(long? studioId = null, string? search = null, DateTime? from = null, DateTime? to = null, string? sortBy = null)
+        {
+            var query = ValidRevenueBookingsQuery(from, to);
+
+            if (studioId.HasValue)
+                query = query.Where(b => b.StudioId == studioId.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim().ToLower();
+                query = query.Where(b =>
+                    b.BookingCode.ToLower().Contains(q) ||
+                    b.Studio.StudioName.ToLower().Contains(q) ||
+                    b.Customer.FullName.ToLower().Contains(q) ||
+                    b.Package.Service.ServiceName.ToLower().Contains(q));
+            }
+
+            query = (sortBy ?? "newest") switch
+            {
+                "oldest" => query.OrderBy(b => b.CompletedAt),
+                "commission_desc" => query.OrderByDescending(b => b.CommissionAmount),
+                "commission_asc" => query.OrderBy(b => b.CommissionAmount),
+                "gross_desc" => query.OrderByDescending(b => b.TotalPrice),
+                "gross_asc" => query.OrderBy(b => b.TotalPrice),
+                _ => query.OrderByDescending(b => b.CompletedAt),
+            };
+
+            var bookings = await query.ToListAsync();
+            return bookings.Select(MapAdminCommission).ToList();
+        }
+
+        private async Task<Service?> GetServiceForModerationAsync(long serviceId)
+        {
+            return await _context.Services
+                .Include(s => s.Studio)
+                .Include(s => s.Category)
+                .Include(s => s.Packages)
+                .Include(s => s.HiddenByNavigation)
+                .FirstOrDefaultAsync(s => s.ServiceId == serviceId);
+        }
+
+        private IQueryable<Payment> PaymentQuery()
+        {
+            return _context.Payments
+                .Include(p => p.Method)
+                .Include(p => p.PaymentStatus)
+                .Include(p => p.Booking).ThenInclude(b => b.Customer)
+                .Include(p => p.Booking).ThenInclude(b => b.Studio)
+                .Include(p => p.Booking).ThenInclude(b => b.Package)
+                .Include(p => p.Booking).ThenInclude(b => b.Status);
+        }
+
+        private IQueryable<Booking> ValidRevenueBookingsQuery(DateTime? from, DateTime? to)
+        {
+            var query = _context.Bookings
+                .Include(b => b.Customer)
+                .Include(b => b.Studio)
+                .Include(b => b.Status)
+                .Include(b => b.Package).ThenInclude(p => p.Service)
+                .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
+                .Where(b => b.Status.StatusName == "COMPLETED")
+                .Where(b => b.CompletedAt.HasValue)
+                .Where(b => b.Payments.Any(p => p.PaymentStatus.StatusName == "PAID"));
+
+            if (from.HasValue)
+                query = query.Where(b => b.CompletedAt!.Value >= from.Value);
+
+            if (to.HasValue)
+                query = query.Where(b => b.CompletedAt!.Value <= to.Value);
+
+            return query;
+        }
+
+        private static void ApplyServiceHiddenState(Service service, long adminId)
+        {
+            service.IsHidden = true;
+            service.IsActive = false;
+            service.HiddenBy = adminId;
+            service.HiddenAt = DateTime.UtcNow;
+            service.UpdatedAt = DateTime.UtcNow;
+            service.UpdatedBy = adminId;
+        }
+
+        private static AdminServiceDto MapAdminService(Service service)
+        {
+            var activePackages = service.Packages.Where(p => p.DeletedAt == null).ToList();
+            return new AdminServiceDto
+            {
+                ServiceId = service.ServiceId,
+                ServiceName = service.ServiceName,
+                StudioId = service.StudioId,
+                StudioName = service.Studio.StudioName,
+                CategoryId = service.CategoryId,
+                CategoryName = service.Category.CategoryName,
+                City = service.City ?? service.Studio.City,
+                MinPrice = activePackages.Count == 0 ? null : activePackages.Min(p => p.Price),
+                MaxPrice = activePackages.Count == 0 ? null : activePackages.Max(p => p.Price),
+                IsActive = service.IsActive,
+                IsHidden = service.IsHidden,
+                HiddenBy = service.HiddenBy,
+                HiddenByName = service.HiddenByNavigation?.FullName,
+                HiddenAt = service.HiddenAt?.ToString("O"),
+                CreatedAt = service.CreatedAt.ToString("O"),
+                UpdatedAt = service.UpdatedAt.ToString("O"),
+                PackageCount = activePackages.Count
+            };
+        }
+
+        private static AdminPaymentDto MapAdminPayment(Payment payment)
+        {
+            return new AdminPaymentDto
+            {
+                PaymentId = payment.PaymentId,
+                PaymentCode = payment.PaymentCode,
+                BookingId = payment.BookingId,
+                BookingCode = payment.Booking.BookingCode,
+                CustomerId = payment.Booking.CustomerId,
+                CustomerName = payment.Booking.Customer.FullName,
+                CustomerEmail = payment.Booking.Customer.Email,
+                StudioId = payment.Booking.StudioId,
+                StudioName = payment.Booking.Studio.StudioName,
+                Amount = payment.Amount,
+                CurrencyCode = payment.CurrencyCode,
+                PaymentMethod = payment.Method.MethodName,
+                PaymentStatus = payment.PaymentStatus.StatusName,
+                TransactionCode = payment.TransactionCode,
+                ProviderRef = payment.ProviderRef,
+                FailureReason = payment.FailureReason,
+                PaidAt = payment.PaidAt?.ToString("O"),
+                RefundedAt = payment.RefundedAt?.ToString("O"),
+                CreatedAt = payment.CreatedAt.ToString("O"),
+                UpdatedAt = payment.UpdatedAt.ToString("O")
+            };
+        }
+
+        private static AdminPaymentDetailDto MapAdminPaymentDetail(Payment payment)
+        {
+            var summary = MapAdminPayment(payment);
+            return new AdminPaymentDetailDto
+            {
+                PaymentId = summary.PaymentId,
+                PaymentCode = summary.PaymentCode,
+                BookingId = summary.BookingId,
+                BookingCode = summary.BookingCode,
+                CustomerId = summary.CustomerId,
+                CustomerName = summary.CustomerName,
+                CustomerEmail = summary.CustomerEmail,
+                StudioId = summary.StudioId,
+                StudioName = summary.StudioName,
+                Amount = summary.Amount,
+                CurrencyCode = summary.CurrencyCode,
+                PaymentMethod = summary.PaymentMethod,
+                PaymentStatus = summary.PaymentStatus,
+                TransactionCode = summary.TransactionCode,
+                ProviderRef = summary.ProviderRef,
+                FailureReason = summary.FailureReason,
+                PaidAt = summary.PaidAt,
+                RefundedAt = summary.RefundedAt,
+                CreatedAt = summary.CreatedAt,
+                UpdatedAt = summary.UpdatedAt,
+                BookingStatus = payment.Booking.Status.StatusName,
+                ShootingDate = payment.Booking.ShootingDate.ToString("yyyy-MM-dd"),
+                ShootingLocation = payment.Booking.ShootingLocation,
+                PackageName = payment.Booking.Package.PackageName,
+                GrossAmount = payment.Booking.TotalPrice,
+                CommissionPercent = payment.Booking.CommissionPercent,
+                CommissionAmount = payment.Booking.CommissionAmount,
+                StudioRevenue = payment.Booking.StudioRevenue,
+                RefundReason = payment.RefundReason
+            };
+        }
+
+        private static AdminCommissionDto MapAdminCommission(Booking booking)
+        {
+            var paidPayment = booking.Payments
+                .Where(p => p.PaymentStatus.StatusName == "PAID")
+                .OrderByDescending(p => p.PaidAt ?? p.CreatedAt)
+                .First();
+
+            return new AdminCommissionDto
+            {
+                BookingId = booking.BookingId,
+                BookingCode = booking.BookingCode,
+                StudioId = booking.StudioId,
+                StudioName = booking.Studio.StudioName,
+                CustomerName = booking.Customer.FullName,
+                ServiceName = booking.Package.Service.ServiceName,
+                GrossAmount = booking.TotalPrice,
+                CommissionPercent = booking.CommissionPercent,
+                CommissionAmount = booking.CommissionAmount,
+                StudioRevenue = booking.StudioRevenue,
+                PaymentStatus = paidPayment.PaymentStatus.StatusName,
+                BookingStatus = booking.Status.StatusName,
+                CompletedAt = booking.CompletedAt?.ToString("O"),
+                PaidAt = paidPayment.PaidAt?.ToString("O")
+            };
+        }
+    }
+}

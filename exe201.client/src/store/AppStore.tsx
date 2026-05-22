@@ -12,15 +12,6 @@ import type {
 } from '../types'
 import api from '../api/axios'
 import type { Photoset } from '../types'
-import {
-  initialBookings,
-  initialDisputes,
-  initialPayments,
-  initialTransactions,
-  mockUsers,
-  photographers,
-  photosets,
-} from '../data/mock'
 
 // ── State ─────────────────────────────────────────────────────
 type AppState = {
@@ -37,7 +28,6 @@ type AppState = {
 // ── Actions ───────────────────────────────────────────────────
 type AppActions = {
   // Auth
-  login: (email: string, password: string) => AuthUser | null
   logout: () => void
   setCurrentUser: (user: AuthUser | null) => void
   register: (data: {
@@ -268,23 +258,13 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
-// Gộp albums từ mock vào photographers đã load (tránh mất album khi state cũ từ localStorage)
-function mergePhotographersWithMockAlbums(loaded: Photographer[]): Photographer[] {
-  return loaded.map((p) => {
-    const fromMock = photographers.find((m) => m.id === p.id)
-    if (fromMock?.albums?.length && (!p.albums || p.albums.length === 0))
-      return { ...p, albums: fromMock.albums }
-    return p
-  })
-}
-
 // ── Persistence ───────────────────────────────────────────────
 function loadState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AppState>
-      const loadedPhotographers = Array.isArray(parsed.photographers) ? parsed.photographers : photographers
+      const loadedPhotographers = Array.isArray(parsed.photographers) ? parsed.photographers : []
       const user = parsed.currentUser ?? null
       if (user) {
         if (user.role === 'STUDIO_OWNER' as any) user.role = 'PHOTOGRAPHER';
@@ -292,25 +272,25 @@ function loadState(): AppState {
       }
       return {
         currentUser: user,
-        users: Array.isArray(parsed.users) ? parsed.users : mockUsers,
-        photographers: mergePhotographersWithMockAlbums(loadedPhotographers),
-        photosets: Array.isArray(parsed.photosets) ? parsed.photosets : photosets,
-        bookings: Array.isArray(parsed.bookings) ? parsed.bookings : initialBookings,
-        payments: Array.isArray(parsed.payments) ? parsed.payments : initialPayments,
-        disputes: Array.isArray(parsed.disputes) ? parsed.disputes : initialDisputes,
-        transactions: Array.isArray(parsed.transactions) ? parsed.transactions : initialTransactions,
+        users: Array.isArray(parsed.users) ? parsed.users : [],
+        photographers: loadedPhotographers,
+        photosets: Array.isArray(parsed.photosets) ? parsed.photosets : [],
+        bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
+        payments: Array.isArray(parsed.payments) ? parsed.payments : [],
+        disputes: Array.isArray(parsed.disputes) ? parsed.disputes : [],
+        transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
       }
     }
   } catch { /* ignore */ }
   return {
     currentUser: null,
-    users: mockUsers,
-    photographers,
-    photosets,
-    bookings: initialBookings,
-    payments: initialPayments,
-    disputes: initialDisputes,
-    transactions: initialTransactions,
+    users: [],
+    photographers: [],
+    photosets: [],
+    bookings: [],
+    payments: [],
+    disputes: [],
+    transactions: [],
   }
 }
 
@@ -414,14 +394,6 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
   const actions = useMemo<AppActions>(() => ({
     // ── Auth ──────────────────────────────────────────────────
-    login(email, password) {
-      const user = state.users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-      )
-      if (!user) return null
-      dispatch({ type: 'SET_USER', user })
-      return user
-    },
     logout() {
       dispatch({ type: 'SET_USER', user: null })
       localStorage.removeItem('token');
