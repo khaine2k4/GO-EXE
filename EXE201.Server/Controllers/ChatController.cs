@@ -219,28 +219,8 @@ namespace EXE201.Server.Controllers
 
             return Ok(msgDto);
         }
-
-        // ── GET /api/chat/test-gemini ──────────────────────────────
-        // Endpoint test nhanh kết nối và hoạt động của Gemini API
-        [HttpGet("test-gemini")]
-        [AllowAnonymous]
-        public async Task<IActionResult> TestGemini([FromQuery] string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return BadRequest("Vui lòng cung cấp tham số 'text' để kiểm tra (ví dụ: ?text=hello)");
-            }
-
-            var debugResult = await _moderationService.TestModerationDetailedAsync(text);
-            return Ok(new
-            {
-                InputText = text,
-                IsViolated = debugResult.IsViolated,
-                Reason = debugResult.Reason,
-                GeminiResponseCode = debugResult.StatusCode,
-                GeminiRawResponse = debugResult.RawResponse,
-                Status = debugResult.StatusCode == 200 ? "Success" : "ErrorFromGoogle"
-            });
-        }
     }
 }
+
+
+
