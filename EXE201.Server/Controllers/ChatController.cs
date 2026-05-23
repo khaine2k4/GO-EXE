@@ -231,26 +231,16 @@ namespace EXE201.Server.Controllers
                 return BadRequest("Vui lòng cung cấp tham số 'text' để kiểm tra (ví dụ: ?text=hello)");
             }
 
-            try
+            var debugResult = await _moderationService.TestModerationDetailedAsync(text);
+            return Ok(new
             {
-                var (isViolated, reason) = await _moderationService.ModerateMessageAsync(text, throwOnError: true);
-                return Ok(new
-                {
-                    InputText = text,
-                    IsViolated = isViolated,
-                    Reason = reason,
-                    Status = "Success"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    Status = "Error",
-                    Message = ex.Message,
-                    StackTrace = ex.StackTrace
-                });
-            }
+                InputText = text,
+                IsViolated = debugResult.IsViolated,
+                Reason = debugResult.Reason,
+                GeminiResponseCode = debugResult.StatusCode,
+                GeminiRawResponse = debugResult.RawResponse,
+                Status = debugResult.StatusCode == 200 ? "Success" : "ErrorFromGoogle"
+            });
         }
     }
 }
