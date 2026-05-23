@@ -59,7 +59,7 @@ Bạn PHẢI trả về kết quả dưới định dạng JSON chính xác như
                     }
                 };
 
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_apiKey}";
                 var jsonRequest = JsonSerializer.Serialize(requestBody);
                 var httpContent = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
 
