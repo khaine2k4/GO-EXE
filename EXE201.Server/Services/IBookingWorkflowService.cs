@@ -6,10 +6,12 @@ namespace EXE201.Server.Services
     {
         Task<List<WorkingScheduleResponse>> GetMySchedulesAsync(long ownerId);
         Task<WorkingScheduleResponse?> UpsertScheduleAsync(long ownerId, UpsertWorkingScheduleRequest request);
+        Task<bool> UpdateSlotDurationAsync(long ownerId, int slotDurationMinutes);
         Task<List<WorkingDayResponse>> GetStudioDaysAsync(long studioId, DateOnly? from, DateOnly? to, bool includeClosed);
         Task<WorkingDayResponse?> UpsertWorkingDayAsync(long ownerId, UpsertWorkingDayRequest request);
         Task<TimeSlotResponse?> CreateSlotAsync(long ownerId, CreateTimeSlotRequest request);
         Task<bool> UpdateSlotStatusAsync(long ownerId, long slotId, string status);
+        Task<List<TimeSlotResponse>> GetStudioSlotsByDateAsync(long studioId, DateOnly date);
 
         Task<BookingResponse?> CreateBookingAsync(long customerId, CreateBookingRequest request);
         Task<List<BookingResponse>> GetBookingsForUserAsync(long userId, string role, string? status);
@@ -22,5 +24,8 @@ namespace EXE201.Server.Services
 
         Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role);
         Task<PaymentResponse?> PayBookingAsync(long customerId, PayBookingRequest request);
+        Task<int> ExpirePendingBookingsAsync();
+        Task<string?> CreateVnPayPaymentUrlAsync(long customerId, long bookingId, string ipAddress);
+        Task<bool> ProcessVnPayReturnAsync(Dictionary<string, string> vnpayParams);
     }
 }

@@ -15,7 +15,7 @@ public partial class TimeSlot
 
     public string Status { get; set; } = null!;
 
-    public virtual Booking? Booking { get; set; }
+    public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual WorkingDay WorkingDay { get; set; } = null!;
 }

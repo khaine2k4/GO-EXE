@@ -187,4 +187,30 @@ namespace EXE201.Server.DTOs
         public string? CompletedAt { get; set; }
         public string? PaidAt { get; set; }
     }
+
+    public class SettlementDto
+    {
+        public long SettlementId { get; set; }
+        public long BookingId { get; set; }
+        public string BookingCode { get; set; } = null!;
+        public long StudioId { get; set; }
+        public string StudioName { get; set; } = null!;
+        public string CustomerName { get; set; } = null!;
+        public string BookingStatus { get; set; } = null!;
+        public decimal GrossAmount { get; set; }
+        public decimal PlatformFeePercent { get; set; }
+        public decimal PlatformFeeAmount { get; set; }
+        public decimal StudioAmount { get; set; }
+        public string Status { get; set; } = null!;
+        public string PayoutMethod { get; set; } = null!;
+        public string? CompletedAt { get; set; }
+        public string? PaidAt { get; set; }
+        public string CreatedAt { get; set; } = null!;
+        public string UpdatedAt { get; set; } = null!;
+    }
+
+    public class SettlementPayoutRequestDto
+    {
+        public string? PayoutMethod { get; set; }
+    }
 }

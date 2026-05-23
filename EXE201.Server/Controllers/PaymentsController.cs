@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using EXE201.Server.DTOs;
 using EXE201.Server.Services;
+using EXE201.Server.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,10 +13,12 @@ namespace EXE201.Server.Controllers
     public class PaymentsController : ControllerBase
     {
         private readonly IBookingWorkflowService _bookingService;
+        private readonly IBookingWorkflowRepository _repo;
 
-        public PaymentsController(IBookingWorkflowService bookingService)
+        public PaymentsController(IBookingWorkflowService bookingService, IBookingWorkflowRepository repo)
         {
             _bookingService = bookingService;
+            _repo = repo;
         }
 
         [HttpGet]
@@ -32,7 +35,88 @@ namespace EXE201.Server.Controllers
             return payment == null ? BadRequest("Payment cannot be completed.") : Ok(payment);
         }
 
+        [HttpPost("vnpay-create")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> CreateVnPayPayment([FromBody] VnPayCreatePaymentRequestDto request)
+        {
+            if (request == null || request.BookingId <= 0)
+            {
+                return BadRequest("Invalid booking ID.");
+            }
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            // Clean IPv6 loopback
+            if (ipAddress == "::1") ipAddress = "127.0.0.1";
+
+            string? paymentUrl;
+            try
+            {
+                paymentUrl = await _bookingService.CreateVnPayPaymentUrlAsync(GetCurrentUserId(), request.BookingId, ipAddress);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            if (string.IsNullOrEmpty(paymentUrl))
+            {
+                return BadRequest("Could not create VNPay payment URL for this booking. Please verify the booking state and hold expiry.");
+            }
+
+            return Ok(new { paymentUrl });
+        }
+
+        [HttpGet("vnpay-return")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VnPayReturn()
+        {
+            var vnpayParams = Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString());
+            vnpayParams.TryGetValue("vnp_TxnRef", out var paymentCode);
+            
+            long bookingId = 0;
+            if (!string.IsNullOrEmpty(paymentCode))
+            {
+                var booking = await _repo.GetBookingByPaymentCodeAsync(paymentCode);
+                if (booking != null)
+                {
+                    bookingId = booking.BookingId;
+                }
+            }
+
+            var success = await _bookingService.ProcessVnPayReturnAsync(vnpayParams);
+            var status = success ? "success" : "fail";
+
+            // Redirect back to frontend
+            return Redirect($"http://localhost:5173/customer/bookings/{bookingId}?paymentStatus={status}");
+        }
+
+        [HttpGet("vnpay-ipn")]
+        [AllowAnonymous]
+        public async Task<IActionResult> VnPayIpn()
+        {
+            var vnpayParams = Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString());
+            var success = await _bookingService.ProcessVnPayReturnAsync(vnpayParams);
+            if (success)
+            {
+                return Ok(new { RspCode = "00", Message = "Confirm success" });
+            }
+
+            vnpayParams.TryGetValue("vnp_ResponseCode", out var responseCode);
+            if (responseCode != "00")
+            {
+                // Payment was processed as failed/cancelled
+                return Ok(new { RspCode = "00", Message = "Confirm success" });
+            }
+
+            return Ok(new { RspCode = "97", Message = "Invalid signature or order not found" });
+        }
+
         private long GetCurrentUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         private string GetCurrentRole() => User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+    }
+
+    public class VnPayCreatePaymentRequestDto
+    {
+        public long BookingId { get; set; }
     }
 }

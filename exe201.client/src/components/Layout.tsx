@@ -15,8 +15,11 @@ const NAV: Record<string, { label: string; to: string }[]> = {
   ],
   PHOTOGRAPHER: [
     { label: 'Dashboard', to: '/photographer/dashboard' },
+    { label: 'Bookings', to: '/photographer/bookings' },
     { label: 'Revenue', to: '/photographer/revenue' },
     { label: 'Commissions', to: '/photographer/commissions' },
+    { label: 'Settlements', to: '/photographer/finance' },
+    { label: 'Schedule', to: '/photographer/schedule' },
     { label: 'Booking Stats', to: '/photographer/booking-stats' },
     { label: 'Commission Setting', to: '/photographer/commission-setting' },
     { label: 'Services', to: '/photographer/services' },

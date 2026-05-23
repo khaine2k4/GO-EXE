@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
@@ -52,6 +52,8 @@ public partial class PhotoStudioBookingContext : DbContext
     public virtual DbSet<Service> Services { get; set; }
 
     public virtual DbSet<ServiceImage> ServiceImages { get; set; }
+
+    public virtual DbSet<Settlement> Settlements { get; set; }
 
     public virtual DbSet<Studio> Studios { get; set; }
 
@@ -112,13 +114,16 @@ public partial class PhotoStudioBookingContext : DbContext
 
             entity.HasIndex(e => e.StatusId, "IX_bookings_status");
 
+            entity.HasIndex(e => new { e.StatusId, e.PaymentExpiresAt }, "IX_bookings_status_expiry")
+                .HasFilter("([payment_expires_at] IS NOT NULL)");
+
             entity.HasIndex(e => e.StudioId, "IX_bookings_studio");
 
             entity.HasIndex(e => e.BookingCode, "UQ__bookings__FF29040F50FEF837").IsUnique();
 
             entity.HasIndex(e => e.SlotId, "UX_bookings_slot_active")
                 .IsUnique()
-                .HasFilter("([status_id]<>(3) AND [status_id]<>(4))");
+                .HasFilter("([status_id]<>(6) AND [status_id]<>(7))");
 
             entity.Property(e => e.BookingId).HasColumnName("booking_id");
             entity.Property(e => e.BookingCode)
@@ -148,6 +153,7 @@ public partial class PhotoStudioBookingContext : DbContext
             entity.Property(e => e.DisputedAt).HasColumnName("disputed_at");
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.PackageId).HasColumnName("package_id");
+            entity.Property(e => e.PaymentExpiresAt).HasColumnName("payment_expires_at");
             entity.Property(e => e.RejectReason).HasColumnName("reject_reason");
             entity.Property(e => e.RejectedAt).HasColumnName("rejected_at");
             entity.Property(e => e.ShootingDate).HasColumnName("shooting_date");
@@ -186,8 +192,8 @@ public partial class PhotoStudioBookingContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_bookings_package");
 
-            entity.HasOne(d => d.Slot).WithOne(p => p.Booking)
-                .HasForeignKey<Booking>(d => d.SlotId)
+            entity.HasOne(d => d.Slot).WithMany(p => p.Bookings)
+                .HasForeignKey(d => d.SlotId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_bookings_slot");
 
@@ -513,12 +519,24 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasMaxLength(30)
                 .IsUnicode(false)
                 .HasColumnName("payment_code");
+            entity.Property(e => e.PaymentProvider)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasDefaultValue("VNPAY_SANDBOX")
+                .HasColumnName("payment_provider");
             entity.Property(e => e.PaymentStatusId).HasColumnName("payment_status_id");
             entity.Property(e => e.ProviderRef)
                 .HasMaxLength(255)
                 .IsUnicode(false)
                 .HasColumnName("provider_ref");
             entity.Property(e => e.RefundReason).HasColumnName("refund_reason");
+            entity.Property(e => e.RefundMethod)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("refund_method");
+            entity.Property(e => e.RefundPendingReason)
+                .HasMaxLength(255)
+                .HasColumnName("refund_pending_reason");
             entity.Property(e => e.RefundedAt).HasColumnName("refunded_at");
             entity.Property(e => e.TransactionCode)
                 .HasMaxLength(255)
@@ -572,6 +590,61 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasMaxLength(20)
                 .IsUnicode(false)
                 .HasColumnName("status_name");
+        });
+
+        modelBuilder.Entity<Settlement>(entity =>
+        {
+            entity.HasKey(e => e.SettlementId).HasName("PK__settleme__D1B1EF858E987B36");
+
+            entity.ToTable("settlements");
+
+            entity.HasIndex(e => e.BookingId, "UX_settlements_booking").IsUnique();
+
+            entity.HasIndex(e => new { e.StudioId, e.Status }, "IX_settlements_studio_status");
+
+            entity.Property(e => e.SettlementId).HasColumnName("settlement_id");
+            entity.Property(e => e.BookingId).HasColumnName("booking_id");
+            entity.Property(e => e.StudioId).HasColumnName("studio_id");
+            entity.Property(e => e.GrossAmount)
+                .HasColumnType("decimal(12, 0)")
+                .HasColumnName("gross_amount");
+            entity.Property(e => e.PlatformFeePercent)
+                .HasDefaultValue(10m)
+                .HasColumnType("decimal(5, 2)")
+                .HasColumnName("platform_fee_percent");
+            entity.Property(e => e.PlatformFeeAmount)
+                .HasColumnType("decimal(12, 0)")
+                .HasColumnName("platform_fee_amount");
+            entity.Property(e => e.StudioAmount)
+                .HasColumnType("decimal(12, 0)")
+                .HasColumnName("studio_amount");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("PENDING")
+                .HasColumnName("status");
+            entity.Property(e => e.PayoutMethod)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasDefaultValue("MANUAL")
+                .HasColumnName("payout_method");
+            entity.Property(e => e.PaidAt).HasColumnName("paid_at");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Booking).WithOne(p => p.Settlement)
+                .HasForeignKey<Settlement>(d => d.BookingId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_settlements_bookings");
+
+            entity.HasOne(d => d.Studio).WithMany(p => p.Settlements)
+                .HasForeignKey(d => d.StudioId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_settlements_studios");
         });
 
         modelBuilder.Entity<Report>(entity =>
@@ -862,6 +935,9 @@ public partial class PhotoStudioBookingContext : DbContext
                 .IsUnicode(false)
                 .HasDefaultValue("PENDING")
                 .HasColumnName("status");
+            entity.Property(e => e.SlotDurationMinutes)
+                .HasDefaultValue(60)
+                .HasColumnName("slot_duration_minutes");
             entity.Property(e => e.StudioName)
                 .HasMaxLength(255)
                 .HasColumnName("studio_name");

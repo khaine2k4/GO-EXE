@@ -71,6 +71,7 @@ pnpm-debug.log*
 # 5. Local Database / Application Data
 # --------------------------------------------------------------------
 App_Data/
+EXE201.Server/.keys/
 
 # --------------------------------------------------------------------
 # 6. Local Notes & Work-In-Progress

@@ -32,12 +32,31 @@ namespace EXE201.Server.Controllers
             return schedule == null ? BadRequest("Invalid schedule or studio not found.") : Ok(schedule);
         }
 
+        [HttpPut("mine/slot-duration")]
+        [Authorize(Roles = "STUDIO_OWNER")]
+        public async Task<IActionResult> UpdateSlotDuration([FromBody] UpdateSlotDurationRequest request)
+        {
+            var success = await _bookingService.UpdateSlotDurationAsync(GetCurrentUserId(), request.SlotDurationMinutes);
+            return success ? Ok(new { message = "Slot duration updated." }) : BadRequest("Invalid slot duration or studio not found.");
+        }
+
         [HttpGet("studios/{studioId:long}/days")]
         public async Task<IActionResult> GetStudioDays(long studioId, [FromQuery] string? from, [FromQuery] string? to, [FromQuery] bool includeClosed = false)
         {
             DateOnly? fromDate = DateOnly.TryParse(from, out var parsedFrom) ? parsedFrom : null;
             DateOnly? toDate = DateOnly.TryParse(to, out var parsedTo) ? parsedTo : null;
             return Ok(await _bookingService.GetStudioDaysAsync(studioId, fromDate, toDate, includeClosed));
+        }
+
+        [HttpGet("studios/{studioId:long}/slots")]
+        public async Task<IActionResult> GetStudioSlots(long studioId, [FromQuery] string date)
+        {
+            if (!DateOnly.TryParse(date, out var parsedDate))
+            {
+                return BadRequest("Invalid date. Use YYYY-MM-DD.");
+            }
+
+            return Ok(await _bookingService.GetStudioSlotsByDateAsync(studioId, parsedDate));
         }
 
         [HttpPut("days")]

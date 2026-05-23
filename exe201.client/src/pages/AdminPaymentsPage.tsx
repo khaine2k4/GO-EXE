@@ -20,6 +20,7 @@ const statusOptions: { value: AdminPaymentStatus; label: string }[] = [
   { value: 'FAILED', label: 'Failed' },
   { value: 'REFUNDED', label: 'Refunded' },
   { value: 'CANCELLED', label: 'Cancelled' },
+  { value: 'REFUND_PENDING', label: 'Refund Pending' },
 ]
 
 const methodOptions: { value: AdminPaymentMethod; label: string }[] = [
@@ -31,7 +32,7 @@ const methodOptions: { value: AdminPaymentMethod; label: string }[] = [
   { value: 'PAYPAL', label: 'PayPal' },
 ]
 
-const updateStatusOptions: Exclude<AdminPaymentStatus, 'ALL'>[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'CANCELLED']
+const updateStatusOptions: Exclude<AdminPaymentStatus, 'ALL'>[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'CANCELLED', 'REFUND_PENDING']
 
 function formatVnd(value?: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} VND`
@@ -443,6 +444,7 @@ function PaymentStatusBadge({ status }: { status: string }) {
     FAILED: 'border-rose-200 bg-rose-50 text-rose-700',
     REFUNDED: 'border-slate-200 bg-slate-50 text-slate-600',
     CANCELLED: 'border-slate-200 bg-slate-50 text-slate-500',
+    REFUND_PENDING: 'border-indigo-200 bg-indigo-50 text-indigo-700',
   }
   return <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium ${config[status] ?? config.PENDING}`}>{status}</span>
 }

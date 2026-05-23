@@ -33,6 +33,8 @@ public partial class Studio
 
     public decimal CommissionPercent { get; set; }
 
+    public int SlotDurationMinutes { get; set; }
+
     public decimal AvgRating { get; set; }
 
     public int TotalReviews { get; set; }
@@ -88,6 +90,8 @@ public partial class Studio
     public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
 
     public virtual ICollection<Service> Services { get; set; } = new List<Service>();
+
+    public virtual ICollection<Settlement> Settlements { get; set; } = new List<Settlement>();
 
     public virtual ICollection<StudioPortfolio> StudioPortfolios { get; set; } = new List<StudioPortfolio>();
 
