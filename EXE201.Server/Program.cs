@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
+using EXE201.Server.Hubs;
 
 namespace EXE201.Server
 {
@@ -18,13 +19,17 @@ namespace EXE201.Server
             builder.Services.AddProblemDetails();
             builder.Services.AddDbContext<exe201.Server.Models.PhotoStudioBookingContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+            builder.Services.AddSignalR();
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
                 {
-                    policy.AllowAnyOrigin()
+                    // SignalR WebSocket cần AllowCredentials nên không dùng AllowAnyOrigin
+                    policy.WithOrigins("http://localhost:5173", "https://localhost:5173",
+                                       "http://localhost:56076", "https://localhost:56076")
                           .AllowAnyMethod()
-                          .AllowAnyHeader();
+                          .AllowAnyHeader()
+                          .AllowCredentials();
                 });
             });
 
@@ -38,6 +43,7 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Services.IAddressService, EXE201.Server.Services.AddressService>();
             builder.Services.AddScoped<EXE201.Server.Repositories.IAdminRepository, EXE201.Server.Repositories.AdminRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IAdminService, EXE201.Server.Services.AdminService>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.IChatRepository, EXE201.Server.Repositories.ChatRepository>();
             builder.Services.AddScoped<EXE201.Server.Repositories.ICatalogRepository, EXE201.Server.Repositories.CatalogRepository>();
             builder.Services.AddScoped<EXE201.Server.Repositories.IStudioRevenueRepository, EXE201.Server.Repositories.StudioRevenueRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.ICatalogService, EXE201.Server.Services.CatalogService>();
@@ -62,6 +68,20 @@ namespace EXE201.Server
                     ValidIssuer = jwtSettings["Issuer"],
                     ValidAudience = jwtSettings["Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!))
+                };
+                // SignalR gửi token qua query string khi dùng WebSocket
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
                 };
             });
 
@@ -147,6 +167,7 @@ namespace EXE201.Server
 
 
             app.MapControllers();
+            app.MapHub<ChatHub>("/hubs/chat");  // SignalR endpoint
 
             app.MapFallbackToFile("/index.html");
 

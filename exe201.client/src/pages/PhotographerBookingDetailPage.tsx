@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, UploadCloud, ImageIcon, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, UploadCloud, ImageIcon, CheckCircle, Clock, AlertTriangle, MessageCircle } from 'lucide-react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
@@ -229,6 +229,22 @@ export default function PhotographerBookingDetailPage() {
         <div className="space-y-8 sticky top-8">
           <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-100">
             <div className="bg-slate-50/50 p-6 md:p-8 rounded-[28px]">
+              <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4">Khách hàng</div>
+              <div className="mb-6 border-b border-slate-100/50 pb-6">
+                <div className="text-[17px] font-black tracking-tight text-slate-900">{booking.customerName}</div>
+                <button
+                  onClick={() => {
+                    const studio = state.photographers.find(p => p.id === state.currentUser?.id);
+                    if (studio) {
+                      nav(`/chat?studioId=${studio.id}&customerId=${booking.customerId}&bookingId=${booking.id}`);
+                    }
+                  }}
+                  className="mt-3 flex w-full h-11 items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/50 text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100 transition-all active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI KHÁCH HÀNG
+                </button>
+              </div>
+
               <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-6">Thông số giao dịch</div>
 
               <div className="space-y-6">
