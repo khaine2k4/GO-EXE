@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, MapPin, RotateCcw } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, MapPin, RotateCcw, MessageCircle } from 'lucide-react'
 import { cancelBooking, getBooking, type BookingDto } from '../services/bookingApi'
 import { useToast } from '../components/Toast'
 
@@ -83,6 +83,12 @@ export default function CustomerBookingDetailPage() {
                 <RotateCcw className="h-4 w-4" /> Hủy booking
               </button>
             )}
+            <button
+              onClick={() => nav(`/chat?studioId=${booking.studioId}&bookingId=${booking.id}`)}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-4 text-xs font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100"
+            >
+              <MessageCircle className="h-4.5 w-4.5" /> Nhắn tin với Studio
+            </button>
           </div>
         </div>
 

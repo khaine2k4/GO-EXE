@@ -8,6 +8,7 @@ import {
   ImageIcon,
   UploadCloud,
   XCircle,
+  MessageCircle,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToast } from '../components/Toast'
@@ -357,7 +358,7 @@ export default function PhotographerBookingDetailPage() {
                 <button
                   onClick={handleAddMockImage}
                   disabled={uploadingImage}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/55 transition-all shadow-sm active:scale-95 disabled:opacity-55"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all shadow-sm active:scale-95 disabled:opacity-55"
                 >
                   <UploadCloud className="h-3.5 w-3.5" />
                   {uploadingImage ? 'Đang tải...' : 'Upload File Mới'}
@@ -458,8 +459,21 @@ export default function PhotographerBookingDetailPage() {
           {/* Detail Parameters */}
           <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-100">
             <div className="bg-slate-50/50 p-6 md:p-8 rounded-[28px] space-y-6">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">Khách hàng</div>
+                <div className="text-[17px] font-black tracking-tight text-slate-900">{booking.customerName}</div>
+                <button
+                  onClick={() => nav(`/chat?studioId=${booking.studioId}&customerId=${booking.customerId}&bookingId=${booking.id}`)}
+                  className="mt-3 flex w-full h-11 items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/50 text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100 transition-all active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI KHÁCH HÀNG
+                </button>
+              </div>
+
+              <div className="h-px bg-slate-200 mx-2" />
+
               <div className="text-[11px] font-black uppercase tracking-widest text-slate-400">
-                Thông tin dịch vụ
+                Thông số giao dịch
               </div>
 
               <div className="space-y-4">

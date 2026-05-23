@@ -40,6 +40,7 @@ import AdminSupportPage from './pages/AdminSupportPage'
 import AdminReviewsPage from './pages/AdminReviewsPage'
 import FAQPage from './pages/FAQPage'
 import ProfilePage from './pages/ProfilePage'
+import ChatPage from './pages/ChatPage'
 import { useAppStore } from './store/AppStore'
 
 function RequireAuth({ children, role }: { children: React.ReactNode; role?: string }) {
@@ -117,6 +118,9 @@ export default function App() {
         } />
         <Route path="/profile" element={
           <RequireAuth><ProfilePage /></RequireAuth>
+        } />
+        <Route path="/chat" element={
+          <RequireAuth><ChatPage /></RequireAuth>
         } />
 
         {/* Photographer */}
