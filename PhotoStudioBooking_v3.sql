@@ -328,7 +328,7 @@ CREATE TABLE time_slots (
     working_day_id BIGINT    NOT NULL,
     start_time     TIME(0)   NOT NULL,
     end_time       TIME(0)   NOT NULL,
-    -- 'OPEN' | 'BOOKED' | 'BLOCKED'
+    -- 'OPEN' | 'HOLDING' | 'BOOKED' | 'CLOSED'
     status         VARCHAR(10) NOT NULL DEFAULT 'OPEN',
 
     CONSTRAINT FK_time_slots_working_days FOREIGN KEY (working_day_id) REFERENCES working_days(working_day_id),
@@ -374,6 +374,7 @@ CREATE TABLE bookings (
     commission_percent DECIMAL(5,2)   NOT NULL DEFAULT 10,
     commission_amount  DECIMAL(12,0)  NOT NULL DEFAULT 0,
     studio_revenue     DECIMAL(12,0)  NOT NULL DEFAULT 0,
+    payment_expires_at DATETIME2,
 
     -- Lifecycle timestamps
     confirmed_at       DATETIME2,
@@ -410,6 +411,9 @@ GO
 CREATE INDEX IX_bookings_customer ON bookings(customer_id);
 CREATE INDEX IX_bookings_studio   ON bookings(studio_id);
 CREATE INDEX IX_bookings_status   ON bookings(status_id);
+CREATE INDEX IX_bookings_status_expiry
+    ON bookings(status_id, payment_expires_at)
+    WHERE payment_expires_at IS NOT NULL;
 CREATE INDEX IX_bookings_date     ON bookings(shooting_date);
 CREATE INDEX IX_bookings_code     ON bookings(booking_code);
 
@@ -519,6 +523,7 @@ CREATE TABLE settlements (
 );
 GO
 CREATE INDEX IX_settlements_studio_status ON settlements(studio_id, status);
+CREATE UNIQUE INDEX UX_settlements_booking ON settlements(booking_id);
 GO
 
 -- ================================================================
@@ -822,13 +827,13 @@ BEGIN
     INSERT INTO bookings (
         customer_id, studio_id, package_id, slot_id, status_id,
         booking_code, shooting_date, shooting_location, note,
-        total_price, commission_percent, commission_amount, studio_revenue,
+        total_price, commission_percent, commission_amount, studio_revenue, payment_expires_at,
         created_by
     )
     VALUES (
         @customer_id, @studio_id, @package_id, @slot_id, @status_pending,
         @booking_code, @shooting_date, @shooting_location, @note,
-        @total_price, @commission_pct, @commission_amount, @studio_revenue,
+        @total_price, @commission_pct, @commission_amount, @studio_revenue, DATEADD(MINUTE, 15, SYSUTCDATETIME()),
         @customer_id
     );
 
