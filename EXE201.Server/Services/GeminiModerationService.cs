@@ -31,13 +31,15 @@ namespace EXE201.Server.Services
                 var systemPrompt = @"Bạn là hệ thống kiểm duyệt tin nhắn tự động của sàn thương mại điện tử nhiếp ảnh GO!. 
 Mục tiêu duy nhất của bạn là ngăn chặn người dùng (khách hàng hoặc nhiếp ảnh gia) tìm cách trao đổi thông tin liên hệ riêng hoặc giao dịch trực tiếp bên ngoài hệ thống để tránh phí sàn (platform leakage / bypass).
 
+BẤT KỲ TIN NHẮN NÀO CHỨA SỐ ĐIỆN THOẠI, ZALO, FACEBOOK, TELEGRAM, EMAIL HOẶC ĐỀ XUẤT CHUYỂN KHOẢN NGOÀI, THANH TOÁN RIÊNG ĐỀU PHẢI BỊ COI LÀ VI PHẠM 100%.
+
 Hãy phân tích tin nhắn sau đây và xác định xem người dùng có đang vi phạm các quy định sau không:
 1. Chia sẻ thông tin liên hệ cá nhân: số điện thoại, số Zalo, link Facebook/Instagram/Telegram, email, hoặc số tài khoản ngân hàng.
-2. Đề xuất hoặc gợi ý giao dịch ngoài hệ thống: thanh toán chuyển khoản trực tiếp, giao dịch tiền mặt riêng, book lịch trực tiếp bên ngoài, hoặc dùng các cụm từ ẩn ý giao dịch riêng (ví dụ: 'gặp riêng', 'bank trực tiếp', 'ck ngoài', 'giao dịch ngoài', v.v.).
+2. Đề xuất hoặc gợi ý giao dịch ngoài hệ thống: thanh toán chuyển khoản trực tiếp, giao dịch tiền mặt riêng, book lịch trực tiếp bên ngoài, hoặc dùng các cụm từ ẩn ý giao dịch riêng (ví dụ: 'gặp riêng', 'bank trực tiếp', 'ck ngoài', 'giao dịch ngoài', 'sđt', v.v.).
 
 Bạn PHẢI trả về kết quả dưới định dạng JSON chính xác như sau và không chứa thêm bất kỳ văn bản nào khác:
 {
-  ""isViolated"": true hoặc false (boolean),
+  ""isViolated"": true hoặc false (phải là kiểu dữ liệu boolean, không nằm trong dấu ngoặc kép),
   ""reason"": ""Giải thích ngắn gọn lý do vi phạm bằng tiếng Việt, ví dụ: 'Phát hiện số điện thoại và đề xuất giao dịch ngoài hệ thống' hoặc để trống nếu không vi phạm""
 }";
 
@@ -91,15 +93,34 @@ Bạn PHẢI trả về kết quả dưới định dạng JSON chính xác như
                     return (false, string.Empty);
                 }
 
-                var moderationResult = JsonSerializer.Deserialize<GeminiModerationResult>(textResponse, new JsonSerializerOptions
+                using var parsedTextDoc = JsonDocument.Parse(textResponse);
+                var textRoot = parsedTextDoc.RootElement;
+                
+                bool isViolated = false;
+                if (textRoot.TryGetProperty("isViolated", out var isViolatedProp))
                 {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                if (moderationResult != null)
-                {
-                    return (moderationResult.IsViolated, moderationResult.Reason);
+                    if (isViolatedProp.ValueKind == JsonValueKind.True)
+                    {
+                        isViolated = true;
+                    }
+                    else if (isViolatedProp.ValueKind == JsonValueKind.False)
+                    {
+                        isViolated = false;
+                    }
+                    else if (isViolatedProp.ValueKind == JsonValueKind.String)
+                    {
+                        var strVal = isViolatedProp.GetString()?.ToLowerInvariant();
+                        isViolated = strVal == "true" || strVal == "yes" || strVal == "1";
+                    }
                 }
+
+                string reason = string.Empty;
+                if (textRoot.TryGetProperty("reason", out var reasonProp))
+                {
+                    reason = reasonProp.GetString() ?? string.Empty;
+                }
+
+                return (isViolated, reason);
             }
             catch (Exception ex)
             {
