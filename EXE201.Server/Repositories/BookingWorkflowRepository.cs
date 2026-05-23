@@ -50,6 +50,8 @@ namespace EXE201.Server.Repositories
         {
             var query = _context.WorkingDays
                 .Include(d => d.TimeSlots)
+                    .ThenInclude(s => s.Bookings)
+                    .ThenInclude(b => b.Status)
                 .Where(d => d.StudioId == studioId)
                 .AsQueryable();
 
@@ -63,6 +65,8 @@ namespace EXE201.Server.Repositories
         public async Task<WorkingDay?> GetWorkingDayWithSlotsAsync(long studioId, DateOnly date)
             => await _context.WorkingDays
                 .Include(d => d.TimeSlots)
+                    .ThenInclude(s => s.Bookings)
+                    .ThenInclude(b => b.Status)
                 .FirstOrDefaultAsync(d => d.StudioId == studioId && d.WorkingDate == date);
 
         public void AddWorkingDay(WorkingDay day)
@@ -75,12 +79,23 @@ namespace EXE201.Server.Repositories
                 .Include(s => s.WorkingDay)
                 .FirstOrDefaultAsync(s => s.SlotId == slotId);
 
+        public async Task<List<TimeSlot>> GetSlotsByStudioDateAsync(long studioId, DateOnly date)
+            => await _context.TimeSlots
+                .Include(s => s.WorkingDay)
+                .Include(s => s.Bookings)
+                    .ThenInclude(b => b.Status)
+                .Where(s => s.WorkingDay.StudioId == studioId && s.WorkingDay.WorkingDate == date)
+                .OrderBy(s => s.StartTime)
+                .ToListAsync();
+
         /// <summary>
         /// Reload slot directly (no Include) for use inside a transaction to check status before
         /// committing — prevents double-booking race conditions when two requests race for the same slot.
         /// </summary>
         public async Task<TimeSlot?> GetSlotForUpdateAsync(long slotId)
-            => await _context.TimeSlots.FirstOrDefaultAsync(s => s.SlotId == slotId);
+            => await _context.TimeSlots
+                .FromSqlInterpolated($"SELECT * FROM time_slots WITH (UPDLOCK, ROWLOCK) WHERE slot_id = {slotId}")
+                .FirstOrDefaultAsync();
 
         public void AddSlot(TimeSlot slot)
             => _context.TimeSlots.Add(slot);
@@ -96,6 +111,34 @@ namespace EXE201.Server.Repositories
 
         public async Task<Booking?> GetFullBookingAsync(long bookingId)
             => await BookingQuery().FirstOrDefaultAsync(b => b.BookingId == bookingId);
+
+        public async Task<Booking?> GetBookingForUpdateAsync(long bookingId)
+            => await _context.Bookings
+                .FromSqlInterpolated($"SELECT * FROM bookings WITH (UPDLOCK, ROWLOCK) WHERE booking_id = {bookingId}")
+                .Include(b => b.Customer)
+                .Include(b => b.Studio)
+                .Include(b => b.Package)
+                .Include(b => b.Status)
+                .Include(b => b.Slot).ThenInclude(s => s.WorkingDay)
+                .Include(b => b.Payments).ThenInclude(p => p.Method)
+                .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
+                .FirstOrDefaultAsync();
+
+        public async Task<bool> SlotHasActiveBookingAsync(long slotId)
+            => await _context.Bookings.AnyAsync(b =>
+                b.SlotId == slotId &&
+                b.Status.StatusName != "CANCELLED" &&
+                b.Status.StatusName != "REJECTED");
+
+        public async Task<List<Booking>> GetExpiredPendingPaymentBookingsAsync(long pendingPaymentStatusId, DateTime now, int batchSize)
+            => await BookingQuery()
+                .AsNoTracking()
+                .Where(b => b.StatusId == pendingPaymentStatusId &&
+                            b.PaymentExpiresAt != null &&
+                            b.PaymentExpiresAt <= now)
+                .OrderBy(b => b.PaymentExpiresAt)
+                .Take(batchSize)
+                .ToListAsync();
 
         public async Task<List<Booking>> GetBookingsByCustomerAsync(long customerId, string? status)
         {
@@ -115,6 +158,10 @@ namespace EXE201.Server.Repositories
 
         public void AddBooking(Booking booking)
             => _context.Bookings.Add(booking);
+
+        public async Task<Booking?> GetBookingByPaymentCodeAsync(string paymentCode)
+            => await BookingQuery()
+                .FirstOrDefaultAsync(b => b.Payments.Any(p => p.PaymentCode == paymentCode));
 
         // ── Booking Status ───────────────────────────────────────────────────
 
@@ -151,6 +198,14 @@ namespace EXE201.Server.Repositories
 
         public void AddPayment(Payment payment)
             => _context.Payments.Add(payment);
+
+        // Settlement
+
+        public async Task<bool> SettlementExistsAsync(long bookingId)
+            => await _context.Settlements.AnyAsync(s => s.BookingId == bookingId);
+
+        public void AddSettlement(Settlement settlement)
+            => _context.Settlements.Add(settlement);
 
         // ── Private helpers ──────────────────────────────────────────────────
 

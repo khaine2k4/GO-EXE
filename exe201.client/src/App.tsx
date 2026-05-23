@@ -1,3 +1,5 @@
+// PhotoMarket App Routing Configuration
+import React from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import AdminLayout from './components/AdminLayout'
@@ -14,9 +16,12 @@ import PhotographerDashboardPage from './pages/PhotographerDashboardPage'
 import PhotographerWalletPage from './pages/PhotographerWalletPage'
 import PhotographerRevenuePage from './pages/PhotographerRevenuePage'
 import PhotographerCommissionsPage from './pages/PhotographerCommissionsPage'
+import PhotographerFinancePage from './pages/PhotographerFinancePage'
+import PhotographerSchedulePage from './pages/PhotographerSchedulePage'
 import PhotographerBookingStatsPage from './pages/PhotographerBookingStatsPage'
 import PhotographerCommissionSettingPage from './pages/PhotographerCommissionSettingPage'
 import PhotographerBookingDetailPage from './pages/PhotographerBookingDetailPage'
+import PhotographerBookingsPage from './pages/PhotographerBookingsPage'
 import PhotographerServicesPage from './pages/PhotographerServicesPage'
 import PhotographerPackagesPage from './pages/PhotographerPackagesPage'
 import AdminUsersPage from './pages/AdminUsersPage'
@@ -26,6 +31,7 @@ import AdminServicesPage from './pages/AdminServicesPage'
 import AdminPaymentsPage from './pages/AdminPaymentsPage'
 import AdminRevenuePage from './pages/AdminRevenuePage'
 import AdminCommissionsPage from './pages/AdminCommissionsPage'
+import AdminSettlementsPage from './pages/AdminSettlementsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -36,7 +42,6 @@ import FAQPage from './pages/FAQPage'
 import ProfilePage from './pages/ProfilePage'
 import ChatPage from './pages/ChatPage'
 import { useAppStore } from './store/AppStore'
-
 
 function RequireAuth({ children, role }: { children: React.ReactNode; role?: string }) {
   const { state } = useAppStore()
@@ -64,7 +69,6 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-
       {/* Admin Dedicated Workspace Sidebar Layout */}
       <Route element={<RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>}>
         <Route path="/admin/users" element={<AdminUsersPage />} />
@@ -73,6 +77,7 @@ export default function App() {
         <Route path="/admin/payments" element={<AdminPaymentsPage />} />
         <Route path="/admin/revenue" element={<AdminRevenuePage />} />
         <Route path="/admin/commissions" element={<AdminCommissionsPage />} />
+        <Route path="/admin/settlements" element={<AdminSettlementsPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
         <Route path="/admin/reviews" element={<AdminReviewsPage />} />
         <Route path="/admin/categories" element={<AdminCategoriesPage />} />
@@ -137,11 +142,20 @@ export default function App() {
         <Route path="/photographer/commissions" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerCommissionsPage /></RequireAuth>
         } />
+        <Route path="/photographer/finance" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerFinancePage /></RequireAuth>
+        } />
+        <Route path="/photographer/schedule" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerSchedulePage /></RequireAuth>
+        } />
         <Route path="/photographer/booking-stats" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingStatsPage /></RequireAuth>
         } />
         <Route path="/photographer/commission-setting" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerCommissionSettingPage /></RequireAuth>
+        } />
+        <Route path="/photographer/bookings" element={
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingsPage /></RequireAuth>
         } />
         <Route path="/photographer/bookings/:id" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingDetailPage /></RequireAuth>

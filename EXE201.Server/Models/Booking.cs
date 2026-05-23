@@ -33,6 +33,8 @@ public partial class Booking
 
     public decimal StudioRevenue { get; set; }
 
+    public DateTime? PaymentExpiresAt { get; set; }
+
     public DateTime? ConfirmedAt { get; set; }
 
     public DateTime? RejectedAt { get; set; }
@@ -78,6 +80,8 @@ public partial class Booking
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
 
     public virtual Review? Review { get; set; }
+
+    public virtual Settlement? Settlement { get; set; }
 
     public virtual TimeSlot Slot { get; set; } = null!;
 

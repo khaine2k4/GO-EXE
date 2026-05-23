@@ -8,5 +8,6 @@ namespace EXE201.Server.Services
         Task<List<StudioCommissionDto>?> GetCommissionsAsync(long ownerId, DateTime? from = null, DateTime? to = null, string? search = null, string? sortBy = null);
         Task<StudioBookingStatisticsDto?> GetBookingStatisticsAsync(long ownerId, DateTime? from = null, DateTime? to = null);
         Task<StudioCommissionSettingDto?> GetCommissionSettingAsync(long ownerId);
+        Task<List<SettlementDto>?> GetSettlementsAsync(long ownerId, string? status = null);
     }
 }

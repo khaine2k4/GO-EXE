@@ -427,6 +427,41 @@ namespace EXE201.Server.Controllers
             }
         }
 
+        [HttpGet("settlements")]
+        public async Task<IActionResult> GetSettlements(
+            [FromQuery] string? status,
+            [FromQuery] long? studioId,
+            [FromQuery] string? search,
+            [FromQuery] string? sortBy)
+        {
+            try
+            {
+                return Ok(await _adminService.GetSettlementsAsync(status, studioId, search, sortBy));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("settlements/{id:long}/payout")]
+        public async Task<IActionResult> MarkSettlementPaid(long id, [FromBody] SettlementPayoutRequestDto request)
+        {
+            try
+            {
+                var settlement = await _adminService.MarkSettlementPaidAsync(id, request ?? new SettlementPayoutRequestDto(), GetAdminId());
+                return settlement == null ? NotFound("Settlement not found.") : Ok(new { message = "Settlement marked as paid.", settlement });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpGet("reviews")]
         public async Task<IActionResult> GetReviews([FromQuery] string? search, [FromQuery] bool? isHidden)
         {

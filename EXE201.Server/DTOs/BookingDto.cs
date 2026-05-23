@@ -38,6 +38,11 @@ namespace EXE201.Server.DTOs
         public bool IsActive { get; set; } = true;
     }
 
+    public class UpdateSlotDurationRequest
+    {
+        public int SlotDurationMinutes { get; set; }
+    }
+
     public class UpsertWorkingDayRequest
     {
         public string Date { get; set; } = null!;
@@ -85,6 +90,8 @@ namespace EXE201.Server.DTOs
         public decimal TotalPrice { get; set; }
         public decimal CommissionAmount { get; set; }
         public decimal StudioRevenue { get; set; }
+        public string? PaymentExpiresAt { get; set; }
+        public bool CanCancel { get; set; }
         public string CreatedAt { get; set; } = null!;
         public PaymentResponse? LatestPayment { get; set; }
     }
@@ -102,11 +109,14 @@ namespace EXE201.Server.DTOs
         public string PaymentCode { get; set; } = null!;
         public string MethodName { get; set; } = null!;
         public string Status { get; set; } = null!;
+        public string PaymentProvider { get; set; } = null!;
         public decimal Amount { get; set; }
         public string CurrencyCode { get; set; } = null!;
         public string? TransactionCode { get; set; }
         public string? PaidAt { get; set; }
         public string? RefundedAt { get; set; }
+        public string? RefundMethod { get; set; }
+        public string? RefundPendingReason { get; set; }
         public string CreatedAt { get; set; } = null!;
     }
 

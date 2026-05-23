@@ -456,6 +456,58 @@ namespace EXE201.Server.Repositories
             return bookings.Select(MapAdminCommission).ToList();
         }
 
+        public async Task<List<SettlementDto>> GetSettlementsAsync(string? status = null, long? studioId = null, string? search = null, string? sortBy = null)
+        {
+            var query = SettlementQuery();
+
+            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
+                query = query.Where(s => s.Status == status);
+
+            if (studioId.HasValue)
+                query = query.Where(s => s.StudioId == studioId.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim().ToLower();
+                query = query.Where(s =>
+                    s.Booking.BookingCode.ToLower().Contains(q) ||
+                    s.Studio.StudioName.ToLower().Contains(q) ||
+                    s.Booking.Customer.FullName.ToLower().Contains(q));
+            }
+
+            query = (sortBy ?? "newest") switch
+            {
+                "oldest" => query.OrderBy(s => s.CreatedAt),
+                "amount_desc" => query.OrderByDescending(s => s.StudioAmount),
+                "amount_asc" => query.OrderBy(s => s.StudioAmount),
+                "status" => query.OrderBy(s => s.Status).ThenByDescending(s => s.CreatedAt),
+                _ => query.OrderByDescending(s => s.CreatedAt),
+            };
+
+            var settlements = await query.ToListAsync();
+            return settlements.Select(MapSettlement).ToList();
+        }
+
+        public async Task<SettlementDto?> MarkSettlementPaidAsync(long settlementId, string? payoutMethod = null)
+        {
+            var settlement = await SettlementQuery()
+                .FirstOrDefaultAsync(s => s.SettlementId == settlementId);
+
+            if (settlement == null) return null;
+            if (settlement.Status is "PAID" or "CANCELLED")
+                throw new InvalidOperationException("Settlement cannot be paid in its current status.");
+
+            settlement.Status = "PAID";
+            settlement.PayoutMethod = string.IsNullOrWhiteSpace(payoutMethod)
+                ? settlement.PayoutMethod
+                : payoutMethod.Trim().ToUpperInvariant();
+            settlement.PaidAt = DateTime.UtcNow;
+            settlement.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return MapSettlement(settlement);
+        }
+
         private async Task<Service?> GetServiceForModerationAsync(long serviceId)
         {
             return await _context.Services
@@ -475,6 +527,14 @@ namespace EXE201.Server.Repositories
                 .Include(p => p.Booking).ThenInclude(b => b.Studio)
                 .Include(p => p.Booking).ThenInclude(b => b.Package)
                 .Include(p => p.Booking).ThenInclude(b => b.Status);
+        }
+
+        private IQueryable<Settlement> SettlementQuery()
+        {
+            return _context.Settlements
+                .Include(s => s.Studio)
+                .Include(s => s.Booking).ThenInclude(b => b.Customer)
+                .Include(s => s.Booking).ThenInclude(b => b.Status);
         }
 
         private IQueryable<Booking> ValidRevenueBookingsQuery(DateTime? from, DateTime? to)
@@ -620,6 +680,30 @@ namespace EXE201.Server.Repositories
                 BookingStatus = booking.Status.StatusName,
                 CompletedAt = booking.CompletedAt?.ToString("O"),
                 PaidAt = paidPayment.PaidAt?.ToString("O")
+            };
+        }
+
+        private static SettlementDto MapSettlement(Settlement settlement)
+        {
+            return new SettlementDto
+            {
+                SettlementId = settlement.SettlementId,
+                BookingId = settlement.BookingId,
+                BookingCode = settlement.Booking.BookingCode,
+                StudioId = settlement.StudioId,
+                StudioName = settlement.Studio.StudioName,
+                CustomerName = settlement.Booking.Customer.FullName,
+                BookingStatus = settlement.Booking.Status.StatusName,
+                GrossAmount = settlement.GrossAmount,
+                PlatformFeePercent = settlement.PlatformFeePercent,
+                PlatformFeeAmount = settlement.PlatformFeeAmount,
+                StudioAmount = settlement.StudioAmount,
+                Status = settlement.Status,
+                PayoutMethod = settlement.PayoutMethod,
+                CompletedAt = settlement.Booking.CompletedAt?.ToString("O"),
+                PaidAt = settlement.PaidAt?.ToString("O"),
+                CreatedAt = settlement.CreatedAt.ToString("O"),
+                UpdatedAt = settlement.UpdatedAt.ToString("O")
             };
         }
     }

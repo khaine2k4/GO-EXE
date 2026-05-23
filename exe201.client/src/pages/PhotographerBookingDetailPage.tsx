@@ -1,100 +1,256 @@
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, UploadCloud, ImageIcon, CheckCircle, Clock, AlertTriangle, MessageCircle } from 'lucide-react'
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAppStore } from '../store/AppStore'
-import WatermarkImage from '../components/WatermarkImage'
-import StatusTimeline from '../components/StatusTimeline'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  ImageIcon,
+  UploadCloud,
+  XCircle,
+  MessageCircle,
+} from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useToast } from '../components/Toast'
+import {
+  completeBooking,
+  confirmBooking,
+  getBooking,
+  markInProgress,
+  rejectBooking,
+  type BookingDto,
+} from '../services/bookingApi'
 
-function formatVnd(v: number) { return new Intl.NumberFormat('vi-VN').format(v) + ' ₫' }
-function formatDate(iso: string) { return new Date(iso).toLocaleDateString('vi-VN', { dateStyle: 'medium' }) }
+function formatVnd(value?: number) {
+  return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} VND`
+}
 
-// Full size standard images for delivery simulation
+function formatDate(dateStr?: string) {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatDateTime(dateTimeStr?: string) {
+  if (!dateTimeStr) return '-'
+  return new Date(dateTimeStr).toLocaleString('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING_PAYMENT: 'CHỜ THANH TOÁN',
+  PENDING_CONFIRMATION: 'CHỜ XÁC NHẬN',
+  CONFIRMED: 'ĐÃ XÁC NHẬN',
+  IN_PROGRESS: 'ĐANG THỰC HIỆN',
+  COMPLETED: 'HOÀN THÀNH',
+  CANCELLED: 'ĐÃ HỦY',
+  REJECTED: 'TỪ CHỐI',
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  PENDING_PAYMENT: 'bg-amber-50 text-amber-600 ring-amber-100',
+  PENDING_CONFIRMATION: 'bg-blue-50 text-blue-600 ring-blue-100',
+  CONFIRMED: 'bg-blue-50 text-[var(--color-azure)] ring-blue-100',
+  IN_PROGRESS: 'bg-yellow-50 text-yellow-600 ring-yellow-100',
+  COMPLETED: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+  CANCELLED: 'bg-slate-50 text-slate-400 ring-slate-100',
+  REJECTED: 'bg-rose-50 text-rose-600 ring-rose-100',
+}
+
 const DELIVERY_IMGS_POOL = [
   'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=1600&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1529634806980-85c3dd6d34ac?w=1600&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=1600&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1527529482837-4698179dc6ce?w=1600&auto=format&fit=crop&q=80'
+  'https://images.unsplash.com/photo-1527529482837-4698179dc6ce?w=1600&auto=format&fit=crop&q=80',
 ]
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'CHỜ XÁC NHẬN', CONFIRMED: 'ĐÃ XÁC NHẬN', DELIVERED: 'ĐÃ GIAO ẢNH',
-  COMPLETED: 'HOÀN THÀNH', DISPUTED: 'KHIẾU NẠI', REFUNDED: 'HOÀN TIỀN', CANCELLED: 'ĐÃ HỦY',
-}
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: 'bg-amber-50 text-amber-600 ring-amber-100',
-  CONFIRMED: 'bg-blue-50 text-blue-600 ring-blue-100',
-  DELIVERED: 'bg-blue-50 text-[var(--color-azure)] ring-blue-100',
-  COMPLETED: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-  DISPUTED: 'bg-rose-50 text-rose-600 ring-rose-100',
-  REFUNDED: 'bg-slate-50 text-slate-500 ring-slate-100',
-  CANCELLED: 'bg-slate-50 text-slate-400 ring-slate-100',
-}
 
 export default function PhotographerBookingDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { state, actions } = useAppStore()
   const nav = useNavigate()
   const toast = useToast()
 
-  const [loading, setLoading] = useState(false)
+  const [booking, setBooking] = useState<BookingDto | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [stagedImages, setStagedImages] = useState<string[]>([])
 
-  const booking = state.bookings.find((b) => b.id === id)
+  const loadBooking = async () => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const data = await getBooking(id)
+      setBooking(data)
+      // If it was completed, simulate some delivered images
+      if (data.status === 'COMPLETED') {
+        setStagedImages([
+          DELIVERY_IMGS_POOL[0],
+          DELIVERY_IMGS_POOL[1],
+          DELIVERY_IMGS_POOL[2],
+        ])
+      }
+    } catch {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi tải dữ liệu',
+        message: 'Không tìm thấy booking hoặc có lỗi kết nối.',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  if (!booking) {
+  useEffect(() => {
+    loadBooking()
+  }, [id])
+
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-        <div className="text-xl font-black tracking-tight text-slate-900 uppercase">Booking Not Found</div>
-        <button onClick={() => nav('/photographer/dashboard')} className="mt-6 text-xs font-black uppercase tracking-widest text-[var(--color-azure)] hover:text-[var(--color-azure-dark)] transition-all">← QUAY LẠI STUDIO</button>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-azure)] border-t-transparent" />
+        <p className="mt-4 text-sm font-bold uppercase tracking-wider">Đang tải chi tiết hợp đồng...</p>
       </div>
     )
   }
 
-  const payment = state.payments.find(p => p.bookingId === booking.id)
-
-  const canConfirm = booking.status === 'PENDING'
-  const canDeliver = booking.status === 'CONFIRMED'
-  const hasDelivered = booking.status === 'DELIVERED' || booking.status === 'COMPLETED'
-
-  async function handleConfirmJob() {
-    if (!booking) return
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 600))
-    actions.confirmJob(booking.id)
-    toast.push({ type: 'success', title: 'Job Confirmed! 📸', message: 'Bạn đã xác nhận nhận job. Hãy bắt đầu chuẩn bị!' })
-    setLoading(false)
+  if (!booking) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+        <XCircle className="h-12 w-12 text-rose-300" />
+        <div className="mt-4 text-xl font-black tracking-tight text-slate-900 uppercase">
+          Không tìm thấy hợp đồng
+        </div>
+        <button
+          onClick={() => nav('/photographer/bookings')}
+          className="mt-6 text-xs font-black uppercase tracking-widest text-[var(--color-azure)] hover:text-[var(--color-azure-dark)] transition-all"
+        >
+          ← QUAY LẠI DANH SÁCH
+        </button>
+      </div>
+    )
   }
 
-  async function handleDeliver() {
-    if (!booking) return
+  const currentBooking = booking
+  const canConfirm = currentBooking.status === 'PENDING_CONFIRMATION'
+  const canStart = currentBooking.status === 'CONFIRMED'
+  const canComplete = currentBooking.status === 'IN_PROGRESS'
+
+  async function handleConfirmJob() {
+    setActionLoading(true)
+    try {
+      await confirmBooking(currentBooking.id)
+      toast.push({
+        type: 'success',
+        title: 'Thành công 📸',
+        message: 'Bạn đã xác nhận nhận job chụp ảnh này!',
+      })
+      await loadBooking()
+    } catch {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Không thể xác nhận job này.',
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleRejectJob() {
+    const reason = prompt('Nhập lý do từ chối (không bắt buộc):')
+    if (reason === null) return // Cancelled prompt
+    setActionLoading(true)
+    try {
+      await rejectBooking(currentBooking.id, reason || undefined)
+      toast.push({
+        type: 'success',
+        title: 'Từ chối thành công',
+        message: 'Lịch chụp đã được từ chối.',
+      })
+      await loadBooking()
+    } catch {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Không thể từ chối lịch chụp.',
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleStartJob() {
+    setActionLoading(true)
+    try {
+      await markInProgress(currentBooking.id)
+      toast.push({
+        type: 'success',
+        title: 'Bắt đầu chụp ✨',
+        message: 'Lịch chụp đã bắt đầu. Chúc bạn có buổi chụp tuyệt vời!',
+      })
+      await loadBooking()
+    } catch {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Không thể cập nhật sang đang thực hiện.',
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleCompleteJob() {
     if (stagedImages.length === 0) {
-      toast.push({ type: 'error', title: 'Thiếu File', message: 'Hãy upload ít nhất 1 ảnh để giao sản phẩm.' })
+      toast.push({
+        type: 'error',
+        title: 'Thiếu Album Giao Ảnh',
+        message: 'Vui lòng upload ít nhất 1 ảnh sản phẩm mẫu trước khi hoàn thành.',
+      })
       return
     }
 
-    setLoading(true)
-    await new Promise((r) => setTimeout(r, 800))
-    actions.deliverPhotos(booking.id, stagedImages)
-    toast.push({ type: 'success', title: 'Giao hàng thành công! ✨', message: 'Khách hàng sẽ nhận được thông báo kiểm tra ảnh.' })
-    setLoading(false)
+    setActionLoading(true)
+    try {
+      await completeBooking(currentBooking.id)
+      toast.push({
+        type: 'success',
+        title: 'Hoàn thành Job! 🎉',
+        message: 'Hợp đồng đã hoàn tất. Doanh thu của bạn đã được quyết toán!',
+      })
+      await loadBooking()
+    } catch {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Không thể hoàn thành lịch chụp này.',
+      })
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   async function handleAddMockImage() {
     setUploadingImage(true)
-    await new Promise((r) => setTimeout(r, 600))
-    const randomImg = DELIVERY_IMGS_POOL[Math.floor(Math.random() * DELIVERY_IMGS_POOL.length)]
-    setStagedImages(prev => [...prev, randomImg])
+    await new Promise((r) => setTimeout(r, 500))
+    const randomImg = DELIVERY_IMGS_POOL[stagedImages.length % DELIVERY_IMGS_POOL.length]
+    setStagedImages((prev) => [...prev, randomImg])
     setUploadingImage(false)
   }
 
   return (
     <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      <button onClick={() => nav('/photographer/dashboard')} className="mb-8 inline-flex items-center gap-2.5 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> QUAY LẠI STUDIO
+      <button
+        onClick={() => nav('/photographer/bookings')}
+        className="mb-8 inline-flex items-center gap-2.5 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" /> QUAY LẠI DANH SÁCH
       </button>
 
       {/* Premium Header */}
@@ -102,65 +258,108 @@ export default function PhotographerBookingDetailPage() {
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl font-black tracking-tight text-slate-900">Chi tiết Hợp đồng</h1>
-            <span className={`inline-flex items-center gap-1.5 rounded-full ring-1 ring-inset px-3.5 py-1 text-[10px] font-black uppercase tracking-widest ${STATUS_COLOR[booking.status]}`}>
-              {STATUS_LABEL[booking.status]}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full ring-1 ring-inset px-3.5 py-1 text-[10px] font-black uppercase tracking-widest ${
+                STATUS_COLOR[booking.status] ?? STATUS_COLOR.PENDING_PAYMENT
+              }`}
+            >
+              {STATUS_LABEL[booking.status] ?? booking.status}
             </span>
           </div>
           <p className="mt-2 text-[14px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            CONTRACT <span className="text-slate-300">#{booking.id}</span> · KHÁCH HÀNG: <span className="text-slate-900">{booking.customerName}</span>
+            MÃ BOOKING <span className="text-slate-900 font-mono">#{booking.bookingCode}</span> · KHÁCH: <span className="text-slate-900">{booking.customerName}</span>
           </p>
         </div>
 
         {/* Dynamic Actions */}
         <div className="flex gap-3 flex-wrap">
           {canConfirm && (
-            <button onClick={handleConfirmJob} disabled={loading}
-              className={`inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-900 px-8 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-slate-900/20 transition-all active:scale-[0.98] ${loading ? 'opacity-50' : 'hover:bg-slate-800'}`}>
-              <CheckCircle className="h-4 w-4" />
-              {loading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN NHẬN JOB'}
+            <>
+              <button
+                onClick={handleConfirmJob}
+                disabled={actionLoading}
+                className="inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-900 hover:bg-slate-800 px-6 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-slate-900/10 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Xác nhận Nhận Job
+              </button>
+              <button
+                onClick={handleRejectJob}
+                disabled={actionLoading}
+                className="inline-flex h-12 items-center gap-2 rounded-2xl bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 px-6 text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                Từ chối
+              </button>
+            </>
+          )}
+          {canStart && (
+            <button
+              onClick={handleStartJob}
+              disabled={actionLoading}
+              className="inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-azure)] hover:bg-[var(--color-azure-dark)] px-8 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,113,227,0.16)] transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              Bắt đầu chụp (In Progress)
             </button>
           )}
-          {canDeliver && (
-            <button onClick={handleDeliver} disabled={loading}
-              className={`inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-azure)] px-8 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,113,227,0.16)] transition-all active:scale-[0.98] ${loading ? 'opacity-50' : 'hover:bg-[var(--color-azure-dark)]'}`}>
-              <UploadCloud className="h-4 w-4" />
-              {loading ? 'ĐANG GIAO...' : 'GIAO ẢNH CHO KHÁCH'}
+          {canComplete && (
+            <button
+              onClick={handleCompleteJob}
+              disabled={actionLoading}
+              className="inline-flex h-12 items-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-8 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-emerald-600/10 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              Giao ảnh & Hoàn thành Job
             </button>
           )}
         </div>
       </div>
 
-      {/* Status Info Banners */}
-      <AnimatePresence mode="wait">
-        {booking.status === 'PENDING' && (
-          <StatusBanner type="warning" title="Hợp đồng đang chờ xác nhận ⏳" message="Khách hàng đã thanh toán bảo lãnh vào Escrow. Hãy xác nhận để nhận job và cam kết ngày chụp." />
-        )}
-        {booking.status === 'DISPUTED' && (
-          <StatusBanner type="error" title="Tranh chấp đang xử lý ⚠️" message={`Khách hàng đã gửi khiếu nại. Lý do: "${booking.disputeReason}". Admin sẽ liên hệ trạm trọng tài.`} />
-        )}
-      </AnimatePresence>
+      {/* Info Banners */}
+      {booking.status === 'PENDING_CONFIRMATION' && (
+        <StatusBanner
+          type="warning"
+          title="Hợp đồng đang chờ bạn xác nhận ⏳"
+          message="Khách hàng đã đặt cọc trực tuyến. Vui lòng xác nhận lịch hẹn này để nhận công việc hoặc từ chối để hoàn tiền tự động."
+        />
+      )}
+      {booking.status === 'PENDING_PAYMENT' && (
+        <StatusBanner
+          type="warning"
+          title="Đang chờ khách hàng thanh toán giữ slot 💳"
+          message="Giao dịch nháp đã được tạo. Khách có tối đa 15 phút để hoàn tất thanh toán trước khi slot tự động bị thu hồi."
+        />
+      )}
+      {booking.status === 'REJECTED' && (
+        <StatusBanner
+          type="error"
+          title="Hợp đồng đã bị từ chối ❌"
+          message="Studio đã từ chối lịch chụp này. Giao dịch thanh toán được hệ thống chuyển sang hàng chờ hoàn tiền."
+        />
+      )}
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_360px] items-start">
-        {/* Main Workspace Area */}
+        {/* Left Area */}
         <div className="space-y-10">
-          {/* Photo Delivery Workspace */}
-          <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100 transition-all">
+          {/* Photo Workspace Delivery */}
+          <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/30 px-8 py-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm text-slate-900">
-                  <ImageIcon className="h-5 w-5" />
+                  <ImageIcon className="h-5 w-5 text-[var(--color-azure)]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 leading-tight">Album Giao Sản Phẩm</h2>
+                  <h2 className="text-lg font-black text-slate-900 leading-tight">Album Giao Sản Phẩm (Demo)</h2>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    {hasDelivered ? `${booking.images.length} FILES ĐÃ GIAO` : `${stagedImages.length} FILES CHỜ GIAO`}
+                    {stagedImages.length} files trong album
                   </p>
                 </div>
               </div>
 
-              {canDeliver && (
-                <button onClick={handleAddMockImage} disabled={uploadingImage}
-                  className={`inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-4 py-2 text-xs font-medium transition-all shadow-sm active:scale-95 ${uploadingImage ? 'text-slate-300' : 'text-[var(--color-azure)] hover:border-[var(--color-azure)] hover:bg-blue-50/50'}`}>
+              {(booking.status === 'IN_PROGRESS' || booking.status === 'COMPLETED') && (
+                <button
+                  onClick={handleAddMockImage}
+                  disabled={uploadingImage}
+                  className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-4 py-2 text-xs font-medium text-[var(--color-azure)] hover:border-[var(--color-azure)] hover:bg-blue-50/50 transition-all shadow-sm active:scale-95 disabled:opacity-55"
+                >
                   <UploadCloud className="h-3.5 w-3.5" />
                   {uploadingImage ? 'Đang tải...' : 'Upload File Mới'}
                 </button>
@@ -168,45 +367,45 @@ export default function PhotographerBookingDetailPage() {
             </div>
 
             <div className="p-6 md:p-8">
-              {hasDelivered ? (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                  {booking.images.map((img, i) => (
-                    <WatermarkImage key={i} src={img.url} isLocked={booking.status !== 'COMPLETED'} className="aspect-square rounded-2xl overflow-hidden shadow-sm" />
-                  ))}
-                </div>
-              ) : stagedImages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 rounded-[28px] border-2 border-dashed border-slate-100 bg-slate-50/30 text-center">
-                  <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm">
-                    <UploadCloud className="h-8 w-8 text-slate-100" />
-                  </div>
-                  <p className="text-[15px] font-black text-slate-400 uppercase tracking-widest">Không có file nào trong workspace</p>
-                  {canDeliver && (
-                    <p className="mt-2 text-xs font-bold text-slate-300 max-w-xs mx-auto">
-                      Hãy tải lên các file gốc chất lượng cao. Hệ thống sẽ tự phủ Watermark khi gửi cho khách.
-                    </p>
-                  )}
+              {stagedImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 rounded-[28px] border-2 border-dashed border-slate-100 bg-slate-50/30 text-center">
+                  <UploadCloud className="mx-auto h-12 w-12 text-slate-200" />
+                  <p className="mt-4 text-[14px] font-black text-slate-400 uppercase tracking-widest">
+                    Chưa có ảnh nào được đăng tải
+                  </p>
+                  <p className="mt-2 text-xs font-semibold text-slate-400 max-w-xs mx-auto">
+                    Trong trạng thái ĐANG THỰC HIỆN, bạn có thể tải lên các file sản phẩm xem trước cho khách hàng.
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-8">
+                <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                     {stagedImages.map((url, i) => (
-                      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} key={i}
-                        className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 group shadow-sm bg-slate-50">
-                        <img src={url} className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500" alt="Staged" />
-                        <button onClick={() => setStagedImages(prev => prev.filter((_, idx) => idx !== i))}
-                          className="absolute top-2.5 right-2.5 h-8 w-8 rounded-xl bg-slate-900/90 text-white flex items-center justify-center shadow-xl hover:bg-rose-600 backdrop-blur-sm active:scale-90 transition-all">
-                          <span className="text-xl font-bold leading-none mb-0.5">&times;</span>
-                        </button>
-                      </motion.div>
+                      <div
+                        key={i}
+                        className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 group shadow-sm bg-slate-50"
+                      >
+                        <img
+                          src={url}
+                          className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                          alt="Delivered product"
+                        />
+                        {booking.status === 'IN_PROGRESS' && (
+                          <button
+                            onClick={() => setStagedImages((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-2 right-2 h-7 w-7 rounded-lg bg-slate-900/90 text-white flex items-center justify-center hover:bg-rose-600 transition"
+                          >
+                            &times;
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
 
-                  <div className="rounded-[24px] border border-blue-100 bg-blue-50/50 p-6 flex gap-4 ring-1 ring-inset ring-white">
-                    <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-azure)] text-white shadow-lg">
-                      <CheckCircle className="h-4 w-4" />
-                    </div>
-                    <p className="text-xs font-bold text-[var(--color-slate)] leading-relaxed uppercase tracking-wider">
-                      💡 <span className="font-black">Bảo vệ tác quyền:</span> Hệ thống tự động phủ Watermark lên ảnh xem trước. Khách chỉ nhận file gốc khi thanh toán được Release.
+                  <div className="rounded-[24px] border border-blue-100 bg-blue-50/30 p-5 flex gap-3 text-xs text-[var(--color-slate)] leading-relaxed font-semibold">
+                    <span>💡</span>
+                    <p>
+                      <span className="font-black">Giao sản phẩm:</span> Dữ liệu hình ảnh được demo trực quan. Bấm Hoàn thành để lưu kết quả và giải ngân quỹ Escrow.
                     </p>
                   </div>
                 </div>
@@ -214,68 +413,137 @@ export default function PhotographerBookingDetailPage() {
             </div>
           </div>
 
-          {/* Timeline Section */}
-          <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
-            <div className="border-b border-slate-100 bg-slate-50/30 px-8 py-5">
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Lịch sử sự kiện</h2>
+          {/* Real payments block info */}
+          {booking.latestPayment && (
+            <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+              <div className="border-b border-slate-100 bg-slate-50/30 px-8 py-5 flex items-center justify-between">
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                  Thông tin thanh toán
+                </h2>
+                <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-[10px] font-black uppercase text-[var(--color-azure)]">
+                  {booking.latestPayment.status}
+                </span>
+              </div>
+              <div className="p-6 md:p-8 grid gap-4 sm:grid-cols-2 text-sm">
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mã thanh toán</span>
+                  <p className="mt-1 font-mono font-bold text-slate-800">#{booking.latestPayment.paymentCode}</p>
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cổng thanh toán / Provider</span>
+                  <p className="mt-1 font-semibold text-slate-800">
+                    {booking.latestPayment.methodName} ({booking.latestPayment.paymentProvider || 'PhotoMarket Escrow'})
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Số tiền đã đóng</span>
+                  <p className="mt-1 font-black text-slate-950">{formatVnd(Number(booking.latestPayment.amount))}</p>
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mã tham chiếu / Transaction</span>
+                  <p className="mt-1 font-mono text-slate-700">{booking.latestPayment.transactionCode || 'Chưa cập nhật'}</p>
+                </div>
+                {booking.latestPayment.paidAt && (
+                  <div className="sm:col-span-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Thời gian đóng tiền</span>
+                    <p className="mt-1 font-semibold text-slate-700">{formatDateTime(booking.latestPayment.paidAt)}</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="p-8">
-              <StatusTimeline bookingId={booking.id} />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Sidebar Summary */}
         <div className="space-y-8 sticky top-8">
+          {/* Detail Parameters */}
           <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white p-2 shadow-sm ring-1 ring-slate-100">
-            <div className="bg-slate-50/50 p-6 md:p-8 rounded-[28px]">
-              <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4">Khách hàng</div>
-              <div className="mb-6 border-b border-slate-100/50 pb-6">
+            <div className="bg-slate-50/50 p-6 md:p-8 rounded-[28px] space-y-6">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">Khách hàng</div>
                 <div className="text-[17px] font-black tracking-tight text-slate-900">{booking.customerName}</div>
                 <button
-                  onClick={() => {
-                    const studio = state.photographers.find(p => p.id === state.currentUser?.id);
-                    if (studio) {
-                      nav(`/chat?studioId=${studio.id}&customerId=${booking.customerId}&bookingId=${booking.id}`);
-                    }
-                  }}
+                  onClick={() => nav(`/chat?studioId=${booking.studioId}&customerId=${booking.customerId}&bookingId=${booking.id}`)}
                   className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--color-border)] bg-white text-sm font-medium text-[var(--color-ink)] transition hover:border-[var(--color-azure)] hover:text-[var(--color-azure)] active:scale-[0.98]"
                 >
                   <MessageCircle className="h-4 w-4" /> Nhắn tin với khách hàng
                 </button>
               </div>
 
-              <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-6">Thông số giao dịch</div>
+              <div className="h-px bg-slate-200 mx-2" />
 
-              <div className="space-y-6">
-                <DetailRow label="Dịch vụ" value={booking.packageTier} />
-                <DetailRow label="Ngày chụp" value={formatDate(booking.date)} />
-                <div className="h-px bg-slate-100 mx-2" />
+              <div className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+                Thông số giao dịch
+              </div>
 
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-[13px] font-black text-slate-400">TỔNG THU</span>
-                  <span className="text-lg font-black text-slate-900">{formatVnd(booking.totalPrice)}</span>
-                </div>
-
-                {payment && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2 text-[var(--color-azure)]">
-                      <span className="text-[11px] font-black uppercase tracking-widest">NET THỰC NHẬN</span>
-                      <span className="text-xl font-black">{formatVnd(payment.netToPhotographer)}</span>
-                    </div>
-
-                    <div className="mt-6 flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
-                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
-                        <span className="text-slate-400">TRẠNG THÁI QUỸ</span>
-                        <EscrowBadge status={payment.status} />
-                      </div>
-                      <p className="mt-1 text-[9px] font-bold text-slate-300 uppercase leading-relaxed tracking-wider">
-                        Tiền đang được giữ bởi hệ thống Escrow an toàn.
-                      </p>
-                    </div>
+              <div className="space-y-4">
+                <DetailRow label="Gói dịch vụ" value={booking.packageName} />
+                <DetailRow label="Ngày chụp" value={formatDate(booking.shootingDate)} />
+                <DetailRow label="Giờ chụp" value={`${booking.startTime} - ${booking.endTime}`} />
+                <DetailRow label="Địa điểm" value={booking.shootingLocation || 'Tại Studio'} />
+                {booking.note && (
+                  <div className="px-2">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 block">
+                      Ghi chú của khách
+                    </span>
+                    <p className="mt-1 text-xs text-slate-600 bg-white border border-slate-100 rounded-xl p-3 leading-relaxed">
+                      {booking.note}
+                    </p>
                   </div>
                 )}
+
+                <div className="h-px bg-slate-200 mx-2" />
+
+                <DetailRow label="Tạm tính" value={formatVnd(Number(booking.totalPrice))} />
+                <DetailRow label="Phí Commission" value={formatVnd(Number(booking.commissionAmount))} />
+                
+                <div className="flex items-center justify-between px-2 pt-2 border-t border-dashed border-slate-200">
+                  <span className="text-xs font-black text-[var(--color-azure)] uppercase tracking-wider">THỰC NHẬN</span>
+                  <span className="text-lg font-black text-[var(--color-azure)]">{formatVnd(Number(booking.studioRevenue))}</span>
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Workflow Timeline progress map */}
+          <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm ring-1 ring-slate-100">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6">Trình tự hợp đồng</h3>
+            <div className="relative pl-3 space-y-6">
+              <div className="absolute left-[9px] top-2 bottom-4 w-px bg-slate-100" />
+              <TimelineStep
+                label="Đặt lịch & Giữ chỗ"
+                desc="Draft booking được giữ chỗ thành công"
+                done={true}
+              />
+              <TimelineStep
+                label="Đã đặt cọc"
+                desc="Tiền đang treo ở cổng Escrow"
+                done={booking.status !== 'PENDING_PAYMENT'}
+                active={booking.status === 'PENDING_PAYMENT'}
+              />
+              <TimelineStep
+                label="Studio xác nhận"
+                desc="Chấp nhận hoặc Từ chối lịch chụp"
+                done={
+                  booking.status !== 'PENDING_PAYMENT' &&
+                  booking.status !== 'PENDING_CONFIRMATION' &&
+                  booking.status !== 'REJECTED'
+                }
+                active={booking.status === 'PENDING_CONFIRMATION'}
+                err={booking.status === 'REJECTED'}
+              />
+              <TimelineStep
+                label="Đang chụp ảnh"
+                desc="Job chụp đang được thực hiện"
+                done={booking.status === 'COMPLETED'}
+                active={booking.status === 'IN_PROGRESS'}
+              />
+              <TimelineStep
+                label="Hoàn tất quyết toán"
+                desc="Chuyển khoản doanh thu cho Studio"
+                done={booking.status === 'COMPLETED'}
+                active={booking.status === 'COMPLETED'}
+              />
             </div>
           </div>
         </div>
@@ -284,18 +552,41 @@ export default function PhotographerBookingDetailPage() {
   )
 }
 
-function StatusBanner({ type, title, message }: { type: 'warning' | 'error', title: string, message: string }) {
+function StatusBanner({
+  type,
+  title,
+  message,
+}: {
+  type: 'warning' | 'error'
+  title: string
+  message: string
+}) {
   const isWarning = type === 'warning'
   return (
-    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-      className={`mb-8 rounded-[28px] border p-6 md:p-8 shadow-sm ${isWarning ? 'border-amber-100 bg-amber-50/50' : 'border-rose-100 bg-rose-50'}`}>
-      <div className="flex items-start gap-5">
-        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm ${isWarning ? 'bg-white text-amber-600' : 'bg-white text-rose-600'}`}>
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`mb-8 rounded-3xl border p-6 md:p-8 shadow-sm ${
+        isWarning ? 'border-amber-100 bg-amber-50/40' : 'border-rose-100 bg-rose-50'
+      }`}
+    >
+      <div className="flex items-start gap-4">
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm ${
+            isWarning ? 'bg-white text-amber-600' : 'bg-white text-rose-600'
+          }`}
+        >
           {isWarning ? <Clock className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
         </div>
-        <div className="flex-1">
-          <h3 className={`text-[17px] font-black leading-tight ${isWarning ? 'text-amber-900' : 'text-rose-900'}`}>{title}</h3>
-          <p className={`mt-2 text-[14px] font-medium leading-relaxed max-w-2xl ${isWarning ? 'text-amber-700/80' : 'text-rose-700/80'}`}>{message}</p>
+        <div>
+          <h3 className={`text-base font-black leading-tight ${isWarning ? 'text-amber-900' : 'text-rose-900'}`}>
+            {title}
+          </h3>
+          <p className={`mt-2 text-xs font-semibold leading-relaxed max-w-3xl ${
+            isWarning ? 'text-amber-700/80' : 'text-rose-700/80'
+          }`}>
+            {message}
+          </p>
         </div>
       </div>
     </motion.div>
@@ -306,13 +597,49 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between px-2">
       <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-      <span className="text-[15px] font-black text-slate-800">{value}</span>
+      <span className="text-xs font-black text-slate-800 text-right max-w-[180px] truncate">{value}</span>
     </div>
   )
 }
 
-function EscrowBadge({ status }: { status: string }) {
-  if (status === 'holding') return <span className="text-amber-600 font-bold">🔒 TẠM GIỮ</span>
-  if (status === 'released') return <span className="text-emerald-600 font-bold">✅ ĐÃ THANH TOÁN</span>
-  return <span className="text-slate-400 font-bold">↩ ĐÃ HOÀN TIỀN</span>
+function TimelineStep({
+  label,
+  desc,
+  done,
+  active,
+  err,
+}: {
+  label: string
+  desc: string
+  done: boolean
+  active?: boolean
+  err?: boolean
+}) {
+  let circleClass = 'bg-slate-100 text-slate-400'
+  let labelClass = 'text-slate-400 font-semibold'
+
+  if (err) {
+    circleClass = 'bg-rose-500 text-white'
+    labelClass = 'text-rose-700 font-black'
+  } else if (active) {
+    circleClass = 'bg-white border-2 border-[var(--color-azure)] text-[var(--color-azure)] ring-4 ring-blue-50'
+    labelClass = 'text-[var(--color-azure)] font-black'
+  } else if (done) {
+    circleClass = 'bg-[var(--color-azure)] text-white'
+    labelClass = 'text-slate-900 font-bold'
+  }
+
+  return (
+    <div className="flex gap-3 items-start text-xs">
+      <div
+        className={`relative z-10 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] ${circleClass}`}
+      >
+        {err ? '×' : done && !active ? '✓' : '•'}
+      </div>
+      <div>
+        <div className={labelClass}>{label}</div>
+        <div className="mt-0.5 text-[10px] text-slate-400 font-semibold leading-snug">{desc}</div>
+      </div>
+    </div>
+  )
 }

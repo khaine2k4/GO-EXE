@@ -45,6 +45,13 @@ namespace EXE201.Server.Controllers
             return setting == null ? NotFound("Khong tim thay studio cua tai khoan hien tai.") : Ok(setting);
         }
 
+        [HttpGet("settlements")]
+        public async Task<IActionResult> GetSettlements([FromQuery] string? status)
+        {
+            var settlements = await _studioRevenueService.GetSettlementsAsync(GetCurrentUserId(), status);
+            return settlements == null ? NotFound("Khong tim thay studio cua tai khoan hien tai.") : Ok(settlements);
+        }
+
         private long GetCurrentUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     }
 }

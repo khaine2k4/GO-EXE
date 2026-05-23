@@ -19,6 +19,8 @@ public partial class Payment
 
     public string CurrencyCode { get; set; } = null!;
 
+    public string PaymentProvider { get; set; } = null!;
+
     public string? TransactionCode { get; set; }
 
     public string? ProviderRef { get; set; }
@@ -30,6 +32,10 @@ public partial class Payment
     public DateTime? RefundedAt { get; set; }
 
     public string? RefundReason { get; set; }
+
+    public string? RefundMethod { get; set; }
+
+    public string? RefundPendingReason { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

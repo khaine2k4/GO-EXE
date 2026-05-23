@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, MapPin, Star } from 'lucide-react'
+import { ArrowLeft, Camera, CalendarDays, Check, MapPin, Star } from 'lucide-react'
 import { getServiceDetail } from '../services/serviceApi'
 import { getStudioReviews } from '../services/reviewApi'
 import type { ReviewItem, ServiceDetail } from '../services/catalogTypes'
+import BookingModal from '../components/BookingModal'
 
 function formatVnd(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
@@ -17,6 +18,7 @@ export default function PhotosetDetailPage() {
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [bookingOpen, setBookingOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -139,8 +141,13 @@ export default function PhotosetDetailPage() {
               <h2 className="font-semibold text-[var(--color-ink)]">{service.studioName}</h2>
               <p className="mt-1 text-sm text-[var(--color-graphite)]">{service.addressLine || service.district || service.city}</p>
             </div>
-            <button disabled={!selectedPackage} className="primary-pill mt-5 h-12 w-full text-sm font-semibold disabled:cursor-not-allowed disabled:bg-slate-300">
-              {selectedPackage ? 'Request booking' : 'Select package'}
+            <button
+              type="button"
+              onClick={() => setBookingOpen(true)}
+              disabled={!selectedPackage}
+              className="primary-pill mt-5 h-12 w-full gap-2 text-sm font-semibold disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              <CalendarDays className="h-4 w-4" /> {selectedPackage ? 'Request booking' : 'Select package'}
             </button>
             <Link to={`/photographers/${service.studioId}`} className="secondary-pill mt-3 h-11 w-full text-sm font-semibold">
               View studio
@@ -157,6 +164,8 @@ export default function PhotosetDetailPage() {
           </div>
         </aside>
       </div>
+
+      <BookingModal open={bookingOpen} onClose={() => setBookingOpen(false)} service={service} />
     </div>
   )
 }
