@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import { ChevronDown, LogOut, Menu, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, X, MessageCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 
@@ -90,6 +90,15 @@ export default function Layout() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {user && role !== 'ADMIN' && (
+              <Link
+                to="/chat"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 hover:text-slate-950 hover:border-slate-300 shadow-sm transition"
+                title="Hộp thư Chat"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </Link>
+            )}
             {user ? (
               <div className="relative">
                 <button

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ImageIcon, CheckCircle, AlertTriangle, RotateCcw } from 'lucide-react'
+import { ArrowLeft, ImageIcon, CheckCircle, AlertTriangle, RotateCcw, MessageCircle } from 'lucide-react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
@@ -188,12 +188,20 @@ export default function CustomerBookingDetailPage() {
               <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-6">Thông tin chi tiết</div>
 
               {photographer && (
-                <div className="mb-8 flex items-center gap-4 border-b border-slate-100/50 pb-6">
-                  <img src={photographer.avatarUrl} alt={photographer.name} className="h-16 w-16 rounded-2xl object-cover ring-4 ring-white shadow-sm" />
-                  <div>
-                    <div className="text-[17px] font-black tracking-tight text-slate-900">{photographer.name}</div>
-                    <div className="mt-0.5 text-xs font-bold text-slate-400 flex items-center gap-1">📍 {photographer.location}</div>
+                <div className="mb-8 border-b border-slate-100/50 pb-6">
+                  <div className="flex items-center gap-4">
+                    <img src={photographer.avatarUrl} alt={photographer.name} className="h-16 w-16 rounded-2xl object-cover ring-4 ring-white shadow-sm" />
+                    <div>
+                      <div className="text-[17px] font-black tracking-tight text-slate-900">{photographer.name}</div>
+                      <div className="mt-0.5 text-xs font-bold text-slate-400 flex items-center gap-1">📍 {photographer.location}</div>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => nav(`/chat?studioId=${photographer.id}&bookingId=${booking.id}`)}
+                    className="mt-4 flex w-full h-11 items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/50 text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100 transition-all active:scale-[0.98]"
+                  >
+                    <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI STUDIO
+                  </button>
                 </div>
               )}
 
