@@ -50,6 +50,7 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Repositories.IBookingWorkflowRepository, EXE201.Server.Repositories.BookingWorkflowRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IBookingWorkflowService, EXE201.Server.Services.BookingWorkflowService>();
             builder.Services.AddScoped<EXE201.Server.Services.IStudioRevenueService, EXE201.Server.Services.StudioRevenueService>();
+            builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiModerationService, EXE201.Server.Services.GeminiModerationService>();
 
             var jwtSettings = builder.Configuration.GetSection("Jwt");
             builder.Services.AddAuthentication(options =>

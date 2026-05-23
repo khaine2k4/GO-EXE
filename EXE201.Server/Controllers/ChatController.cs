@@ -17,12 +17,18 @@ namespace EXE201.Server.Controllers
         private readonly IChatRepository _chatRepo;
         private readonly IStudioRepository _studioRepo;
         private readonly IHubContext<ChatHub> _hubContext;
+        private readonly Services.IGeminiModerationService _moderationService;
 
-        public ChatController(IChatRepository chatRepo, IStudioRepository studioRepo, IHubContext<ChatHub> hubContext)
+        public ChatController(
+            IChatRepository chatRepo, 
+            IStudioRepository studioRepo, 
+            IHubContext<ChatHub> hubContext,
+            Services.IGeminiModerationService moderationService)
         {
             _chatRepo = chatRepo;
             _studioRepo = studioRepo;
             _hubContext = hubContext;
+            _moderationService = moderationService;
         }
 
         private long GetCurrentUserId()
@@ -176,6 +182,13 @@ namespace EXE201.Server.Controllers
         public async Task<IActionResult> SendMessage(long id, [FromBody] SendMessageRequestDto dto)
         {
             var userId = GetCurrentUserId();
+
+            // 🤖 Kiểm duyệt tin nhắn bằng Gemini
+            var (isViolated, reason) = await _moderationService.ModerateMessageAsync(dto.Content);
+            if (isViolated)
+            {
+                return BadRequest($"Tin nhắn bị chặn do vi phạm chính sách của GO! ({reason})");
+            }
 
             var msg = new Message
             {

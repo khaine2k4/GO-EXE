@@ -4,6 +4,7 @@ import { Send, MessageCircle, ChevronLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '../store/AppStore'
+import { useToast } from '../components/Toast'
 import api from '../api/axios'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ function Avatar({ name, url, size = 8 }: { name: string; url?: string; size?: nu
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function ChatPage() {
   const { state } = useAppStore()
+  const toast = useToast()
   const currentUser = state.currentUser!
   const [searchParams] = useSearchParams()
 
@@ -210,6 +212,14 @@ export default function ChatPage() {
         content: text.trim()
       })
       setText('')
+    } catch (err: any) {
+      console.error('Failed to send message', err)
+      const msg = err.response?.data ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message
+      toast.push({
+        type: 'error',
+        title: 'Gửi tin nhắn thất bại',
+        message: msg
+      })
     } finally {
       setSending(false)
     }
