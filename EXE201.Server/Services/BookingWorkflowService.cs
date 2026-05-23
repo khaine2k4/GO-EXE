@@ -1,19 +1,39 @@
 using exe201.Server.Models;
 using EXE201.Server.DTOs;
 using EXE201.Server.Repositories;
+using Microsoft.Extensions.Configuration;
+using EXE201.Server.Utils;
 
 namespace EXE201.Server.Services
 {
     public class BookingWorkflowService : IBookingWorkflowService
     {
-        private readonly IBookingWorkflowRepository _repo;
+        private const string BookingPendingPayment = "PENDING_PAYMENT";
+        private const string BookingPendingConfirmation = "PENDING_CONFIRMATION";
+        private const string BookingConfirmed = "CONFIRMED";
+        private const string BookingInProgress = "IN_PROGRESS";
+        private const string BookingCompleted = "COMPLETED";
+        private const string BookingCancelled = "CANCELLED";
+        private const string BookingRejected = "REJECTED";
 
-        public BookingWorkflowService(IBookingWorkflowRepository repo)
+        private const string PaymentPending = "PENDING";
+        private const string PaymentPaid = "PAID";
+        private const string PaymentFailed = "FAILED";
+        private const string PaymentRefundPending = "REFUND_PENDING";
+
+        private const string SlotOpen = "OPEN";
+        private const string SlotHolding = "HOLDING";
+        private const string SlotBooked = "BOOKED";
+        private const string SlotClosed = "CLOSED";
+
+        private readonly IBookingWorkflowRepository _repo;
+        private readonly IConfiguration _configuration;
+
+        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration)
         {
             _repo = repo;
+            _configuration = configuration;
         }
-
-        // ── Working Schedule ─────────────────────────────────────────────────
 
         public async Task<List<WorkingScheduleResponse>> GetMySchedulesAsync(long ownerId)
         {
@@ -26,7 +46,12 @@ namespace EXE201.Server.Services
 
         public async Task<WorkingScheduleResponse?> UpsertScheduleAsync(long ownerId, UpsertWorkingScheduleRequest request)
         {
-            if (!TimeOnly.TryParse(request.OpenTime, out var openTime) || !TimeOnly.TryParse(request.CloseTime, out var closeTime)) return null;
+            if (!TimeOnly.TryParse(request.OpenTime, out var openTime) ||
+                !TimeOnly.TryParse(request.CloseTime, out var closeTime))
+            {
+                return null;
+            }
+
             if (request.DayOfWeek > 6 || openTime >= closeTime) return null;
 
             var studio = await _repo.GetOwnedStudioAsync(ownerId);
@@ -60,12 +85,31 @@ namespace EXE201.Server.Services
             return MapSchedule(schedule);
         }
 
-        // ── Working Day ──────────────────────────────────────────────────────
+        public async Task<bool> UpdateSlotDurationAsync(long ownerId, int slotDurationMinutes)
+        {
+            var allowed = new[] { 30, 60, 90, 120, 180, 240 };
+            if (!allowed.Contains(slotDurationMinutes)) return false;
+
+            var studio = await _repo.GetOwnedStudioAsync(ownerId);
+            if (studio == null) return false;
+
+            studio.SlotDurationMinutes = slotDurationMinutes;
+            studio.UpdatedAt = DateTime.UtcNow;
+            studio.UpdatedBy = ownerId;
+            await _repo.SaveChangesAsync();
+            return true;
+        }
 
         public async Task<List<WorkingDayResponse>> GetStudioDaysAsync(long studioId, DateOnly? from, DateOnly? to, bool includeClosed)
         {
             var days = await _repo.GetWorkingDaysAsync(studioId, from, to, includeClosed);
             return days.Select(MapWorkingDay).ToList();
+        }
+
+        public async Task<List<TimeSlotResponse>> GetStudioSlotsByDateAsync(long studioId, DateOnly date)
+        {
+            var slots = await _repo.GetSlotsByStudioDateAsync(studioId, date);
+            return slots.Select(MapSlot).ToList();
         }
 
         public async Task<WorkingDayResponse?> UpsertWorkingDayAsync(long ownerId, UpsertWorkingDayRequest request)
@@ -87,17 +131,34 @@ namespace EXE201.Server.Services
                     CreatedAt = DateTime.UtcNow
                 };
                 _repo.AddWorkingDay(day);
+
+                if (request.IsAvailable)
+                {
+                    var schedule = await _repo.GetScheduleAsync(studio.StudioId, (byte)date.DayOfWeek);
+                    if (schedule != null && schedule.IsActive)
+                    {
+                        GenerateSlots(day, schedule.OpenTime, schedule.CloseTime, studio.SlotDurationMinutes);
+                    }
+                }
             }
             else
             {
                 day.IsAvailable = request.IsAvailable;
                 day.Note = request.Note;
-                // Business rule: closing a day also closes all open slots
+
                 if (!request.IsAvailable)
                 {
-                    foreach (var slot in day.TimeSlots.Where(s => s.Status == "OPEN"))
+                    foreach (var slot in day.TimeSlots.Where(s => s.Status == SlotOpen))
                     {
-                        slot.Status = "CLOSED";
+                        slot.Status = SlotClosed;
+                    }
+                }
+                else if (!day.TimeSlots.Any())
+                {
+                    var schedule = await _repo.GetScheduleAsync(studio.StudioId, (byte)date.DayOfWeek);
+                    if (schedule != null && schedule.IsActive)
+                    {
+                        GenerateSlots(day, schedule.OpenTime, schedule.CloseTime, studio.SlotDurationMinutes);
                     }
                 }
             }
@@ -105,8 +166,6 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             return MapWorkingDay(day);
         }
-
-        // ── Time Slot ────────────────────────────────────────────────────────
 
         public async Task<TimeSlotResponse?> CreateSlotAsync(long ownerId, CreateTimeSlotRequest request)
         {
@@ -124,15 +183,26 @@ namespace EXE201.Server.Services
             var day = await _repo.GetWorkingDayWithSlotsAsync(studio.StudioId, date);
             if (day == null)
             {
-                day = new WorkingDay { StudioId = studio.StudioId, WorkingDate = date, IsAvailable = true, CreatedAt = DateTime.UtcNow };
+                day = new WorkingDay
+                {
+                    StudioId = studio.StudioId,
+                    WorkingDate = date,
+                    IsAvailable = true,
+                    CreatedAt = DateTime.UtcNow
+                };
                 _repo.AddWorkingDay(day);
                 await _repo.SaveChangesAsync();
             }
 
-            // Business rule: no duplicate start times in the same day
             if (day.TimeSlots.Any(s => s.StartTime == start)) return null;
 
-            var slot = new TimeSlot { WorkingDayId = day.WorkingDayId, StartTime = start, EndTime = end, Status = "OPEN" };
+            var slot = new TimeSlot
+            {
+                WorkingDayId = day.WorkingDayId,
+                StartTime = start,
+                EndTime = end,
+                Status = SlotOpen
+            };
             _repo.AddSlot(slot);
             await _repo.SaveChangesAsync();
 
@@ -143,82 +213,73 @@ namespace EXE201.Server.Services
         public async Task<bool> UpdateSlotStatusAsync(long ownerId, long slotId, string status)
         {
             status = status.ToUpperInvariant();
-            // Business rule: only OPEN/CLOSED transitions are allowed via this method; BOOKED is set by the booking flow
-            if (status != "OPEN" && status != "CLOSED") return false;
+            if (status != SlotOpen && status != SlotClosed) return false;
 
             var studio = await _repo.GetOwnedStudioAsync(ownerId);
             var slot = await _repo.GetSlotWithWorkingDayAsync(slotId);
-            if (studio == null || slot == null || slot.WorkingDay.StudioId != studio.StudioId || slot.Status == "BOOKED") return false;
+            if (studio == null || slot == null || slot.WorkingDay.StudioId != studio.StudioId) return false;
+            if (slot.Status is SlotBooked or SlotHolding) return false;
 
             slot.Status = status;
             await _repo.SaveChangesAsync();
             return true;
         }
 
-        // ── Booking ──────────────────────────────────────────────────────────
-
         public async Task<BookingResponse?> CreateBookingAsync(long customerId, CreateBookingRequest request)
         {
-            // Validate package and slot exist and belong to the same studio
             var package = await _repo.GetActivePackageWithStudioAsync(request.PackageId);
-            var slot    = await _repo.GetSlotWithWorkingDayAsync(request.SlotId);
+            var slot = await _repo.GetSlotWithWorkingDayAsync(request.SlotId);
 
             if (package == null || slot == null) return null;
-            if (slot.Status != "OPEN") return null;
+            if (slot.Status != SlotOpen) return null;
             if (slot.WorkingDay.StudioId != package.Service.StudioId) return null;
-
-            // Business rule: studio must be approved and not deleted
+            if (await _repo.SlotHasActiveBookingAsync(request.SlotId)) return null;
             if (package.Service.Studio.Status != "APPROVED" || package.Service.Studio.DeletedAt != null) return null;
 
-            var pendingStatusId = await _repo.GetBookingStatusIdAsync("PENDING");
+            var pendingStatusId = await _repo.GetBookingStatusIdAsync(BookingPendingPayment);
             if (pendingStatusId == null) return null;
 
-            // Begin transaction — re-check slot status inside the transaction to guard against
-            // double-booking race conditions (two customers submitting for the same slot at once).
             await using var tx = await _repo.BeginTransactionAsync();
 
             var freshSlot = await _repo.GetSlotForUpdateAsync(request.SlotId);
-            if (freshSlot == null || freshSlot.Status != "OPEN")
-            {
-                // Another request already booked this slot — abort
-                return null;
-            }
+            if (freshSlot == null || freshSlot.Status != SlotOpen) return null;
+            if (await _repo.SlotHasActiveBookingAsync(request.SlotId)) return null;
 
-            // Calculate commission (business logic stays in service)
             var commissionPercent = package.Service.Studio.CommissionPercent;
-            var commissionAmount  = Math.Round(package.Price * commissionPercent / 100m, 0);
+            var commissionAmount = Math.Round(package.Price * commissionPercent / 100m, 0);
+            var now = DateTime.UtcNow;
 
             var booking = new Booking
             {
-                CustomerId       = customerId,
-                StudioId         = package.Service.StudioId,
-                PackageId        = package.PackageId,
-                SlotId           = slot.SlotId,
-                StatusId         = pendingStatusId.Value,
-                BookingCode      = $"BK-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
-                ShootingDate     = slot.WorkingDay.WorkingDate,
+                CustomerId = customerId,
+                StudioId = package.Service.StudioId,
+                PackageId = package.PackageId,
+                SlotId = slot.SlotId,
+                StatusId = pendingStatusId.Value,
+                BookingCode = $"BK-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
+                ShootingDate = slot.WorkingDay.WorkingDate,
                 ShootingLocation = request.ShootingLocation,
-                Note             = request.Note,
-                TotalPrice       = package.Price,
+                Note = request.Note,
+                TotalPrice = package.Price,
                 CommissionPercent = commissionPercent,
                 CommissionAmount = commissionAmount,
-                StudioRevenue    = package.Price - commissionAmount,
-                CreatedAt        = DateTime.UtcNow,
-                UpdatedAt        = DateTime.UtcNow,
-                CreatedBy        = customerId,
-                UpdatedBy        = customerId
+                StudioRevenue = package.Price - commissionAmount,
+                PaymentExpiresAt = now.AddMinutes(GetIntSetting("BookingHoldMinutes", 15)),
+                CreatedAt = now,
+                UpdatedAt = now,
+                CreatedBy = customerId,
+                UpdatedBy = customerId
             };
 
             _repo.AddBooking(booking);
-            freshSlot.Status = "BOOKED";
+            freshSlot.Status = SlotHolding;
             await _repo.SaveChangesAsync();
 
-            AddBookingLogEntry(booking.BookingId, null, "PENDING", customerId, "Booking created");
+            AddBookingLogEntry(booking.BookingId, null, BookingPendingPayment, customerId, "Booking created and slot held");
             await CreatePendingPaymentAsync(booking, "BANK_TRANSFER");
             await _repo.SaveChangesAsync();
 
             await tx.CommitAsync();
-
             return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
@@ -238,7 +299,6 @@ namespace EXE201.Server.Services
             }
             else
             {
-                // ADMIN: return all (not currently exposed via this method, but safe fallback)
                 bookings = new List<Booking>();
             }
 
@@ -254,52 +314,97 @@ namespace EXE201.Server.Services
         }
 
         public async Task<BookingResponse?> ConfirmBookingAsync(long ownerId, long bookingId)
-            => await StudioTransitionAsync(ownerId, bookingId, "PENDING", "CONFIRMED", b => b.ConfirmedAt = DateTime.UtcNow, "Studio confirmed");
+            => await StudioTransitionAsync(
+                ownerId,
+                bookingId,
+                BookingPendingConfirmation,
+                BookingConfirmed,
+                b => b.ConfirmedAt = DateTime.UtcNow,
+                "Studio confirmed");
 
         public async Task<BookingResponse?> RejectBookingAsync(long ownerId, long bookingId, string? reason)
-            => await StudioTransitionAsync(ownerId, bookingId, "PENDING", "REJECTED", b =>
-            {
-                b.RejectedAt   = DateTime.UtcNow;
-                b.RejectReason = reason;
-                // Business rule: rejecting a booking releases the slot
-                b.Slot.Status  = "OPEN";
-            }, reason ?? "Studio rejected");
+            => await StudioTransitionAsync(
+                ownerId,
+                bookingId,
+                BookingPendingConfirmation,
+                BookingRejected,
+                b =>
+                {
+                    b.RejectedAt = DateTime.UtcNow;
+                    b.RejectReason = reason;
+                    b.Slot.Status = SlotOpen;
+                    MarkLatestPaidPaymentForRefund(b, reason ?? "Studio rejected booking");
+                },
+                reason ?? "Studio rejected");
 
         public async Task<BookingResponse?> MarkInProgressAsync(long ownerId, long bookingId)
-            => await StudioTransitionAsync(ownerId, bookingId, "CONFIRMED", "IN_PROGRESS", _ => { }, "Studio started booking");
+            => await StudioTransitionAsync(ownerId, bookingId, BookingConfirmed, BookingInProgress, _ => { }, "Studio started booking");
 
         public async Task<BookingResponse?> CompleteBookingAsync(long ownerId, long bookingId)
-            => await StudioTransitionAsync(ownerId, bookingId, "IN_PROGRESS", "COMPLETED", b => b.CompletedAt = DateTime.UtcNow, "Studio completed booking");
+            => await StudioTransitionAsync(
+                ownerId,
+                bookingId,
+                BookingInProgress,
+                BookingCompleted,
+                async b =>
+                {
+                    b.CompletedAt = DateTime.UtcNow;
+                    if (!await _repo.SettlementExistsAsync(b.BookingId))
+                    {
+                        _repo.AddSettlement(new Settlement
+                        {
+                            BookingId = b.BookingId,
+                            StudioId = b.StudioId,
+                            GrossAmount = b.TotalPrice,
+                            PlatformFeePercent = b.CommissionPercent,
+                            PlatformFeeAmount = b.CommissionAmount,
+                            StudioAmount = b.StudioRevenue,
+                            Status = "READY",
+                            PayoutMethod = "MANUAL",
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        });
+                    }
+                },
+                "Studio completed booking");
 
         public async Task<BookingResponse?> CancelBookingAsync(long userId, string role, long bookingId, string? reason)
         {
-            var booking = await _repo.GetFullBookingAsync(bookingId);
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || !await CanAccessBookingAsync(userId, role, booking)) return null;
 
-            // Business rule: terminal states cannot be cancelled
-            if (booking.Status.StatusName is "COMPLETED" or "CANCELLED" or "REJECTED") return null;
+            var oldStatus = booking.Status.StatusName;
+            if (role != "CUSTOMER") return null;
+            if (oldStatus is not (BookingPendingPayment or BookingPendingConfirmation)) return null;
 
-            var oldStatus   = booking.Status.StatusName;
-            var cancelledId = await _repo.GetBookingStatusIdAsync("CANCELLED");
+            var cancelledId = await _repo.GetBookingStatusIdAsync(BookingCancelled);
             if (cancelledId == null) return null;
 
-            booking.StatusId     = cancelledId.Value;
-            booking.CancelledAt  = DateTime.UtcNow;
-            booking.CancelledBy  = userId;
+            booking.StatusId = cancelledId.Value;
+            booking.CancelledAt = DateTime.UtcNow;
+            booking.CancelledBy = userId;
             booking.CancelReason = reason;
-            booking.UpdatedAt    = DateTime.UtcNow;
-            booking.UpdatedBy    = userId;
-            // Business rule: cancelling a booking releases the slot
-            booking.Slot.Status  = "OPEN";
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = userId;
+            booking.Slot.Status = SlotOpen;
 
+            if (oldStatus == BookingPendingPayment)
+            {
+                MarkLatestPayment(booking, PaymentFailed, "Booking cancelled before payment");
+            }
+            else if (oldStatus == BookingPendingConfirmation)
+            {
+                MarkLatestPaidPaymentForRefund(booking, reason ?? "Customer cancelled before studio confirmation");
+            }
+
+            AddBookingLogEntry(booking.BookingId, oldStatus, BookingCancelled, userId, reason ?? "Customer cancelled");
             await _repo.SaveChangesAsync();
-            AddBookingLogEntry(booking.BookingId, oldStatus, "CANCELLED", userId, reason);
-            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
 
             return await GetBookingForUserAsync(userId, role, booking.BookingId);
         }
-
-        // ── Payment ──────────────────────────────────────────────────────────
 
         public async Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role)
         {
@@ -318,62 +423,278 @@ namespace EXE201.Server.Services
 
         public async Task<PaymentResponse?> PayBookingAsync(long customerId, PayBookingRequest request)
         {
-            var booking = await _repo.GetFullBookingAsync(request.BookingId);
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(request.BookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingPendingPayment) return null;
+            if (booking.PaymentExpiresAt != null && booking.PaymentExpiresAt <= DateTime.UtcNow) return null;
 
             var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()
                 ?? await CreatePendingPaymentAsync(booking, request.MethodName);
 
-            var method     = await _repo.GetPaymentMethodAsync(request.MethodName)
-                          ?? await _repo.GetPaymentMethodAsync("BANK_TRANSFER");
-            var paidStatus = await _repo.GetPaymentStatusAsync("PAID");
-            if (method == null || paidStatus == null) return null;
+            var method = await _repo.GetPaymentMethodAsync(request.MethodName)
+                ?? await _repo.GetPaymentMethodAsync("BANK_TRANSFER");
+            var paidStatus = await _repo.GetPaymentStatusAsync(PaymentPaid);
+            var pendingConfirmationId = await _repo.GetBookingStatusIdAsync(BookingPendingConfirmation);
+            if (method == null || paidStatus == null || pendingConfirmationId == null) return null;
+            if (booking.Slot.Status != SlotHolding) return null;
 
-            payment.MethodId         = method.MethodId;
-            payment.PaymentStatusId  = paidStatus.PaymentStatusId;
-            payment.TransactionCode  = request.TransactionCode ?? $"SIM-{Guid.NewGuid().ToString("N")[..12].ToUpperInvariant()}";
-            payment.PaidAt           = DateTime.UtcNow;
-            payment.UpdatedAt        = DateTime.UtcNow;
-            await _repo.SaveChangesAsync();
-
-            payment.Method        = method;
+            payment.MethodId = method.MethodId;
+            payment.Method = method;
+            payment.PaymentStatusId = paidStatus.PaymentStatusId;
             payment.PaymentStatus = paidStatus;
+            payment.PaymentProvider = method.MethodName;
+            payment.TransactionCode = request.TransactionCode ?? $"SIM-{Guid.NewGuid().ToString("N")[..12].ToUpperInvariant()}";
+            payment.PaidAt = DateTime.UtcNow;
+            payment.UpdatedAt = DateTime.UtcNow;
+
+            booking.StatusId = pendingConfirmationId.Value;
+            booking.PaymentExpiresAt = null;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = customerId;
+            booking.Slot.Status = SlotBooked;
+
+            AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingPendingConfirmation, customerId, $"Payment simulated via {method.MethodName}");
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
             return MapPayment(payment);
         }
 
-        // ── Private: business logic helpers ──────────────────────────────────
+        public async Task<int> ExpirePendingBookingsAsync()
+        {
+            var pendingStatusId = await _repo.GetBookingStatusIdAsync(BookingPendingPayment);
+            if (pendingStatusId == null) return 0;
+
+            var now = DateTime.UtcNow;
+            var batchSize = GetIntSetting("BookingExpiryBatchSize", 100);
+            var expired = await _repo.GetExpiredPendingPaymentBookingsAsync(pendingStatusId.Value, now, batchSize);
+            var count = 0;
+
+            foreach (var item in expired)
+            {
+                await using var tx = await _repo.BeginTransactionAsync();
+                var booking = await _repo.GetBookingForUpdateAsync(item.BookingId);
+                if (booking == null ||
+                    booking.Status.StatusName != BookingPendingPayment ||
+                    booking.PaymentExpiresAt == null ||
+                    booking.PaymentExpiresAt > now)
+                {
+                    continue;
+                }
+
+                var cancelledId = await _repo.GetBookingStatusIdAsync(BookingCancelled);
+                if (cancelledId == null) continue;
+
+                booking.StatusId = cancelledId.Value;
+                booking.CancelledAt = now;
+                booking.CancelReason = "Payment hold expired";
+                booking.UpdatedAt = now;
+                booking.Slot.Status = SlotOpen;
+                MarkLatestPayment(booking, PaymentFailed, "Payment hold expired");
+                AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingCancelled, booking.CustomerId, "Payment hold expired");
+
+                await _repo.SaveChangesAsync();
+                await tx.CommitAsync();
+                count++;
+            }
+
+            return count;
+        }
+
+        public async Task<string?> CreateVnPayPaymentUrlAsync(long customerId, long bookingId, string ipAddress)
+        {
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingPendingPayment) return null;
+            if (booking.PaymentExpiresAt != null && booking.PaymentExpiresAt <= DateTime.UtcNow) return null;
+
+            var version = GetVnPaySetting("Version", "2.1.0");
+            var command = GetVnPaySetting("Command", "pay");
+            var tmnCode = GetRequiredVnPaySetting("TmnCode");
+            var hashSecret = GetRequiredVnPaySetting("HashSecret");
+            var returnUrl = GetRequiredVnPaySetting("ReturnUrl");
+            var baseUrl = GetVnPaySetting("BaseUrl", "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html");
+
+            if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
+            {
+                throw new InvalidOperationException("Invalid VNPay configuration: VnPay:BaseUrl must be an absolute URL.");
+            }
+
+            if (!Uri.TryCreate(returnUrl, UriKind.Absolute, out _))
+            {
+                throw new InvalidOperationException("Invalid VNPay configuration: VnPay:ReturnUrl must be an absolute URL.");
+            }
+
+            var vnpayMethod = await _repo.GetPaymentMethodAsync("VNPAY")
+                ?? throw new InvalidOperationException("Payment method VNPAY was not found. Please seed payment_methods first.");
+
+            // Get or create pending payment for VNPAY
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()
+                ?? await CreatePendingPaymentAsync(booking, "VNPAY");
+
+            payment.MethodId = vnpayMethod.MethodId;
+            payment.Method = vnpayMethod;
+            payment.PaymentProvider = baseUrl.Contains("sandbox", StringComparison.OrdinalIgnoreCase)
+                ? "VNPAY_SANDBOX"
+                : "VNPAY_PRODUCTION";
+
+            await _repo.SaveChangesAsync();
+
+            // Build VNPay request URL
+            var vnpay = new VnPayLibrary();
+            vnpay.AddRequestData("vnp_Version", version);
+            vnpay.AddRequestData("vnp_Command", command);
+            vnpay.AddRequestData("vnp_TmnCode", tmnCode);
+            vnpay.AddRequestData("vnp_Amount", ((long)(payment.Amount * 100)).ToString());
+            vnpay.AddRequestData("vnp_CreateDate", DateTime.UtcNow.AddHours(7).ToString("yyyyMMddHHmmss")); // VNPay expects Vietnam local time (UTC+7)
+            vnpay.AddRequestData("vnp_CurrCode", "VND");
+            vnpay.AddRequestData("vnp_IpAddr", ipAddress);
+            vnpay.AddRequestData("vnp_Locale", "vn");
+            vnpay.AddRequestData("vnp_OrderInfo", $"Thanh toan booking {booking.BookingCode}");
+            vnpay.AddRequestData("vnp_OrderType", "other");
+            vnpay.AddRequestData("vnp_ReturnUrl", returnUrl);
+            vnpay.AddRequestData("vnp_TxnRef", payment.PaymentCode);
+            if (booking.PaymentExpiresAt != null)
+            {
+                vnpay.AddRequestData("vnp_ExpireDate", booking.PaymentExpiresAt.Value.AddHours(7).ToString("yyyyMMddHHmmss"));
+            }
+
+            return vnpay.CreateRequestUrl(baseUrl, hashSecret);
+        }
+
+        public async Task<bool> ProcessVnPayReturnAsync(Dictionary<string, string> vnpayParams)
+        {
+            var hashSecret = GetVnPaySetting("HashSecret");
+            if (string.IsNullOrWhiteSpace(hashSecret)) return false;
+
+            var vnpay = new VnPayLibrary();
+            foreach (var kv in vnpayParams)
+            {
+                vnpay.AddResponseData(kv.Key, kv.Value);
+            }
+
+            vnpayParams.TryGetValue("vnp_SecureHash", out var secureHash);
+            if (string.IsNullOrEmpty(secureHash) || !vnpay.ValidateSignature(secureHash, hashSecret))
+            {
+                return false; // Signature invalid
+            }
+
+            vnpayParams.TryGetValue("vnp_TxnRef", out var paymentCode);
+            if (string.IsNullOrEmpty(paymentCode)) return false;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingByPaymentCodeAsync(paymentCode);
+            if (booking == null) return false;
+
+            var payment = booking.Payments.FirstOrDefault(p => p.PaymentCode == paymentCode);
+            if (payment == null) return false;
+
+            // Only process if payment is PENDING (prevents duplicate requests - idempotent check)
+            if (payment.PaymentStatus.StatusName != PaymentPending)
+            {
+                await tx.CommitAsync();
+                return true; // Already processed
+            }
+
+            vnpayParams.TryGetValue("vnp_ResponseCode", out var responseCode);
+            vnpayParams.TryGetValue("vnp_TransactionStatus", out var transactionStatus);
+            vnpayParams.TryGetValue("vnp_TransactionNo", out var transactionNo);
+
+            var success = responseCode == "00" && transactionStatus == "00";
+
+            if (success)
+            {
+                var paidStatus = await _repo.GetPaymentStatusAsync(PaymentPaid);
+                var pendingConfirmationId = await _repo.GetBookingStatusIdAsync(BookingPendingConfirmation);
+                if (paidStatus == null || pendingConfirmationId == null) return false;
+
+                payment.PaymentStatusId = paidStatus.PaymentStatusId;
+                payment.PaymentStatus = paidStatus;
+                payment.TransactionCode = transactionNo ?? $"VNP-{Guid.NewGuid().ToString("N")[..12].ToUpperInvariant()}";
+                payment.PaidAt = DateTime.UtcNow;
+                payment.UpdatedAt = DateTime.UtcNow;
+
+                booking.StatusId = pendingConfirmationId.Value;
+                booking.PaymentExpiresAt = null;
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.Slot.Status = SlotBooked;
+
+                AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingPendingConfirmation, booking.CustomerId, "Paid successfully via VNPAY Sandbox");
+            }
+            else
+            {
+                var failedStatus = await _repo.GetPaymentStatusAsync(PaymentFailed);
+                var cancelledId = await _repo.GetBookingStatusIdAsync(BookingCancelled);
+                if (failedStatus == null || cancelledId == null) return false;
+
+                payment.PaymentStatusId = failedStatus.PaymentStatusId;
+                payment.PaymentStatus = failedStatus;
+                payment.FailureReason = $"VNPay failed code {responseCode}";
+                payment.UpdatedAt = DateTime.UtcNow;
+
+                booking.StatusId = cancelledId.Value;
+                booking.CancelledAt = DateTime.UtcNow;
+                booking.CancelReason = $"Payment failed via VNPay";
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.Slot.Status = SlotOpen;
+
+                AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingCancelled, booking.CustomerId, $"Payment failed via VNPay: {responseCode}");
+            }
+
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return success;
+        }
 
         private async Task<BookingResponse?> StudioTransitionAsync(
-            long ownerId, long bookingId,
-            string expectedStatus, string nextStatus,
-            Action<Booking> mutate, string? note)
+            long ownerId,
+            long bookingId,
+            string expectedStatus,
+            string nextStatus,
+            Action<Booking> mutate,
+            string? note)
         {
-            var studio  = await _repo.GetOwnedStudioAsync(ownerId);
-            var booking = await _repo.GetFullBookingAsync(bookingId);
+            return await StudioTransitionAsync(ownerId, bookingId, expectedStatus, nextStatus, b =>
+            {
+                mutate(b);
+                return Task.CompletedTask;
+            }, note);
+        }
 
-            // Business rule: studio must own this booking and booking must be in the expected state
+        private async Task<BookingResponse?> StudioTransitionAsync(
+            long ownerId,
+            long bookingId,
+            string expectedStatus,
+            string nextStatus,
+            Func<Booking, Task> mutate,
+            string? note)
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var studio = await _repo.GetOwnedStudioAsync(ownerId);
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
             if (booking.Status.StatusName != expectedStatus) return null;
 
             var nextStatusId = await _repo.GetBookingStatusIdAsync(nextStatus);
             if (nextStatusId == null) return null;
 
-            mutate(booking);
-            booking.StatusId  = nextStatusId.Value;
+            await mutate(booking);
+            booking.StatusId = nextStatusId.Value;
             booking.UpdatedAt = DateTime.UtcNow;
             booking.UpdatedBy = ownerId;
-            await _repo.SaveChangesAsync();
-
             AddBookingLogEntry(booking.BookingId, expectedStatus, nextStatus, ownerId, note);
+
             await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
 
             return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", bookingId);
         }
 
-        /// <summary>
-        /// Business rule: customers see their own bookings; studio owners see their studio's bookings;
-        /// admins see all.
-        /// </summary>
         private async Task<bool> CanAccessBookingAsync(long userId, string role, Booking booking)
         {
             if (role == "ADMIN") return true;
@@ -382,7 +703,6 @@ namespace EXE201.Server.Services
             return false;
         }
 
-        /// <summary>Adds a log entry to the change tracker (caller must SaveChanges).</summary>
         private void AddBookingLogEntry(long bookingId, string? oldStatus, string newStatus, long changedBy, string? note)
         {
             _repo.AddBookingLog(new BookingLog
@@ -391,106 +711,196 @@ namespace EXE201.Server.Services
                 OldStatus = oldStatus,
                 NewStatus = newStatus,
                 ChangedBy = changedBy,
-                Note      = note,
+                Note = note,
                 ChangedAt = DateTime.UtcNow
             });
         }
 
         private async Task<Payment> CreatePendingPaymentAsync(Booking booking, string methodName)
         {
-            var method  = await _repo.GetPaymentMethodAsync(methodName)
-                       ?? await _repo.GetPaymentMethodAsync("BANK_TRANSFER")
-                       ?? throw new InvalidOperationException("Default payment method BANK_TRANSFER not found.");
-            var pending = await _repo.GetPaymentStatusAsync("PENDING")
-                       ?? throw new InvalidOperationException("Payment status PENDING not found.");
+            var method = await _repo.GetPaymentMethodAsync(methodName)
+                ?? await _repo.GetPaymentMethodAsync("BANK_TRANSFER")
+                ?? throw new InvalidOperationException("Default payment method BANK_TRANSFER not found.");
+            var pending = await _repo.GetPaymentStatusAsync(PaymentPending)
+                ?? throw new InvalidOperationException("Payment status PENDING not found.");
 
             var payment = new Payment
             {
-                BookingId       = booking.BookingId,
-                MethodId        = method.MethodId,
+                BookingId = booking.BookingId,
+                MethodId = method.MethodId,
+                Method = method,
                 PaymentStatusId = pending.PaymentStatusId,
-                PaymentCode     = $"PAY-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
-                Amount          = booking.TotalPrice,
-                CurrencyCode    = "VND",
-                CreatedAt       = DateTime.UtcNow,
-                UpdatedAt       = DateTime.UtcNow
+                PaymentStatus = pending,
+                PaymentCode = $"PAY-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
+                Amount = booking.TotalPrice,
+                CurrencyCode = "VND",
+                PaymentProvider = method.MethodName,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
             _repo.AddPayment(payment);
-            // Caller is responsible for SaveChangesAsync
-            payment.Method        = method;
-            payment.PaymentStatus = pending;
             return payment;
         }
 
-        // ── Private: mappers (entity → DTO, no DB calls) ─────────────────────
+        private void MarkLatestPayment(Booking booking, string statusName, string reason)
+        {
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+            if (payment == null) return;
+
+            var status = _repo.GetPaymentStatusAsync(statusName).GetAwaiter().GetResult();
+            if (status == null) return;
+
+            payment.PaymentStatusId = status.PaymentStatusId;
+            payment.PaymentStatus = status;
+            payment.FailureReason = statusName == PaymentFailed ? reason : payment.FailureReason;
+            payment.UpdatedAt = DateTime.UtcNow;
+        }
+
+        private void MarkLatestPaidPaymentForRefund(Booking booking, string reason)
+        {
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+            if (payment == null || payment.PaymentStatus.StatusName != PaymentPaid) return;
+            if (payment.Method.MethodName == "CASH") return;
+
+            var refundPending = _repo.GetPaymentStatusAsync(PaymentRefundPending).GetAwaiter().GetResult();
+            if (refundPending == null) return;
+
+            payment.PaymentStatusId = refundPending.PaymentStatusId;
+            payment.PaymentStatus = refundPending;
+            payment.RefundMethod = "MANUAL";
+            payment.RefundPendingReason = reason;
+            payment.RefundReason = reason;
+            payment.UpdatedAt = DateTime.UtcNow;
+        }
+
+        private static void GenerateSlots(WorkingDay day, TimeOnly openTime, TimeOnly closeTime, int durationMinutes)
+        {
+            if (durationMinutes <= 0) durationMinutes = 60;
+            var cursor = openTime;
+            var span = TimeSpan.FromMinutes(durationMinutes);
+            while (cursor.Add(span) <= closeTime)
+            {
+                var end = cursor.Add(span);
+                if (!day.TimeSlots.Any(s => s.StartTime == cursor))
+                {
+                    day.TimeSlots.Add(new TimeSlot
+                    {
+                        StartTime = cursor,
+                        EndTime = end,
+                        Status = SlotOpen
+                    });
+                }
+                cursor = end;
+            }
+        }
+
+        private int GetIntSetting(string key, int fallback)
+        {
+            return int.TryParse(_configuration[key], out var value) && value > 0 ? value : fallback;
+        }
+
+        private string GetVnPaySetting(string key, string fallback = "")
+        {
+            var value = _configuration[$"VnPay:{key}"];
+            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        }
+
+        private string GetRequiredVnPaySetting(string key)
+        {
+            var value = GetVnPaySetting(key);
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new InvalidOperationException($"Missing VNPay configuration: VnPay:{key}.");
+            }
+
+            return value;
+        }
 
         private static WorkingScheduleResponse MapSchedule(WorkingSchedule s) => new()
         {
-            Id         = s.ScheduleId,
-            StudioId   = s.StudioId,
-            DayOfWeek  = s.DayOfWeek,
-            OpenTime   = s.OpenTime.ToString("HH:mm"),
-            CloseTime  = s.CloseTime.ToString("HH:mm"),
-            IsActive   = s.IsActive
+            Id = s.ScheduleId,
+            StudioId = s.StudioId,
+            DayOfWeek = s.DayOfWeek,
+            OpenTime = s.OpenTime.ToString("HH:mm"),
+            CloseTime = s.CloseTime.ToString("HH:mm"),
+            IsActive = s.IsActive
         };
 
         private static WorkingDayResponse MapWorkingDay(WorkingDay d) => new()
         {
-            Id          = d.WorkingDayId,
-            StudioId    = d.StudioId,
-            Date        = d.WorkingDate.ToString("yyyy-MM-dd"),
+            Id = d.WorkingDayId,
+            StudioId = d.StudioId,
+            Date = d.WorkingDate.ToString("yyyy-MM-dd"),
             IsAvailable = d.IsAvailable,
-            Note        = d.Note,
-            Slots       = d.TimeSlots.OrderBy(s => s.StartTime).Select(MapSlot).ToList()
+            Note = d.Note,
+            Slots = d.TimeSlots.OrderBy(s => s.StartTime).Select(MapSlot).ToList()
         };
 
         private static TimeSlotResponse MapSlot(TimeSlot s) => new()
         {
-            Id           = s.SlotId,
+            Id = s.SlotId,
             WorkingDayId = s.WorkingDayId,
-            Date         = s.WorkingDay.WorkingDate.ToString("yyyy-MM-dd"),
-            StartTime    = s.StartTime.ToString("HH:mm"),
-            EndTime      = s.EndTime.ToString("HH:mm"),
-            Status       = s.Status
+            Date = s.WorkingDay.WorkingDate.ToString("yyyy-MM-dd"),
+            StartTime = s.StartTime.ToString("HH:mm"),
+            EndTime = s.EndTime.ToString("HH:mm"),
+            Status = GetEffectiveSlotStatus(s)
         };
 
-        private static BookingResponse MapBooking(Booking b) => new()
+        private static string GetEffectiveSlotStatus(TimeSlot slot)
         {
-            Id               = b.BookingId,
-            BookingCode      = b.BookingCode,
-            CustomerId       = b.CustomerId,
-            CustomerName     = b.Customer.FullName,
-            StudioId         = b.StudioId,
-            StudioName       = b.Studio.StudioName,
-            PackageId        = b.PackageId,
-            PackageName      = b.Package.PackageName,
-            SlotId           = b.SlotId,
-            ShootingDate     = b.ShootingDate.ToString("yyyy-MM-dd"),
-            StartTime        = b.Slot.StartTime.ToString("HH:mm"),
-            EndTime          = b.Slot.EndTime.ToString("HH:mm"),
-            ShootingLocation = b.ShootingLocation,
-            Note             = b.Note,
-            Status           = b.Status.StatusName,
-            TotalPrice       = b.TotalPrice,
-            CommissionAmount = b.CommissionAmount,
-            StudioRevenue    = b.StudioRevenue,
-            CreatedAt        = b.CreatedAt.ToString("O"),
-            LatestPayment    = b.Payments.OrderByDescending(p => p.CreatedAt).Select(MapPayment).FirstOrDefault()
-        };
+            var hasActiveBooking = slot.Bookings.Any(b =>
+                b.Status?.StatusName != BookingCancelled &&
+                b.Status?.StatusName != BookingRejected);
+
+            return hasActiveBooking && slot.Status == SlotOpen ? SlotBooked : slot.Status;
+        }
+
+        private static BookingResponse MapBooking(Booking b)
+        {
+            var status = b.Status.StatusName;
+            return new BookingResponse
+            {
+                Id = b.BookingId,
+                BookingCode = b.BookingCode,
+                CustomerId = b.CustomerId,
+                CustomerName = b.Customer.FullName,
+                StudioId = b.StudioId,
+                StudioName = b.Studio.StudioName,
+                PackageId = b.PackageId,
+                PackageName = b.Package.PackageName,
+                SlotId = b.SlotId,
+                ShootingDate = b.ShootingDate.ToString("yyyy-MM-dd"),
+                StartTime = b.Slot.StartTime.ToString("HH:mm"),
+                EndTime = b.Slot.EndTime.ToString("HH:mm"),
+                ShootingLocation = b.ShootingLocation,
+                Note = b.Note,
+                Status = status,
+                TotalPrice = b.TotalPrice,
+                CommissionAmount = b.CommissionAmount,
+                StudioRevenue = b.StudioRevenue,
+                PaymentExpiresAt = b.PaymentExpiresAt?.ToString("O"),
+                CanCancel = status is BookingPendingPayment or BookingPendingConfirmation,
+                CreatedAt = b.CreatedAt.ToString("O"),
+                LatestPayment = b.Payments.OrderByDescending(p => p.CreatedAt).Select(MapPayment).FirstOrDefault()
+            };
+        }
 
         private static PaymentResponse MapPayment(Payment p) => new()
         {
-            Id              = p.PaymentId,
-            BookingId       = p.BookingId,
-            PaymentCode     = p.PaymentCode,
-            MethodName      = p.Method.MethodName,
-            Status          = p.PaymentStatus.StatusName,
-            Amount          = p.Amount,
-            CurrencyCode    = p.CurrencyCode,
+            Id = p.PaymentId,
+            BookingId = p.BookingId,
+            PaymentCode = p.PaymentCode,
+            MethodName = p.Method.MethodName,
+            Status = p.PaymentStatus.StatusName,
+            PaymentProvider = p.PaymentProvider,
+            Amount = p.Amount,
+            CurrencyCode = p.CurrencyCode,
             TransactionCode = p.TransactionCode,
-            PaidAt          = p.PaidAt?.ToString("O"),
-            RefundedAt      = p.RefundedAt?.ToString("O"),
-            CreatedAt       = p.CreatedAt.ToString("O")
+            PaidAt = p.PaidAt?.ToString("O"),
+            RefundedAt = p.RefundedAt?.ToString("O"),
+            RefundMethod = p.RefundMethod,
+            RefundPendingReason = p.RefundPendingReason,
+            CreatedAt = p.CreatedAt.ToString("O")
         };
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -13,11 +14,19 @@ namespace EXE201.Server
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
+            builder.Logging.AddDebug();
+
             // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddProblemDetails();
+            builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(
+                    Path.Combine(builder.Environment.ContentRootPath, ".keys")));
             builder.Services.AddDbContext<exe201.Server.Models.PhotoStudioBookingContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString("DefaultConnection")));
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
@@ -44,6 +53,7 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Repositories.IBookingWorkflowRepository, EXE201.Server.Repositories.BookingWorkflowRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IBookingWorkflowService, EXE201.Server.Services.BookingWorkflowService>();
             builder.Services.AddScoped<EXE201.Server.Services.IStudioRevenueService, EXE201.Server.Services.StudioRevenueService>();
+            builder.Services.AddHostedService<EXE201.Server.Services.BookingExpiryWorker>();
 
             var jwtSettings = builder.Configuration.GetSection("Jwt");
             builder.Services.AddAuthentication(options =>
@@ -148,7 +158,11 @@ namespace EXE201.Server
 
             app.MapControllers();
 
-            app.MapFallbackToFile("/index.html");
+            var indexPath = Path.Combine(app.Environment.WebRootPath ?? string.Empty, "index.html");
+            if (File.Exists(indexPath))
+            {
+                app.MapFallbackToFile("/index.html");
+            }
 
             app.Run();
         }

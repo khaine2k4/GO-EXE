@@ -288,5 +288,11 @@ namespace EXE201.Server.Services
 
         public Task<List<AdminCommissionDto>> GetCommissionsAsync(long? studioId = null, string? search = null, DateTime? from = null, DateTime? to = null, string? sortBy = null)
             => _adminRepository.GetCommissionsAsync(studioId, search, from, to, sortBy);
+
+        public Task<List<SettlementDto>> GetSettlementsAsync(string? status = null, long? studioId = null, string? search = null, string? sortBy = null)
+            => _adminRepository.GetSettlementsAsync(status, studioId, search, sortBy);
+
+        public Task<SettlementDto?> MarkSettlementPaidAsync(long settlementId, SettlementPayoutRequestDto request, long adminId)
+            => _adminRepository.MarkSettlementPaidAsync(settlementId, request.PayoutMethod);
     }
 }

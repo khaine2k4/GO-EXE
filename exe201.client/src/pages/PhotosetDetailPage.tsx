@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, MapPin, Star } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Camera, Check, MapPin, Star } from 'lucide-react'
 import { getServiceDetail } from '../services/serviceApi'
 import { getStudioReviews } from '../services/reviewApi'
 import type { ReviewItem, ServiceDetail } from '../services/catalogTypes'
+import BookingModal from '../components/BookingModal'
 
 function formatVnd(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
@@ -16,6 +17,7 @@ export default function PhotosetDetailPage() {
   const [reviews, setReviews] = useState<ReviewItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [bookingOpen, setBookingOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -119,6 +121,14 @@ export default function PhotosetDetailPage() {
               <Link to={`/photographers/${service.studioId}`} className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-xl bg-slate-950 text-xs font-black uppercase tracking-widest text-white">
                 Xem studio
               </Link>
+              <button
+                type="button"
+                onClick={() => setBookingOpen(true)}
+                disabled={service.packages.length === 0}
+                className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-xs font-black uppercase tracking-widest text-white disabled:bg-slate-300"
+              >
+                <CalendarDays className="h-4 w-4" /> Đặt lịch
+              </button>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <div className="flex items-center gap-3">
@@ -132,6 +142,8 @@ export default function PhotosetDetailPage() {
           </aside>
         </div>
       </div>
+
+      <BookingModal open={bookingOpen} onClose={() => setBookingOpen(false)} service={service} />
     </div>
   )
 }

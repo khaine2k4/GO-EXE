@@ -1,162 +1,148 @@
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { useState } from 'react'
-import { useAppStore } from '../store/AppStore'
-import type { BookingStatus } from '../types'
-import { Clock, CheckCircle, AlertTriangle, ImageIcon, Lock, CircleCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CalendarDays, CircleDollarSign, Clock, ImageIcon } from 'lucide-react'
+import { getBookings, type BookingDto } from '../services/bookingApi'
 
-function formatVnd(v: number) { return new Intl.NumberFormat('vi-VN').format(v) + ' ₫' }
-function formatDate(iso: string) { return new Date(iso).toLocaleDateString('vi-VN', { dateStyle: 'medium' }) }
-
-const STATUS_CONFIG: Record<BookingStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  PENDING: { label: 'CHỜ XÁC NHẬN', color: 'text-amber-600', bg: 'bg-amber-50', icon: <Clock className="h-3.5 w-3.5" /> },
-  CONFIRMED: { label: 'ĐÃ XÁC NHẬN', color: 'text-blue-600', bg: 'bg-blue-50', icon: <CheckCircle className="h-3.5 w-3.5" /> },
-  DELIVERED: { label: 'ĐÃ GIAO ẢNH', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: <ImageIcon className="h-3.5 w-3.5" /> },
-  COMPLETED: { label: 'HOÀN THÀNH', color: 'text-emerald-600', bg: 'bg-emerald-50', icon: <CircleCheck className="h-3.5 w-3.5" /> },
-  DISPUTED: { label: 'KHIẾU NẠI', color: 'text-rose-600', bg: 'bg-rose-50', icon: <AlertTriangle className="h-3.5 w-3.5" /> },
-  REFUNDED: { label: 'HOÀN TIỀN', color: 'text-slate-500', bg: 'bg-slate-50', icon: <Lock className="h-3.5 w-3.5" /> },
-  CANCELLED: { label: 'ĐÃ HỦY', color: 'text-slate-400', bg: 'bg-slate-50', icon: <Lock className="h-3.5 w-3.5" /> },
+function formatVnd(value: number) {
+  return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
 }
 
-const TABS: { label: string; value: BookingStatus | 'ALL' }[] = [
+function formatDate(value: string) {
+  return new Date(value + 'T00:00:00').toLocaleDateString('vi-VN', { dateStyle: 'medium' })
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  PENDING_PAYMENT: 'Chờ thanh toán',
+  PENDING_CONFIRMATION: 'Chờ Studio xác nhận',
+  CONFIRMED: 'Đã xác nhận',
+  IN_PROGRESS: 'Đang chụp',
+  COMPLETED: 'Hoàn thành',
+  CANCELLED: 'Đã hủy',
+  REJECTED: 'Bị từ chối',
+}
+
+const TABS = [
   { label: 'Tất cả', value: 'ALL' },
-  { label: 'Chờ xác nhận', value: 'PENDING' },
+  { label: 'Chờ thanh toán', value: 'PENDING_PAYMENT' },
+  { label: 'Chờ xác nhận', value: 'PENDING_CONFIRMATION' },
   { label: 'Đã xác nhận', value: 'CONFIRMED' },
-  { label: 'Đã giao ảnh', value: 'DELIVERED' },
   { label: 'Hoàn thành', value: 'COMPLETED' },
-  { label: 'Tranh chấp', value: 'DISPUTED' },
+  { label: 'Đã hủy', value: 'CANCELLED' },
 ]
 
 export default function CustomerBookingsPage() {
-  const { state } = useAppStore()
-  const [activeTab, setActiveTab] = useState<BookingStatus | 'ALL'>('ALL')
+  const [bookings, setBookings] = useState<BookingDto[]>([])
+  const [activeTab, setActiveTab] = useState('ALL')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const myBookings = state.bookings.filter((b) => b.customerId === state.currentUser?.id)
-  const filtered = activeTab === 'ALL' ? myBookings : myBookings.filter((b) => b.status === activeTab)
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    getBookings(activeTab)
+      .then(setBookings)
+      .catch(() => setError('Không tải được lịch sử booking.'))
+      .finally(() => setLoading(false))
+  }, [activeTab])
 
   return (
-    <div className="mx-auto max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      {/* Premium Header */}
-      <div className="mb-10 px-2 text-center lg:text-left">
-        <h1 className="text-3xl font-black tracking-tight text-slate-900">Lịch chụp của tôi</h1>
-        <p className="mt-2 text-[15px] font-medium text-slate-500 max-w-xl leading-relaxed">
-          Nơi lưu giữ những khoảnh khắc và quản lý các giao dịch chụp ảnh an toàn qua Escrow.
-        </p>
+    <div className="mx-auto max-w-6xl pb-20">
+      <div className="mb-8">
+        <h1 className="text-3xl font-black text-slate-950">Lịch chụp của tôi</h1>
+        <p className="mt-2 text-sm font-semibold text-slate-500">Theo dõi booking, thanh toán và trạng thái xác nhận từ Studio.</p>
       </div>
 
-      {/* Modern Glassmorphism Tabs */}
-      <div className="mb-10 flex items-center justify-center lg:justify-start">
-        <div className="inline-flex flex-wrap gap-1.5 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-sm">
-          {TABS.map((tab) => {
-            const count = tab.value === 'ALL' ? myBookings.length : myBookings.filter((b) => b.status === tab.value).length
-            if (count === 0 && tab.value !== 'ALL') return null
-            const isActive = activeTab === tab.value
-            return (
-              <button
-                key={tab.value}
-                onClick={() => setActiveTab(tab.value)}
-                className={`flex items-center gap-2.5 rounded-xl px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-all ${isActive
-                  ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
-                  : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'
-                  }`}
-              >
-                {tab.label}
-                {count > 0 && (
-                  <span className={`rounded-lg px-1.5 py-0.5 text-[10px] ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
+      <div className="mb-8 flex flex-wrap gap-2">
+        {TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setActiveTab(tab.value)}
+            className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${activeTab === tab.value ? 'bg-slate-950 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Bookings Grid */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-[40px] border-2 border-dashed border-slate-100 py-32 text-center bg-slate-50/30">
-          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-xl shadow-slate-200/50">
-            <ImageIcon className="h-10 w-10 text-slate-200" />
-          </div>
-          <h3 className="text-[17px] font-black text-slate-900">Chưa có giao dịch chụp ảnh</h3>
-          <p className="mt-2 text-[14px] font-medium text-slate-500 max-w-xs leading-relaxed">
-            Mọi khoảnh khắc đẹp đều bắt đầu từ một lịch chụp. Hãy tìm nhiếp ảnh gia phù hợp ngay!
-          </p>
-          <Link to="/" className="mt-8 rounded-2xl bg-slate-900 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-white transition hover:bg-slate-800 shadow-xl shadow-slate-900/10">
-            KHÁM PHÁ NGAY
+      {loading ? (
+        <StateBox text="Đang tải booking..." />
+      ) : error ? (
+        <StateBox text={error} />
+      ) : bookings.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-100 bg-slate-50/40 py-24 text-center">
+          <ImageIcon className="h-12 w-12 text-slate-300" />
+          <h3 className="mt-4 text-lg font-black text-slate-950">Chưa có booking</h3>
+          <Link to="/photosets" className="mt-6 rounded-2xl bg-slate-950 px-6 py-3 text-xs font-black uppercase tracking-widest text-white">
+            Khám phá dịch vụ
           </Link>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-          {filtered.map((b, i) => {
-            const sc = STATUS_CONFIG[b.status]
-            const photographer = state.photographers.find((p) => p.id === b.photographerId)
-            const payment = state.payments.find((p) => p.bookingId === b.id)
+        <div className="grid gap-5 md:grid-cols-2">
+          {bookings.map((booking) => (
+            <Link
+              key={booking.id}
+              to={`/customer/bookings/${booking.id}`}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-black uppercase tracking-widest text-slate-400">{booking.bookingCode}</div>
+                  <h2 className="mt-2 text-xl font-black text-slate-950">{booking.packageName}</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{booking.studioName}</p>
+                </div>
+                <StatusBadge status={booking.status} />
+              </div>
 
-            return (
-              <motion.div
-                key={b.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <Link
-                  to={`/customer/bookings/${b.id}`}
-                  className="group relative flex flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-white p-2 shadow-sm transition-all hover:shadow-xl hover:shadow-slate-200/40"
-                >
-                  {/* Status Overlay */}
-                  <div className={`absolute right-6 top-6 z-10 flex items-center gap-2 rounded-full border border-white/50 px-3.5 py-1.5 text-[10px] font-black tracking-widest uppercase ring-1 ring-inset backdrop-blur-md ${sc.bg} ${sc.color} ring-white/20 shadow-sm`}>
-                    {sc.icon} {sc.label}
-                  </div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <Info icon={<CalendarDays className="h-4 w-4" />} label="Ngày chụp" value={`${formatDate(booking.shootingDate)} · ${booking.startTime}`} />
+                <Info icon={<CircleDollarSign className="h-4 w-4" />} label="Thanh toán" value={booking.latestPayment?.status ?? 'N/A'} />
+              </div>
 
-                  <div className="p-6 md:p-8">
-                    <div className="mb-8 flex items-center gap-4">
-                      {photographer ? (
-                        <img src={photographer.avatarUrl} alt={photographer.name} className="h-16 w-16 rounded-2xl object-cover ring-4 ring-slate-50" />
-                      ) : (
-                        <div className="h-16 w-16 rounded-2xl bg-slate-100 ring-4 ring-slate-50" />
-                      )}
-                      <div>
-                        <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Photographer</div>
-                        <h3 className="text-xl font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">{b.photographerName}</h3>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-slate-50 bg-slate-50/50 p-4 ring-1 ring-inset ring-white">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Ngày chụp</div>
-                        <div className="text-[15px] font-black text-slate-800">{formatDate(b.date)}</div>
-                      </div>
-                      <div className="rounded-2xl border border-slate-50 bg-slate-50/50 p-4 ring-1 ring-inset ring-white">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Giá trị gói</div>
-                        <div className="text-[15px] font-black text-slate-900">{formatVnd(b.totalPrice)}</div>
-                      </div>
-                    </div>
-
-                    <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-6">
-                      <div className="text-[10px] font-black font-mono text-slate-300">REF: #{b.id.substring(0, 8)}</div>
-
-                      {payment && (
-                        <div className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ring-1 ring-inset ${payment.status === 'holding'
-                          ? 'bg-amber-50 text-amber-600 ring-amber-100'
-                          : payment.status === 'released'
-                            ? 'bg-emerald-50 text-emerald-600 ring-emerald-100'
-                            : 'bg-slate-50 text-slate-400 ring-slate-100'
-                          }`}>
-                          {payment.status === 'holding' ? <Lock className="h-3 w-3" /> : <CircleCheck className="h-3 w-3" />}
-                          {payment.status === 'holding' ? 'Bảo lãnh Escrow' : payment.status === 'released' ? 'Hoàn tất thanh toán' : 'Đã hoàn tiền'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="absolute inset-0 z-[-1] bg-gradient-to-br from-indigo-50/0 to-indigo-50/50 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Link>
-              </motion.div>
-            )
-          })}
+              <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tiền</span>
+                <span className="text-lg font-black text-indigo-600">{formatVnd(booking.totalPrice)}</span>
+              </div>
+            </Link>
+          ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const color = status === 'CANCELLED' || status === 'REJECTED'
+    ? 'bg-slate-100 text-slate-500'
+    : status === 'COMPLETED'
+      ? 'bg-emerald-50 text-emerald-700'
+      : status === 'PENDING_PAYMENT'
+        ? 'bg-amber-50 text-amber-700'
+        : 'bg-indigo-50 text-indigo-700'
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${color}`}>
+      {STATUS_LABEL[status] ?? status}
+    </span>
+  )
+}
+
+function Info({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+        {icon} {label}
+      </div>
+      <div className="mt-1 text-sm font-black text-slate-800">{value}</div>
+    </div>
+  )
+}
+
+function StateBox({ text }: { text: string }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center text-sm font-bold text-slate-500">
+      <Clock className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+      {text}
     </div>
   )
 }

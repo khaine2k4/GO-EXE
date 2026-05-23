@@ -8,5 +8,6 @@ namespace EXE201.Server.Repositories
         Task<List<Booking>> GetValidRevenueBookingsAsync(long studioId, DateTime? from = null, DateTime? to = null);
         Task<decimal> GetRefundedAmountAsync(long studioId, DateTime? from = null, DateTime? to = null);
         Task<List<Booking>> GetBookingsForStatisticsAsync(long studioId, DateTime? from = null, DateTime? to = null);
+        Task<List<Settlement>> GetSettlementsAsync(long studioId, string? status = null);
     }
 }

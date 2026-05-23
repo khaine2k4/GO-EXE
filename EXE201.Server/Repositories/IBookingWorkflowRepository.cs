@@ -25,6 +25,7 @@ namespace EXE201.Server.Repositories
 
         // ── Time Slot ────────────────────────────────────────────────────────
         Task<TimeSlot?> GetSlotWithWorkingDayAsync(long slotId);
+        Task<List<TimeSlot>> GetSlotsByStudioDateAsync(long studioId, DateOnly date);
 
         /// <summary>
         /// Reload slot inside a transaction to check status before committing (race condition guard).
@@ -37,9 +38,13 @@ namespace EXE201.Server.Repositories
 
         // ── Booking ──────────────────────────────────────────────────────────
         Task<Booking?> GetFullBookingAsync(long bookingId);
+        Task<Booking?> GetBookingForUpdateAsync(long bookingId);
+        Task<bool> SlotHasActiveBookingAsync(long slotId);
+        Task<List<Booking>> GetExpiredPendingPaymentBookingsAsync(long pendingPaymentStatusId, DateTime now, int batchSize);
         Task<List<Booking>> GetBookingsByCustomerAsync(long customerId, string? status);
         Task<List<Booking>> GetBookingsByStudioAsync(long studioId, string? status);
         void AddBooking(Booking booking);
+        Task<Booking?> GetBookingByPaymentCodeAsync(string paymentCode);
 
         // ── Booking Status ───────────────────────────────────────────────────
         Task<long?> GetBookingStatusIdAsync(string statusName);
@@ -53,5 +58,9 @@ namespace EXE201.Server.Repositories
         Task<PaymentMethod?> GetPaymentMethodAsync(string methodName);
         Task<PaymentStatus?> GetPaymentStatusAsync(string statusName);
         void AddPayment(Payment payment);
+
+        // Settlement
+        Task<bool> SettlementExistsAsync(long bookingId);
+        void AddSettlement(Settlement settlement);
     }
 }

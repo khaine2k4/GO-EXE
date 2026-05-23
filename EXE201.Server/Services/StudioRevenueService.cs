@@ -152,6 +152,15 @@ namespace EXE201.Server.Services
             };
         }
 
+        public async Task<List<SettlementDto>?> GetSettlementsAsync(long ownerId, string? status = null)
+        {
+            var studio = await _studioRevenueRepository.GetOwnedStudioAsync(ownerId);
+            if (studio == null) return null;
+
+            var settlements = await _studioRevenueRepository.GetSettlementsAsync(studio.StudioId, status);
+            return settlements.Select(MapSettlement).ToList();
+        }
+
         private static bool IsValidRevenueBooking(Booking booking)
         {
             return booking.Status.StatusName == "COMPLETED"
@@ -180,6 +189,30 @@ namespace EXE201.Server.Services
                 PaymentStatus = paidPayment.PaymentStatus.StatusName,
                 CompletedAt = booking.CompletedAt?.ToString("O"),
                 PaidAt = paidPayment.PaidAt?.ToString("O")
+            };
+        }
+
+        private static SettlementDto MapSettlement(Settlement settlement)
+        {
+            return new SettlementDto
+            {
+                SettlementId = settlement.SettlementId,
+                BookingId = settlement.BookingId,
+                BookingCode = settlement.Booking.BookingCode,
+                StudioId = settlement.StudioId,
+                StudioName = settlement.Studio.StudioName,
+                CustomerName = settlement.Booking.Customer.FullName,
+                BookingStatus = settlement.Booking.Status.StatusName,
+                GrossAmount = settlement.GrossAmount,
+                PlatformFeePercent = settlement.PlatformFeePercent,
+                PlatformFeeAmount = settlement.PlatformFeeAmount,
+                StudioAmount = settlement.StudioAmount,
+                Status = settlement.Status,
+                PayoutMethod = settlement.PayoutMethod,
+                CompletedAt = settlement.Booking.CompletedAt?.ToString("O"),
+                PaidAt = settlement.PaidAt?.ToString("O"),
+                CreatedAt = settlement.CreatedAt.ToString("O"),
+                UpdatedAt = settlement.UpdatedAt.ToString("O")
             };
         }
     }

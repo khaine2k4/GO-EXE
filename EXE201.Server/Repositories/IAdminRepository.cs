@@ -19,5 +19,7 @@ namespace EXE201.Server.Repositories
         Task<AdminRevenueSummaryDto> GetRevenueSummaryAsync(DateTime? from = null, DateTime? to = null);
         Task<List<AdminMonthlyRevenueDto>> GetMonthlyRevenueAsync(DateTime? from = null, DateTime? to = null);
         Task<List<AdminCommissionDto>> GetCommissionsAsync(long? studioId = null, string? search = null, DateTime? from = null, DateTime? to = null, string? sortBy = null);
+        Task<List<SettlementDto>> GetSettlementsAsync(string? status = null, long? studioId = null, string? search = null, string? sortBy = null);
+        Task<SettlementDto?> MarkSettlementPaidAsync(long settlementId, string? payoutMethod = null);
     }
 }

@@ -47,6 +47,22 @@ namespace EXE201.Server.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<Settlement>> GetSettlementsAsync(long studioId, string? status = null)
+        {
+            var query = _context.Settlements
+                .Include(s => s.Studio)
+                .Include(s => s.Booking).ThenInclude(b => b.Customer)
+                .Include(s => s.Booking).ThenInclude(b => b.Status)
+                .Where(s => s.StudioId == studioId);
+
+            if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
+                query = query.Where(s => s.Status == status);
+
+            return await query
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+        }
+
         private IQueryable<Booking> ValidRevenueBookingsQuery(long studioId, DateTime? from, DateTime? to)
         {
             var query = _context.Bookings
