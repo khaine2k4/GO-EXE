@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, Star } from 'lucide-react'
+import { ArrowLeft, MapPin, Star, MessageCircle } from 'lucide-react'
 import { getStudioDetail } from '../services/studioApi'
 import type { StudioDetail } from '../services/catalogTypes'
 
@@ -54,6 +54,14 @@ export default function PhotographerProfilePage() {
             <p className="mt-5 inline-flex items-center gap-1 rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 md:mt-0">
               <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {studio.rating} ({studio.reviewCount} reviews)
             </p>
+          </div>
+          <div className="absolute bottom-6 right-6">
+            <button
+              onClick={() => navigate(`/chat?studioId=${studio.id}`)}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-6 text-xs font-black uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg cursor-pointer"
+            >
+              <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI STUDIO
+            </button>
           </div>
         </div>
       </section>
