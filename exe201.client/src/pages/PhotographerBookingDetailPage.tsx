@@ -357,7 +357,7 @@ export default function PhotographerBookingDetailPage() {
                 <button
                   onClick={handleAddMockImage}
                   disabled={uploadingImage}
-                  className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all shadow-sm active:scale-95 disabled:opacity-55"
+                  className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/55 transition-all shadow-sm active:scale-95 disabled:opacity-55"
                 >
                   <UploadCloud className="h-3.5 w-3.5" />
                   {uploadingImage ? 'Đang tải...' : 'Upload File Mới'}
