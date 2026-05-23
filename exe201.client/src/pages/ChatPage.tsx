@@ -60,6 +60,7 @@ export default function ChatPage() {
   const connectionRef = useRef<HubConnection | null>(null)
   const activeConvRef = useRef<ConversationDto | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const creatingRef = useRef<string | null>(null)
 
   // Keep activeConvRef updated
   useEffect(() => {
@@ -90,6 +91,10 @@ export default function ChatPage() {
           })
 
           if (!found) {
+            // Check ref lock to prevent duplicate concurrent API calls
+            if (creatingRef.current === studioId) return
+            creatingRef.current = studioId
+
             // If not found, let's create a new conversation
             try {
               const res = await api.post<ConversationDto>('/chat/conversations', {
@@ -98,11 +103,16 @@ export default function ChatPage() {
                 bookingId: bookingId ? Number(bookingId) : undefined
               })
               found = res.data
-              setConversations((prev) => [res.data, ...prev])
+              setConversations((prev) => {
+                if (prev.some(c => c.conversationId === res.data.conversationId)) return prev
+                return [res.data, ...prev]
+              })
             } catch (err: any) {
               console.error('Failed to create/fetch conversation', err)
               const msg = err.response?.data ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message
               setLoadError(`Không thể tạo hội thoại: ${msg}`)
+            } finally {
+              creatingRef.current = null
             }
           }
 
