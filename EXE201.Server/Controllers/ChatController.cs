@@ -233,7 +233,7 @@ namespace EXE201.Server.Controllers
 
             try
             {
-                var (isViolated, reason) = await _moderationService.ModerateMessageAsync(text);
+                var (isViolated, reason) = await _moderationService.ModerateMessageAsync(text, throwOnError: true);
                 return Ok(new
                 {
                     InputText = text,

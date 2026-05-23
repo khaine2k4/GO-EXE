@@ -19,7 +19,7 @@ namespace EXE201.Server.Services
             _apiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey is not configured.");
         }
 
-        public async Task<(bool IsViolated, string Reason)> ModerateMessageAsync(string content)
+        public async Task<(bool IsViolated, string Reason)> ModerateMessageAsync(string content, bool throwOnError = false)
         {
             if (string.IsNullOrWhiteSpace(content))
             {
@@ -73,6 +73,10 @@ Bạn PHẢI trả về kết quả dưới định dạng JSON chính xác như
 
                 if (!response.IsSuccessStatusCode)
                 {
+                    if (throwOnError)
+                    {
+                        throw new System.Net.Http.HttpRequestException($"Gemini API returned {response.StatusCode}: {jsonResponse}");
+                    }
                     // Nếu lỗi API Gemini, cho phép đi qua để tránh ảnh hưởng tới trải nghiệm người dùng
                     return (false, string.Empty);
                 }
