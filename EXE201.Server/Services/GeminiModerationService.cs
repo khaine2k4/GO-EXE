@@ -64,13 +64,17 @@ Bạn PHẢI trả về kết quả dưới định dạng JSON chính xác như
                 var httpContent = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
 
                 var response = await _httpClient.PostAsync(url, httpContent);
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                
+                Console.WriteLine($"[GeminiModeration] Status: {response.StatusCode}");
+                Console.WriteLine($"[GeminiModeration] Response: {jsonResponse}");
+
                 if (!response.IsSuccessStatusCode)
                 {
                     // Nếu lỗi API Gemini, cho phép đi qua để tránh ảnh hưởng tới trải nghiệm người dùng
                     return (false, string.Empty);
                 }
 
-                var jsonResponse = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(jsonResponse);
                 var root = doc.RootElement;
                 
