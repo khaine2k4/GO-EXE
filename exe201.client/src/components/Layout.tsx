@@ -12,7 +12,6 @@ const NAV: Record<string, { label: string; to: string }[]> = {
     { label: 'Bookings', to: '/customer/bookings' },
     { label: 'FAQ', to: '/faq' },
     { label: 'Premier', to: '/premier' },
-    { label: 'Chat 💬', to: '/chat' },
   ],
   PHOTOGRAPHER: [
     { label: 'Dashboard', to: '/photographer/dashboard' },
@@ -26,7 +25,6 @@ const NAV: Record<string, { label: string; to: string }[]> = {
     { label: 'Ví tiền', to: '/photographer/wallet' },
     { label: 'FAQ', to: '/faq' },
     { label: 'Premier', to: '/premier' },
-    { label: 'Chat 💬', to: '/chat' },
   ],
   ADMIN: [
     { label: 'Người dùng', to: '/admin/users' },
