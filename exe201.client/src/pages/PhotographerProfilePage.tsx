@@ -51,17 +51,18 @@ export default function PhotographerProfilePage() {
                 </p>
               </div>
             </div>
-            <p className="mt-5 inline-flex items-center gap-1 rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 md:mt-0">
-              <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {studio.rating} ({studio.reviewCount} reviews)
-            </p>
-          </div>
-          <div className="absolute bottom-6 right-6">
-            <button
-              onClick={() => navigate(`/chat?studioId=${studio.id}`)}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-6 text-xs font-black uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg cursor-pointer"
-            >
-              <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI STUDIO
-            </button>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row md:mt-0 md:items-end">
+              <p className="inline-flex items-center justify-center gap-1 rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {studio.rating} ({studio.reviewCount} reviews)
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate(`/chat?studioId=${studio.id}`)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--color-azure)] px-5 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,113,227,0.16)] transition hover:bg-[var(--color-azure-dark)] active:scale-[0.98]"
+              >
+                <MessageCircle className="h-4 w-4" /> Nhắn tin
+              </button>
+            </div>
           </div>
         </div>
       </section>

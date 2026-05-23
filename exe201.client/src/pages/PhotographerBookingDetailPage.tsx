@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'bg-amber-50 text-amber-600 ring-amber-100',
   CONFIRMED: 'bg-blue-50 text-blue-600 ring-blue-100',
-  DELIVERED: 'bg-indigo-50 text-indigo-600 ring-indigo-100',
+  DELIVERED: 'bg-blue-50 text-[var(--color-azure)] ring-blue-100',
   COMPLETED: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
   DISPUTED: 'bg-rose-50 text-rose-600 ring-rose-100',
   REFUNDED: 'bg-slate-50 text-slate-500 ring-slate-100',
@@ -49,7 +49,7 @@ export default function PhotographerBookingDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-slate-400">
         <div className="text-xl font-black tracking-tight text-slate-900 uppercase">Booking Not Found</div>
-        <button onClick={() => nav('/photographer/dashboard')} className="mt-6 text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 transition-all">← QUAY LẠI STUDIO</button>
+        <button onClick={() => nav('/photographer/dashboard')} className="mt-6 text-xs font-black uppercase tracking-widest text-[var(--color-azure)] hover:text-[var(--color-azure-dark)] transition-all">← QUAY LẠI STUDIO</button>
       </div>
     )
   }
@@ -122,7 +122,7 @@ export default function PhotographerBookingDetailPage() {
           )}
           {canDeliver && (
             <button onClick={handleDeliver} disabled={loading}
-              className={`inline-flex h-12 items-center gap-2 rounded-2xl bg-indigo-600 px-8 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-600/20 transition-all active:scale-[0.98] ${loading ? 'opacity-50' : 'hover:bg-indigo-700'}`}>
+              className={`inline-flex h-12 items-center gap-2 rounded-full bg-[var(--color-azure)] px-8 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,113,227,0.16)] transition-all active:scale-[0.98] ${loading ? 'opacity-50' : 'hover:bg-[var(--color-azure-dark)]'}`}>
               <UploadCloud className="h-4 w-4" />
               {loading ? 'ĐANG GIAO...' : 'GIAO ẢNH CHO KHÁCH'}
             </button>
@@ -160,7 +160,7 @@ export default function PhotographerBookingDetailPage() {
 
               {canDeliver && (
                 <button onClick={handleAddMockImage} disabled={uploadingImage}
-                  className={`inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm active:scale-95 ${uploadingImage ? 'text-slate-300' : 'text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50'}`}>
+                  className={`inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-4 py-2 text-xs font-medium transition-all shadow-sm active:scale-95 ${uploadingImage ? 'text-slate-300' : 'text-[var(--color-azure)] hover:border-[var(--color-azure)] hover:bg-blue-50/50'}`}>
                   <UploadCloud className="h-3.5 w-3.5" />
                   {uploadingImage ? 'Đang tải...' : 'Upload File Mới'}
                 </button>
@@ -201,11 +201,11 @@ export default function PhotographerBookingDetailPage() {
                     ))}
                   </div>
 
-                  <div className="rounded-[24px] border border-indigo-50 bg-indigo-50/50 p-6 flex gap-4 ring-1 ring-inset ring-white">
-                    <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg">
+                  <div className="rounded-[24px] border border-blue-100 bg-blue-50/50 p-6 flex gap-4 ring-1 ring-inset ring-white">
+                    <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-azure)] text-white shadow-lg">
                       <CheckCircle className="h-4 w-4" />
                     </div>
-                    <p className="text-xs font-bold text-indigo-800 leading-relaxed uppercase tracking-wider">
+                    <p className="text-xs font-bold text-[var(--color-slate)] leading-relaxed uppercase tracking-wider">
                       💡 <span className="font-black">Bảo vệ tác quyền:</span> Hệ thống tự động phủ Watermark lên ảnh xem trước. Khách chỉ nhận file gốc khi thanh toán được Release.
                     </p>
                   </div>
@@ -239,9 +239,9 @@ export default function PhotographerBookingDetailPage() {
                       nav(`/chat?studioId=${studio.id}&customerId=${booking.customerId}&bookingId=${booking.id}`);
                     }
                   }}
-                  className="mt-3 flex w-full h-11 items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/50 text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100 transition-all active:scale-[0.98]"
+                  className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--color-border)] bg-white text-sm font-medium text-[var(--color-ink)] transition hover:border-[var(--color-azure)] hover:text-[var(--color-azure)] active:scale-[0.98]"
                 >
-                  <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI KHÁCH HÀNG
+                  <MessageCircle className="h-4 w-4" /> Nhắn tin với khách hàng
                 </button>
               </div>
 
@@ -259,7 +259,7 @@ export default function PhotographerBookingDetailPage() {
 
                 {payment && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2 text-indigo-600">
+                    <div className="flex items-center justify-between px-2 text-[var(--color-azure)]">
                       <span className="text-[11px] font-black uppercase tracking-widest">NET THỰC NHẬN</span>
                       <span className="text-xl font-black">{formatVnd(payment.netToPhotographer)}</span>
                     </div>

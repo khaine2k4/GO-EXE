@@ -89,8 +89,9 @@ export default function Layout() {
             {user && role !== 'ADMIN' && (
               <Link
                 to="/chat"
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 hover:text-slate-950 hover:border-slate-300 shadow-sm transition"
-                title="Hộp thư Chat"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-white text-[var(--color-graphite)] shadow-sm transition hover:border-[var(--color-azure)] hover:text-[var(--color-azure)]"
+                title="Hộp thư"
+                aria-label="Hộp thư"
               >
                 <MessageCircle className="h-5 w-5" />
               </Link>

@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'bg-amber-50 text-amber-600 ring-amber-100',
   CONFIRMED: 'bg-blue-50 text-blue-600 ring-blue-100',
-  DELIVERED: 'bg-indigo-50 text-indigo-600 ring-indigo-100',
+  DELIVERED: 'bg-blue-50 text-[var(--color-azure)] ring-blue-100',
   COMPLETED: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
   DISPUTED: 'bg-rose-50 text-rose-600 ring-rose-100',
   REFUNDED: 'bg-slate-50 text-slate-500 ring-slate-100',
@@ -40,7 +40,7 @@ export default function CustomerBookingDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-slate-400">
         <div className="text-lg font-black tracking-tight text-slate-900">Không tìm thấy booking</div>
-        <button onClick={() => nav('/customer/bookings')} className="mt-4 text-xs font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 transition-colors">← QUAY LẠI DANH SÁCH</button>
+        <button onClick={() => nav('/customer/bookings')} className="mt-4 text-xs font-black uppercase tracking-widest text-[var(--color-azure)] hover:text-[var(--color-azure-dark)] transition-colors">← QUAY LẠI DANH SÁCH</button>
       </div>
     )
   }
@@ -198,9 +198,9 @@ export default function CustomerBookingDetailPage() {
                   </div>
                   <button
                     onClick={() => nav(`/chat?studioId=${photographer.id}&bookingId=${booking.id}`)}
-                    className="mt-4 flex w-full h-11 items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50/50 text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100 transition-all active:scale-[0.98]"
+                    className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--color-border)] bg-white text-sm font-medium text-[var(--color-ink)] transition hover:border-[var(--color-azure)] hover:text-[var(--color-azure)] active:scale-[0.98]"
                   >
-                    <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI STUDIO
+                    <MessageCircle className="h-4 w-4" /> Nhắn tin với studio
                   </button>
                 </div>
               )}
@@ -212,7 +212,7 @@ export default function CustomerBookingDetailPage() {
 
                 <div className="flex items-center justify-between px-2">
                   <span className="text-[13px] font-black text-slate-900">TỔNG THANH TOÁN</span>
-                  <span className="text-xl font-black text-indigo-700">{formatVnd(booking.totalPrice)}</span>
+                  <span className="text-xl font-black text-[var(--color-azure)]">{formatVnd(booking.totalPrice)}</span>
                 </div>
 
                 {payment && (
@@ -246,14 +246,14 @@ export default function CustomerBookingDetailPage() {
 function StatusBanner({ status, disputeReason }: { status: string, disputeReason?: string }) {
   if (status === 'DELIVERED') {
     return (
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 rounded-[28px] border border-indigo-100 bg-indigo-50/50 p-6 md:p-8 shadow-sm">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 rounded-[28px] border border-blue-100 bg-blue-50/50 p-6 md:p-8 shadow-sm">
         <div className="flex items-start gap-5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-indigo-600 shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[var(--color-azure)] shadow-sm">
             <ImageIcon className="h-6 w-6" />
           </div>
           <div className="flex-1">
-            <h3 className="text-[17px] font-black text-indigo-900 leading-tight">Yêu cầu xác nhận đơn hàng! 🔥</h3>
-            <p className="mt-2 text-[14px] font-medium text-indigo-700/80 leading-relaxed max-w-2xl">
+            <h3 className="text-[17px] font-black text-[var(--color-ink)] leading-tight">Yêu cầu xác nhận đơn hàng! 🔥</h3>
+            <p className="mt-2 text-[14px] font-medium text-[var(--color-slate)] leading-relaxed max-w-2xl">
               Photographer đã bàn giao ảnh. Vui lòng duyệt album bên dưới. Nếu hài lòng, hãy bấm <strong>"Xác nhận hoàn thành"</strong> để nhận ngay link tải toàn bộ Ảnh Gốc.
             </p>
           </div>
@@ -340,7 +340,7 @@ function BookingModals({
               <textarea value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)}
                 placeholder="Ví dụ: Ảnh mờ, không đúng số lượng đã cam kết..."
                 rows={4}
-                className="w-full resize-none rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-sm font-bold outline-none ring-indigo-500/10 transition focus:border-indigo-400 focus:ring-4 placeholder:text-slate-300" />
+                className="w-full resize-none rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-sm font-bold outline-none ring-blue-500/10 transition focus:border-[var(--color-azure)] focus:ring-4 placeholder:text-slate-300" />
 
               <div className="mt-8 flex gap-3">
                 <button onClick={() => setDisputeOpen(false)} className="flex-1 rounded-2xl border border-slate-100 h-14 text-sm font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-colors">Đóng</button>
