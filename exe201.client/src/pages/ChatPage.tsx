@@ -66,45 +66,56 @@ export default function ChatPage() {
     activeConvRef.current = activeConv
   }, [activeConv])
 
+  const [loadError, setLoadError] = useState('')
+
   // ── Load danh sách conversation khi vào trang ─────────────────────────────
   useEffect(() => {
-    api.get<ConversationDto[]>('/chat/conversations').then(async (r) => {
-      const list = r.data
-      setConversations(list)
+    setLoadError('')
+    api.get<ConversationDto[]>('/chat/conversations')
+      .then(async (r) => {
+        const list = r.data
+        setConversations(list)
 
-      // Check query params
-      const studioId = searchParams.get('studioId')
-      const customerId = searchParams.get('customerId')
-      const bookingId = searchParams.get('bookingId')
+        // Check query params
+        const studioId = searchParams.get('studioId')
+        const customerId = searchParams.get('customerId')
+        const bookingId = searchParams.get('bookingId')
 
-      if (studioId) {
-        // Find existing conversation in the loaded list
-        let found = list.find((c) => {
-          const matchStudio = c.studioId === Number(studioId)
-          const matchCustomer = customerId ? c.customerId === Number(customerId) : true
-          return matchStudio && matchCustomer
-        })
+        if (studioId) {
+          // Find existing conversation in the loaded list
+          let found = list.find((c) => {
+            const matchStudio = c.studioId === Number(studioId)
+            const matchCustomer = customerId ? c.customerId === Number(customerId) : true
+            return matchStudio && matchCustomer
+          })
 
-        if (!found) {
-          // If not found, let's create a new conversation
-          try {
-            const res = await api.post<ConversationDto>('/chat/conversations', {
-              studioId: Number(studioId),
-              customerId: customerId ? Number(customerId) : undefined,
-              bookingId: bookingId ? Number(bookingId) : undefined
-            })
-            found = res.data
-            setConversations((prev) => [res.data, ...prev])
-          } catch (err) {
-            console.error('Failed to create/fetch conversation', err)
+          if (!found) {
+            // If not found, let's create a new conversation
+            try {
+              const res = await api.post<ConversationDto>('/chat/conversations', {
+                studioId: Number(studioId),
+                customerId: customerId ? Number(customerId) : undefined,
+                bookingId: bookingId ? Number(bookingId) : undefined
+              })
+              found = res.data
+              setConversations((prev) => [res.data, ...prev])
+            } catch (err: any) {
+              console.error('Failed to create/fetch conversation', err)
+              const msg = err.response?.data ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message
+              setLoadError(`Không thể tạo hội thoại: ${msg}`)
+            }
+          }
+
+          if (found) {
+            openConversation(found)
           }
         }
-
-        if (found) {
-          openConversation(found)
-        }
-      }
-    })
+      })
+      .catch((err: any) => {
+        console.error('Failed to load conversations', err)
+        const msg = err.response?.data ? (typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)) : err.message
+        setLoadError(`Không thể tải tin nhắn: ${msg}`)
+      })
   }, [searchParams])
 
   // ── Kết nối SignalR ───────────────────────────────────────────────────────
@@ -213,7 +224,12 @@ export default function ChatPage() {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 && (
+          {loadError && (
+            <div className="m-3 rounded-xl bg-rose-50 p-4 text-xs font-semibold text-rose-600 border border-rose-100 leading-relaxed">
+              ⚠️ {loadError}
+            </div>
+          )}
+          {conversations.length === 0 && !loadError && (
             <div className="p-6 text-center text-sm text-slate-400">Chưa có cuộc trò chuyện nào</div>
           )}
           {conversations.map(conv => {
