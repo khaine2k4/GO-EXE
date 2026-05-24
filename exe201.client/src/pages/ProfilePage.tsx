@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
 import api from '../api/axios'
+import CustomDialog from '../components/CustomDialog'
 
 interface UserAddressDto {
     addressId: number
@@ -62,6 +63,7 @@ export default function ProfilePage() {
     // Loading & error
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [dialog, setDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
 
     // Load initial user details & addresses
     useEffect(() => {
@@ -235,16 +237,20 @@ export default function ProfilePage() {
         }
     }
 
-    async function handleDeleteAddress(addressId: number) {
-        if (!confirm('Bạn có chắc chắn muốn xóa địa chỉ này?')) return
-
-        try {
-            await api.delete(`/addresses/${addressId}`)
-            toast.push({ type: 'success', title: 'Thành công', message: 'Đã xóa địa chỉ thành công.' })
-            fetchAddresses()
-        } catch (err) {
-            toast.push({ type: 'error', title: 'Lỗi', message: 'Không thể xóa địa chỉ.' })
-        }
+    function handleDeleteAddress(addressId: number) {
+        setDialog({
+            title: 'Xóa địa chỉ',
+            message: 'Bạn có chắc chắn muốn xóa địa chỉ này khỏi sổ địa chỉ không?',
+            onConfirm: async () => {
+                try {
+                    await api.delete(`/addresses/${addressId}`)
+                    toast.push({ type: 'success', title: 'Thành công', message: 'Đã xóa địa chỉ thành công.' })
+                    fetchAddresses()
+                } catch (err) {
+                    toast.push({ type: 'error', title: 'Lỗi', message: 'Không thể xóa địa chỉ.' })
+                }
+            }
+        })
     }
 
     async function handleSetDefaultAddress(addr: UserAddressDto) {
@@ -893,6 +899,16 @@ export default function ProfilePage() {
                     )}
                 </AnimatePresence>
             </div>
+            <CustomDialog
+                isOpen={!!dialog}
+                title={dialog?.title || ''}
+                message={dialog?.message || ''}
+                onConfirm={() => {
+                    dialog?.onConfirm()
+                    setDialog(null)
+                }}
+                onCancel={() => setDialog(null)}
+            />
         </div>
     )
 }

@@ -45,8 +45,8 @@ export default function PhotographerRevenuePage() {
     try {
       setRevenue(await getStudioRevenue(params))
     } catch {
-      setError('Khong tai duoc revenue studio.')
-      toast.push({ type: 'error', title: 'Tai revenue that bai' })
+      setError('Không tải được revenue studio.')
+      toast.push({ type: 'error', title: 'Tải revenue thất bại' })
     } finally {
       setLoading(false)
     }
@@ -62,15 +62,15 @@ export default function PhotographerRevenuePage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Studio revenue</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-950">{revenue.studioName || 'Revenue'}</h1>
-            <p className="mt-1 text-sm font-medium text-slate-500">Tinh tu booking COMPLETED co payment PAID.</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">{revenue.studioName || 'Doanh thu'}</h1>
+            <p className="mt-1 text-sm font-medium text-slate-500">Tính từ booking COMPLETED có payment PAID.</p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <DateInput label="From" value={from} onChange={setFrom} />
-            <DateInput label="To" value={to} onChange={setTo} />
+            <DateInput label="Từ ngày" value={from} onChange={setFrom} />
+            <DateInput label="Đến ngày" value={to} onChange={setTo} />
             <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Làm mới
             </button>
           </div>
         </div>
@@ -78,27 +78,27 @@ export default function PhotographerRevenuePage() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Gross Revenue" value={formatVnd(revenue.grossRevenue)} />
-        <Metric label="Commission Deducted" value={formatVnd(revenue.commissionDeducted)} tone="rose" />
-        <Metric label="Net Revenue" value={formatVnd(revenue.netRevenue)} tone="emerald" />
-        <Metric label="Completed Bookings" value={revenue.completedBookings} />
-        <Metric label="Average Booking" value={formatVnd(revenue.averageBookingValue)} tone="indigo" />
+        <Metric label="Tổng giao dịch" value={formatVnd(revenue.grossRevenue)} />
+        <Metric label="Commission đã trừ" value={formatVnd(revenue.commissionDeducted)} tone="rose" />
+        <Metric label="Doanh thu thực nhận" value={formatVnd(revenue.netRevenue)} tone="emerald" />
+        <Metric label="Booking hoàn thành" value={revenue.completedBookings} />
+        <Metric label="Giá trị booking TB" value={formatVnd(revenue.averageBookingValue)} tone="indigo" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-slate-50/70 p-4">
-          <h2 className="text-base font-semibold text-slate-900">Monthly revenue</h2>
+          <h2 className="text-base font-semibold text-slate-900">Doanh thu hàng tháng</h2>
         </div>
-        {loading ? <TableSkeleton columns={5} /> : revenue.monthlyRevenue.length === 0 ? <EmptyState text="Khong co du lieu monthly revenue." /> : (
+        {loading ? <TableSkeleton columns={5} /> : revenue.monthlyRevenue.length === 0 ? <EmptyState text="Không có dữ liệu doanh thu hàng tháng." /> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
-                  <th className="px-5 py-3">Month</th>
-                  <th className="px-5 py-3 text-right">Gross</th>
+                  <th className="px-5 py-3">Tháng</th>
+                  <th className="px-5 py-3 text-right">Tổng tiền</th>
                   <th className="px-5 py-3 text-right">Commission</th>
-                  <th className="px-5 py-3 text-right">Net</th>
-                  <th className="px-5 py-3 text-center">Completed</th>
+                  <th className="px-5 py-3 text-right">Thực nhận</th>
+                  <th className="px-5 py-3 text-center">Hoàn thành</th>
                 </tr>
               </thead>
               <tbody>

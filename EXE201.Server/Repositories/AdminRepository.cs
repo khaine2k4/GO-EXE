@@ -21,6 +21,7 @@ namespace EXE201.Server.Repositories
                 .Include(b => b.Package)
                 .Include(b => b.Status)
                 .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
+                .Include(b => b.Payments).ThenInclude(p => p.Method)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -34,7 +35,11 @@ namespace EXE201.Server.Repositories
             }
 
             if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
-                query = query.Where(b => b.Status.StatusName == status);
+            {
+                query = status == "DISPUTED"
+                    ? query.Where(b => b.DisputedAt != null && b.DisputeResolvedAt == null)
+                    : query.Where(b => b.Status.StatusName == status && (b.DisputedAt == null || b.DisputeResolvedAt != null));
+            }
 
             if (!string.IsNullOrWhiteSpace(paymentStatus) && paymentStatus != "ALL")
                 query = query.Where(b => b.Payments.Any(p => p.PaymentStatus.StatusName == paymentStatus));
@@ -57,7 +62,7 @@ namespace EXE201.Server.Repositories
                 StudioName = b.Studio.StudioName,
                 PackageName = b.Package.PackageName,
                 ShootingDate = b.ShootingDate.ToString("yyyy-MM-dd"),
-                Status = b.Status.StatusName,
+                Status = GetEffectiveBookingStatus(b),
                 TotalPrice = b.TotalPrice,
                 CommissionPercent = b.CommissionPercent,
                 CommissionAmount = b.CommissionAmount,
@@ -69,6 +74,155 @@ namespace EXE201.Server.Repositories
                 DisputeNote = b.DisputeNote,
                 CreatedAt = b.CreatedAt.ToString("O")
             }).ToList();
+        }
+
+        public async Task<AdminBookingDetailDto?> GetAdminBookingDetailAsync(long bookingId)
+        {
+            var booking = await AdminBookingDetailQuery()
+                .FirstOrDefaultAsync(b => b.BookingId == bookingId);
+
+            return booking == null ? null : MapAdminBookingDetail(booking);
+        }
+
+        public async Task<AdminDashboardDto> GetAdminDashboardStatsAsync()
+        {
+            var system = await _context.VSystemStats.AsNoTracking().FirstOrDefaultAsync();
+            var disputedBookings = await _context.Bookings
+                .CountAsync(b => b.DisputedAt != null && b.DisputeResolvedAt == null);
+            var completedBookings = await _context.Bookings
+                .CountAsync(b => b.Status.StatusName == "COMPLETED");
+            var cancelledBookings = await _context.Bookings
+                .CountAsync(b => b.Status.StatusName == "CANCELLED");
+
+            var topStudios = await _context.VTopStudios
+                .AsNoTracking()
+                .OrderByDescending(s => s.TotalBookings)
+                .ThenByDescending(s => s.AvgRating)
+                .Take(10)
+                .Select(s => new AdminDashboardTopStudioDto
+                {
+                    StudioId = s.StudioId,
+                    StudioName = s.StudioName,
+                    City = s.City,
+                    AvgRating = s.AvgRating,
+                    TotalReviews = s.TotalReviews,
+                    TotalBookings = s.TotalBookings
+                })
+                .ToListAsync();
+
+            var monthlyRevenue = await _context.VMonthlyPlatformRevenues
+                .AsNoTracking()
+                .OrderBy(r => r.Month)
+                .Select(r => new AdminDashboardMonthlyRevenueDto
+                {
+                    Month = r.Month ?? string.Empty,
+                    TotalBookings = r.TotalBookings ?? 0,
+                    GrossRevenue = r.GrossRevenue ?? 0m,
+                    PlatformCommission = r.PlatformCommission ?? 0m,
+                    StudioPayout = r.StudioPayout ?? 0m
+                })
+                .ToListAsync();
+
+            var recentBookings = await GetBookingsAsync(sortBy: "newest");
+            var totalBookings = system?.TotalBookings ?? 0;
+
+            return new AdminDashboardDto
+            {
+                SystemStats = new AdminDashboardSystemStatsDto
+                {
+                    ActiveUsers = system?.ActiveUsers ?? 0,
+                    ApprovedStudios = system?.ApprovedStudios ?? 0,
+                    PendingStudios = system?.PendingStudios ?? 0,
+                    TotalBookings = totalBookings,
+                    TotalCommission = system?.TotalCommission ?? 0m,
+                    PendingReports = system?.PendingReports ?? 0,
+                    DisputedBookings = disputedBookings,
+                    CompletedBookings = completedBookings,
+                    CancelledBookings = cancelledBookings,
+                    CompletionRate = totalBookings == 0 ? 0m : Math.Round(completedBookings * 100m / totalBookings, 2)
+                },
+                TopStudios = topStudios,
+                MonthlyRevenue = monthlyRevenue,
+                RecentBookings = recentBookings.Take(5).ToList()
+            };
+        }
+
+        public async Task<AdminBookingDetailDto?> ResolveDisputeAsync(long bookingId, string decision, string? adminNote, long adminId)
+        {
+            var normalizedDecision = decision.Trim().ToUpperInvariant();
+            if (normalizedDecision is not ("RELEASE" or "REFUND"))
+                throw new InvalidOperationException("Decision must be RELEASE or REFUND.");
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+
+            var booking = await _context.Bookings
+                .FromSqlInterpolated($"SELECT * FROM bookings WITH (UPDLOCK, ROWLOCK) WHERE booking_id = {bookingId}")
+                .Include(b => b.Status)
+                .Include(b => b.Slot)
+                .Include(b => b.Customer)
+                .Include(b => b.Studio)
+                .Include(b => b.Package).ThenInclude(p => p.Service)
+                .Include(b => b.Payments).ThenInclude(p => p.Method)
+                .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
+                .Include(b => b.Settlement)
+                .FirstOrDefaultAsync();
+
+            if (booking == null) return null;
+            if (!IsDisputed(booking))
+                throw new InvalidOperationException("Booking is not in an active dispute.");
+
+            var now = DateTime.UtcNow;
+            var oldStatus = "DISPUTED";
+
+            if (normalizedDecision == "RELEASE")
+            {
+                var completedStatus = await GetBookingStatusAsync("COMPLETED");
+                booking.StatusId = completedStatus.StatusId;
+                booking.Status = completedStatus;
+                booking.CompletedAt = now;
+
+                if (booking.Settlement == null)
+                {
+                    _context.Settlements.Add(new Settlement
+                    {
+                        BookingId = booking.BookingId,
+                        StudioId = booking.StudioId,
+                        GrossAmount = booking.TotalPrice,
+                        PlatformFeePercent = booking.CommissionPercent,
+                        PlatformFeeAmount = booking.CommissionAmount,
+                        StudioAmount = booking.StudioRevenue,
+                        Status = "READY",
+                        PayoutMethod = "MANUAL",
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    });
+                }
+
+                AddBookingLog(booking.BookingId, oldStatus, "COMPLETED", adminId, BuildAdminDisputeNote("Release to studio", adminNote));
+            }
+            else
+            {
+                var cancelledStatus = await GetBookingStatusAsync("CANCELLED");
+                booking.StatusId = cancelledStatus.StatusId;
+                booking.Status = cancelledStatus;
+                booking.CancelledAt = now;
+                booking.CancelledBy = adminId;
+                booking.CancelReason = string.IsNullOrWhiteSpace(adminNote) ? "Dispute resolved with customer refund" : adminNote;
+                booking.Slot.Status = "OPEN";
+
+                await MarkLatestPaidPaymentForRefundAsync(booking, adminNote ?? "Dispute resolved with customer refund");
+                AddBookingLog(booking.BookingId, oldStatus, "CANCELLED", adminId, BuildAdminDisputeNote("Refund customer", adminNote));
+            }
+
+            booking.DisputeResolvedAt = now;
+            booking.DisputeResolvedBy = adminId;
+            booking.UpdatedAt = now;
+            booking.UpdatedBy = adminId;
+
+            await _context.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return await GetAdminBookingDetailAsync(bookingId);
         }
 
         public async Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null)
@@ -334,7 +488,7 @@ namespace EXE201.Server.Repositories
         public async Task<AdminPaymentDetailDto?> UpdatePaymentStatusAsync(long paymentId, UpdateAdminPaymentStatusRequestDto request, long adminId)
         {
             var normalizedStatus = request.Status.Trim().ToUpperInvariant();
-            var allowedStatuses = new[] { "PENDING", "PAID", "FAILED", "REFUNDED", "CANCELLED" };
+            var allowedStatuses = new[] { "PENDING", "PAID", "FAILED", "REFUND_PENDING", "REFUNDED", "CANCELLED" };
             if (!allowedStatuses.Contains(normalizedStatus))
                 throw new InvalidOperationException("Payment status is not supported for manual admin update.");
 
@@ -364,6 +518,12 @@ namespace EXE201.Server.Repositories
             else if (normalizedStatus == "REFUNDED")
             {
                 payment.RefundedAt ??= DateTime.UtcNow;
+                payment.RefundReason = request.Reason;
+            }
+            else if (normalizedStatus == "REFUND_PENDING")
+            {
+                payment.RefundMethod = "MANUAL";
+                payment.RefundPendingReason = request.Reason;
                 payment.RefundReason = request.Reason;
             }
             else if (normalizedStatus == "PENDING")
@@ -537,6 +697,20 @@ namespace EXE201.Server.Repositories
                 .Include(s => s.Booking).ThenInclude(b => b.Status);
         }
 
+        private IQueryable<Booking> AdminBookingDetailQuery()
+        {
+            return _context.Bookings
+                .Include(b => b.Customer)
+                .Include(b => b.Studio).ThenInclude(s => s.Owner)
+                .Include(b => b.Package).ThenInclude(p => p.Service)
+                .Include(b => b.Status)
+                .Include(b => b.Slot)
+                .Include(b => b.Payments).ThenInclude(p => p.Method)
+                .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
+                .Include(b => b.BookingLogs).ThenInclude(l => l.ChangedByNavigation)
+                .Include(b => b.DisputeResolvedByNavigation);
+        }
+
         private IQueryable<Booking> ValidRevenueBookingsQuery(DateTime? from, DateTime? to)
         {
             var query = _context.Bookings
@@ -556,6 +730,163 @@ namespace EXE201.Server.Repositories
                 query = query.Where(b => b.CompletedAt!.Value <= to.Value);
 
             return query;
+        }
+
+        private async Task<BookingStatus> GetBookingStatusAsync(string statusName)
+        {
+            return await _context.BookingStatuses.FirstOrDefaultAsync(s => s.StatusName == statusName)
+                ?? throw new InvalidOperationException($"Booking status {statusName} does not exist in database.");
+        }
+
+        private async Task<PaymentStatus> GetPaymentStatusAsync(string statusName)
+        {
+            return await _context.PaymentStatuses.FirstOrDefaultAsync(s => s.StatusName == statusName)
+                ?? throw new InvalidOperationException($"Payment status {statusName} does not exist in database.");
+        }
+
+        private static bool IsDisputed(Booking booking)
+            => booking.DisputedAt.HasValue && !booking.DisputeResolvedAt.HasValue;
+
+        private static string GetEffectiveBookingStatus(Booking booking)
+            => IsDisputed(booking) ? "DISPUTED" : booking.Status.StatusName;
+
+        private async Task MarkLatestPaidPaymentForRefundAsync(Booking booking, string reason)
+        {
+            var payment = booking.Payments
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefault(p => p.PaymentStatus.StatusName == "PAID");
+            if (payment == null || payment.Method.MethodName == "CASH") return;
+
+            var refundPending = await GetPaymentStatusAsync("REFUND_PENDING");
+            payment.PaymentStatusId = refundPending.PaymentStatusId;
+            payment.PaymentStatus = refundPending;
+            payment.RefundMethod = "MANUAL";
+            payment.RefundPendingReason = reason;
+            payment.RefundReason = reason;
+            payment.UpdatedAt = DateTime.UtcNow;
+        }
+
+        private void AddBookingLog(long bookingId, string? oldStatus, string newStatus, long changedBy, string? note)
+        {
+            _context.BookingLogs.Add(new BookingLog
+            {
+                BookingId = bookingId,
+                OldStatus = oldStatus,
+                NewStatus = newStatus,
+                ChangedBy = changedBy,
+                Note = note,
+                ChangedAt = DateTime.UtcNow
+            });
+        }
+
+        private static string BuildAdminDisputeNote(string action, string? adminNote)
+        {
+            return string.IsNullOrWhiteSpace(adminNote)
+                ? $"Admin dispute decision: {action}"
+                : $"Admin dispute decision: {action}. Note: {adminNote.Trim()}";
+        }
+
+        private static PaymentResponse MapPaymentResponse(Payment payment) => new()
+        {
+            Id = payment.PaymentId,
+            BookingId = payment.BookingId,
+            PaymentCode = payment.PaymentCode,
+            MethodName = payment.Method.MethodName,
+            Status = payment.PaymentStatus.StatusName,
+            PaymentProvider = payment.PaymentProvider,
+            Amount = payment.Amount,
+            CurrencyCode = payment.CurrencyCode,
+            TransactionCode = payment.TransactionCode,
+            PaidAt = payment.PaidAt?.ToString("O"),
+            RefundedAt = payment.RefundedAt?.ToString("O"),
+            RefundMethod = payment.RefundMethod,
+            RefundPendingReason = payment.RefundPendingReason,
+            CreatedAt = payment.CreatedAt.ToString("O")
+        };
+
+        private static AdminBookingDetailDto MapAdminBookingDetail(Booking booking)
+        {
+            var payments = booking.Payments
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(MapPaymentResponse)
+                .ToList();
+
+            return new AdminBookingDetailDto
+            {
+                Id = booking.BookingId,
+                BookingCode = booking.BookingCode,
+                Status = GetEffectiveBookingStatus(booking),
+                RealStatus = booking.Status.StatusName,
+                ShootingDate = booking.ShootingDate.ToString("yyyy-MM-dd"),
+                StartTime = booking.Slot.StartTime.ToString("HH:mm"),
+                EndTime = booking.Slot.EndTime.ToString("HH:mm"),
+                ShootingLocation = booking.ShootingLocation,
+                Note = booking.Note,
+                TotalPrice = booking.TotalPrice,
+                CommissionPercent = booking.CommissionPercent,
+                CommissionAmount = booking.CommissionAmount,
+                StudioRevenue = booking.StudioRevenue,
+                PaymentExpiresAt = booking.PaymentExpiresAt?.ToString("O"),
+                ConfirmedAt = booking.ConfirmedAt?.ToString("O"),
+                RejectedAt = booking.RejectedAt?.ToString("O"),
+                RejectReason = booking.RejectReason,
+                CompletedAt = booking.CompletedAt?.ToString("O"),
+                CancelledAt = booking.CancelledAt?.ToString("O"),
+                CancelledBy = booking.CancelledBy,
+                CancelReason = booking.CancelReason,
+                CreatedAt = booking.CreatedAt.ToString("O"),
+                UpdatedAt = booking.UpdatedAt.ToString("O"),
+                Customer = new AdminBookingPartyDto
+                {
+                    Id = booking.CustomerId,
+                    Name = booking.Customer.FullName,
+                    Email = booking.Customer.Email,
+                    Phone = booking.Customer.Phone
+                },
+                Studio = new AdminBookingStudioDto
+                {
+                    Id = booking.StudioId,
+                    Name = booking.Studio.StudioName,
+                    StudioName = booking.Studio.StudioName,
+                    Email = booking.Studio.Email ?? booking.Studio.Owner?.Email ?? string.Empty,
+                    Phone = booking.Studio.Phone ?? booking.Studio.Owner?.Phone,
+                    City = booking.Studio.City,
+                    District = booking.Studio.District,
+                    AddressLine = booking.Studio.AddressLine
+                },
+                Package = new AdminBookingPackageDto
+                {
+                    Id = booking.PackageId,
+                    PackageName = booking.Package.PackageName,
+                    ServiceName = booking.Package.Service.ServiceName,
+                    Price = booking.Package.Price
+                },
+                LatestPayment = payments.FirstOrDefault(),
+                Payments = payments,
+                Logs = booking.BookingLogs
+                    .OrderByDescending(l => l.ChangedAt)
+                    .Select(l => new AdminBookingLogDto
+                    {
+                        Id = l.LogId,
+                        OldStatus = l.OldStatus,
+                        NewStatus = l.NewStatus,
+                        ChangedBy = l.ChangedBy,
+                        ChangedByName = l.ChangedByNavigation?.FullName,
+                        Note = l.Note,
+                        ChangedAt = l.ChangedAt.ToString("O")
+                    })
+                    .ToList(),
+                Dispute = booking.DisputedAt.HasValue
+                    ? new AdminBookingDisputeDto
+                    {
+                        Reason = booking.DisputeNote,
+                        DisputedAt = booking.DisputedAt?.ToString("O"),
+                        ResolvedAt = booking.DisputeResolvedAt?.ToString("O"),
+                        ResolvedBy = booking.DisputeResolvedBy,
+                        ResolvedByName = booking.DisputeResolvedByNavigation?.FullName
+                    }
+                    : null
+            };
         }
 
         private static void ApplyServiceHiddenState(Service service, long adminId)

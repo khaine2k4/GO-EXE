@@ -28,19 +28,19 @@ export default function PhotosetDetailPage() {
         setService(data)
         setReviews(await getStudioReviews(data.studioId))
       })
-      .catch(() => setError('Khong the tai chi tiet dich vu.'))
+      .catch(() => setError('Không thể tải chi tiết dịch vụ.'))
       .finally(() => setLoading(false))
   }, [id])
 
-  if (loading) return <StateBox text="Dang tai chi tiet dich vu..." />
-  if (error || !service) return <StateBox text={error || 'Khong tim thay dich vu.'} />
+  if (loading) return <StateBox text="Đang tải chi tiết dịch vụ..." />
+  if (error || !service) return <StateBox text={error || 'Không tìm thấy dịch vụ.'} />
 
   const images = [service.thumbnailUrl, ...service.images, ...service.portfolio.map((item) => item.imageUrl)].filter(Boolean) as string[]
 
   return (
     <div className="space-y-8 pb-20">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-black text-slate-500 hover:text-slate-950">
-        <ArrowLeft className="h-4 w-4" /> Quay lai
+        <ArrowLeft className="h-4 w-4" /> Quay lại
       </button>
 
       <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-100">
@@ -60,12 +60,12 @@ export default function PhotosetDetailPage() {
         </div>
         <div className="grid gap-8 p-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-8">
-            <Section title="Thong tin dich vu">
-              <p className="leading-7 text-slate-600">{service.description || 'Studio chua cap nhat mo ta dich vu.'}</p>
+            <Section title="Thông tin dịch vụ">
+              <p className="leading-7 text-slate-600">{service.description || 'Studio chưa cập nhật mô tả dịch vụ.'}</p>
             </Section>
 
-            <Section title="Goi chup">
-              {service.packages.length === 0 ? <Empty text="Chua co goi chup active." /> : (
+            <Section title="Gói chụp">
+              {service.packages.length === 0 ? <Empty text="Chưa có gói chụp active." /> : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {service.packages.map((item) => (
                     <div key={item.id} className="rounded-2xl border border-slate-200 p-5">
@@ -77,8 +77,8 @@ export default function PhotosetDetailPage() {
                         <span className="text-sm font-black text-indigo-600">{formatVnd(item.price)}</span>
                       </div>
                       <div className="mt-4 grid gap-2 text-sm font-semibold text-slate-600">
-                        {item.durationHours && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.durationHours} gio chup</span>}
-                        {item.maxPhotos && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.maxPhotos} anh</span>}
+                        {item.durationHours && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.durationHours} giờ chụp</span>}
+                        {item.maxPhotos && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.maxPhotos} ảnh</span>}
                         {item.inclusions && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.inclusions}</span>}
                       </div>
                     </div>
@@ -88,7 +88,7 @@ export default function PhotosetDetailPage() {
             </Section>
 
             <Section title="Portfolio">
-              {service.portfolio.length === 0 ? <Empty text="Chua co anh portfolio." /> : (
+              {service.portfolio.length === 0 ? <Empty text="Chưa có ảnh portfolio." /> : (
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                   {service.portfolio.map((item) => (
                     <img key={item.id} src={item.imageUrl} alt={item.caption || service.name} className="aspect-square rounded-2xl object-cover" />
@@ -97,8 +97,8 @@ export default function PhotosetDetailPage() {
               )}
             </Section>
 
-            <Section title="Danh gia">
-              {reviews.length === 0 ? <Empty text="Chua co review." /> : (
+            <Section title="Đánh giá">
+              {reviews.length === 0 ? <Empty text="Chưa có review." /> : (
                 <div className="space-y-3">
                   {reviews.map((review) => (
                     <div key={review.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -106,7 +106,7 @@ export default function PhotosetDetailPage() {
                         <span className="font-black text-slate-950">{review.customerName}</span>
                         <span className="inline-flex items-center gap-1 text-sm font-black text-amber-500"><Star className="h-4 w-4 fill-current" /> {review.rating}</span>
                       </div>
-                      <p className="mt-2 text-sm text-slate-600">{review.comment || 'Khong co binh luan.'}</p>
+                      <p className="mt-2 text-sm text-slate-600">{review.comment || 'Không có bình luận.'}</p>
                     </div>
                   ))}
                 </div>
@@ -134,8 +134,8 @@ export default function PhotosetDetailPage() {
               <div className="flex items-center gap-3">
                 <Camera className="h-5 w-5 text-indigo-600" />
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Gia tu</p>
-                  <p className="text-xl font-black text-indigo-600">{service.minPrice ? formatVnd(service.minPrice) : 'Lien he'}</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Giá từ</p>
+                  <p className="text-xl font-black text-indigo-600">{service.minPrice ? formatVnd(service.minPrice) : 'Liên hệ'}</p>
                 </div>
               </div>
             </div>

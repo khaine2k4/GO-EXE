@@ -19,24 +19,24 @@ type PendingAction = {
 }
 
 const statusOptions: { value: AdminServiceStatus; label: string }[] = [
-  { value: 'ALL', label: 'Tat ca trang thai' },
-  { value: 'ACTIVE', label: 'Dang hoat dong' },
-  { value: 'INACTIVE', label: 'Ngung hoat dong' },
+  { value: 'ALL', label: 'Tất cả trạng thái' },
+  { value: 'ACTIVE', label: 'Đang hoạt động' },
+  { value: 'INACTIVE', label: 'Ngừng hoạt động' },
 ]
 
 const hiddenOptions: { value: HiddenFilter; label: string }[] = [
-  { value: 'ALL', label: 'Tat ca hien thi' },
-  { value: 'VISIBLE', label: 'Dang hien thi' },
-  { value: 'HIDDEN', label: 'Da an' },
+  { value: 'ALL', label: 'Tất cả hiển thị' },
+  { value: 'VISIBLE', label: 'Đang hiển thị' },
+  { value: 'HIDDEN', label: 'Đã ẩn' },
 ]
 
 function formatVnd(value?: number) {
-  if (value == null) return 'Chua co gia'
+  if (value == null) return 'Chưa có giá'
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`
 }
 
 function formatPriceRange(service: AdminServiceItem) {
-  if (service.minPrice == null && service.maxPrice == null) return 'Chua co package'
+  if (service.minPrice == null && service.maxPrice == null) return 'Chưa có package'
   if (service.minPrice === service.maxPrice) return formatVnd(service.minPrice)
   return `${formatVnd(service.minPrice)} - ${formatVnd(service.maxPrice)}`
 }
@@ -75,7 +75,7 @@ export default function AdminServicesPage() {
     try {
       setServices(await getAdminServices(params))
     } catch {
-      setError('Khong tai duoc danh sach dich vu tu API admin.')
+      setError('Không tải được danh sách dịch vụ từ API admin.')
     } finally {
       setLoading(false)
     }
@@ -99,21 +99,21 @@ export default function AdminServicesPage() {
     try {
       if (pendingAction.type === 'hide') {
         await hideAdminService(pendingAction.service.serviceId, reasonText.trim() || undefined)
-        toast.push({ type: 'success', title: 'Da an service', message: pendingAction.service.serviceName })
+        toast.push({ type: 'success', title: 'Đã ẩn service', message: pendingAction.service.serviceName })
       } else if (pendingAction.type === 'unhide') {
         await unhideAdminService(pendingAction.service.serviceId)
-        toast.push({ type: 'success', title: 'Da bo an service', message: pendingAction.service.serviceName })
+        toast.push({ type: 'success', title: 'Đã bỏ ẩn service', message: pendingAction.service.serviceName })
       } else {
         await deleteAdminService(pendingAction.service.serviceId, reasonText.trim() || undefined)
-        toast.push({ type: 'success', title: 'Da an noi dung khong phu hop', message: pendingAction.service.serviceName })
+        toast.push({ type: 'success', title: 'Đã ẩn nội dung không phù hợp', message: pendingAction.service.serviceName })
       }
 
       setPendingAction(null)
       setReasonText('')
       await fetchData()
     } catch {
-      setError('Thao tac that bai. Vui long thu lai.')
-      toast.push({ type: 'error', title: 'Thao tac that bai' })
+      setError('Thao tác thất bại. Vui lòng thử lại.')
+      toast.push({ type: 'error', title: 'Thao tác thất bại' })
     } finally {
       setActionId(null)
     }
@@ -136,10 +136,10 @@ export default function AdminServicesPage() {
   return (
     <div className="space-y-5 pb-12">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Tong dich vu" value={stats.total} />
-        <Metric label="Dang hoat dong" value={stats.active} tone="emerald" />
-        <Metric label="Da an vi pham" value={stats.hidden} tone="rose" />
-        <Metric label="Ngung hoat dong" value={stats.inactive} tone="amber" />
+        <Metric label="Tổng dịch vụ" value={stats.total} />
+        <Metric label="Đang hoạt động" value={stats.active} tone="emerald" />
+        <Metric label="Đã ẩn vi phạm" value={stats.hidden} tone="rose" />
+        <Metric label="Ngừng hoạt động" value={stats.inactive} tone="amber" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -149,7 +149,7 @@ export default function AdminServicesPage() {
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Tim service hoac studio..."
+              placeholder="Tìm service hoặc studio..."
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
             />
             {searchTerm && (
@@ -167,17 +167,17 @@ export default function AdminServicesPage() {
               value={sortBy}
               onChange={setSortBy}
               options={[
-                { value: 'newest', label: 'Moi nhat' },
-                { value: 'oldest', label: 'Cu nhat' },
-                { value: 'name', label: 'Ten service' },
-                { value: 'studio', label: 'Ten studio' },
-                { value: 'category', label: 'Danh muc' },
-                { value: 'hidden', label: 'Da an truoc' },
+                { value: 'newest', label: 'Mới nhất' },
+                { value: 'oldest', label: 'Cũ nhất' },
+                { value: 'name', label: 'Tên service' },
+                { value: 'studio', label: 'Tên studio' },
+                { value: 'category', label: 'Danh mục' },
+                { value: 'hidden', label: 'Đã ẩn trước' },
               ]}
             />
             <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Lam moi
+              Làm mới
             </button>
           </div>
         </div>
@@ -187,10 +187,10 @@ export default function AdminServicesPage() {
         <ServiceTable services={services} loading={loading} actionId={actionId} onAction={setPendingAction} />
 
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-xs text-slate-500">
-          <span>Hien thi {services.length} dich vu</span>
+          <span>Hiển thị {services.length} dịch vụ</span>
           {(searchTerm || status !== 'ALL' || hiddenFilter !== 'ALL') && (
             <button type="button" onClick={clearFilters} className="font-medium text-indigo-600 hover:text-indigo-700">
-              Xoa bo loc
+              Xóa bộ lọc
             </button>
           )}
         </div>
@@ -217,7 +217,7 @@ export default function AdminServicesPage() {
 
 function ServiceTable({ services, loading, actionId, onAction }: { services: AdminServiceItem[]; loading: boolean; actionId: string | null; onAction: (action: PendingAction) => void }) {
   if (loading) return <TableSkeleton columns={8} />
-  if (services.length === 0) return <EmptyState text="Khong co dich vu phu hop." />
+  if (services.length === 0) return <EmptyState text="Không có dịch vụ phù hợp." />
 
   return (
     <div className="overflow-x-auto">
@@ -226,12 +226,12 @@ function ServiceTable({ services, loading, actionId, onAction }: { services: Adm
           <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
             <th className="px-5 py-3">Service</th>
             <th className="px-5 py-3">Studio</th>
-            <th className="px-5 py-3">Category</th>
-            <th className="px-5 py-3">Gia</th>
-            <th className="px-5 py-3 text-center">Active</th>
-            <th className="px-5 py-3 text-center">Hidden</th>
-            <th className="px-5 py-3">Ngay tao</th>
-            <th className="px-5 py-3 text-right">Thao tac</th>
+            <th className="px-5 py-3">Danh mục</th>
+            <th className="px-5 py-3">Giá</th>
+            <th className="px-5 py-3 text-center">Hoạt động</th>
+            <th className="px-5 py-3 text-center">Hiển thị</th>
+            <th className="px-5 py-3">Ngày tạo</th>
+            <th className="px-5 py-3 text-right">Thao tác</th>
           </tr>
         </thead>
         <tbody>
@@ -243,7 +243,7 @@ function ServiceTable({ services, loading, actionId, onAction }: { services: Adm
               </td>
               <td className="px-5 py-4">
                 <div className="text-sm font-medium text-slate-800">{service.studioName}</div>
-                <div className="mt-1 text-xs text-slate-500">{service.city || 'Chua co khu vuc'}</div>
+                <div className="mt-1 text-xs text-slate-500">{service.city || 'Chưa có khu vực'}</div>
               </td>
               <td className="px-5 py-4 text-sm text-slate-600">{service.categoryName}</td>
               <td className="px-5 py-4 text-sm font-medium text-slate-800">{formatPriceRange(service)}</td>
@@ -255,7 +255,7 @@ function ServiceTable({ services, loading, actionId, onAction }: { services: Adm
               </td>
               <td className="px-5 py-4">
                 <div className="text-sm text-slate-600">{formatDate(service.createdAt)}</div>
-                {service.hiddenAt && <div className="mt-1 text-xs text-rose-600">An: {formatDate(service.hiddenAt)}</div>}
+                {service.hiddenAt && <div className="mt-1 text-xs text-rose-600">Ẩn: {formatDate(service.hiddenAt)}</div>}
               </td>
               <td className="px-5 py-4">
                 <div className="flex justify-end gap-2">
@@ -267,7 +267,7 @@ function ServiceTable({ services, loading, actionId, onAction }: { services: Adm
                       className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
                     >
                       <Eye className="h-4 w-4" />
-                      Bo an
+                      Bỏ ẩn
                     </button>
                   ) : (
                     <button
@@ -277,7 +277,7 @@ function ServiceTable({ services, loading, actionId, onAction }: { services: Adm
                       className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-60"
                     >
                       <EyeOff className="h-4 w-4" />
-                      An
+                      Ẩn
                     </button>
                   )}
                   <button
@@ -287,7 +287,7 @@ function ServiceTable({ services, loading, actionId, onAction }: { services: Adm
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-60"
                   >
                     <Trash2 className="h-4 w-4" />
-                    Remove
+                    Gỡ
                   </button>
                 </div>
               </td>
@@ -301,8 +301,8 @@ function ServiceTable({ services, loading, actionId, onAction }: { services: Adm
 
 function ConfirmModal({ action, reason, setReason, loading, onClose, onSubmit }: { action: PendingAction; reason: string; setReason: (value: string) => void; loading: boolean; onClose: () => void; onSubmit: () => void }) {
   const isUnhide = action.type === 'unhide'
-  const title = action.type === 'delete' ? 'An noi dung khong phu hop' : isUnhide ? 'Bo an service' : 'An service vi pham'
-  const submitLabel = action.type === 'delete' ? 'Xac nhan remove' : isUnhide ? 'Xac nhan bo an' : 'Xac nhan an'
+  const title = action.type === 'delete' ? 'Ẩn nội dung không phù hợp' : isUnhide ? 'Bỏ ẩn service' : 'Ẩn service vi phạm'
+  const submitLabel = action.type === 'delete' ? 'Xác nhận gỡ' : isUnhide ? 'Xác nhận bỏ ẩn' : 'Xác nhận ẩn'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
@@ -323,19 +323,19 @@ function ConfirmModal({ action, reason, setReason, loading, onClose, onSubmit }:
             onChange={(event) => setReason(event.target.value)}
             rows={4}
             autoFocus
-            placeholder="Ly do xu ly service nay..."
+            placeholder="Lý do xử lý service này..."
             className="mt-5 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-rose-400 focus:bg-white focus:ring-4 focus:ring-rose-500/10"
           />
         )}
 
-        {isUnhide && <p className="mt-5 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">Service se duoc bo an nhung van giu inactive de studio tu bat lai khi can.</p>}
+        {isUnhide && <p className="mt-5 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">Service sẽ được bỏ ẩn nhưng vẫn giữ inactive để studio tự bật lại khi cần.</p>}
 
         <div className="mt-5 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            Huy
+            Hủy
           </button>
           <button type="button" onClick={onSubmit} disabled={loading} className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">
-            {loading ? 'Dang xu ly...' : submitLabel}
+            {loading ? 'Đang xử lý...' : submitLabel}
           </button>
         </div>
       </motion.div>
@@ -377,17 +377,17 @@ function SelectBox({ icon, value, onChange, options }: { icon: React.ReactNode; 
 
 function StatusBadge({ active }: { active: boolean }) {
   return active ? (
-    <span className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Active</span>
+    <span className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Đang hoạt động</span>
   ) : (
-    <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">Inactive</span>
+    <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">Ngừng hoạt động</span>
   )
 }
 
 function HiddenBadge({ service }: { service: AdminServiceItem }) {
   return service.isHidden ? (
-    <span className="inline-flex rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700">Hidden</span>
+    <span className="inline-flex rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700">Đã ẩn</span>
   ) : (
-    <span className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Visible</span>
+    <span className="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Đang hiển thị</span>
   )
 }
 

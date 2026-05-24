@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Banknote, Bell, BriefcaseBusiness, ChevronLeft, CircleDollarSign, FolderTree, HandCoins, LifeBuoy, LogOut, Menu, MessageSquare, Percent, ShieldCheck, Users, X } from 'lucide-react'
+import { ArrowLeft, Banknote, BarChart3, Bell, BriefcaseBusiness, ChevronLeft, CircleDollarSign, FolderTree, HandCoins, LifeBuoy, LogOut, Menu, MessageSquare, Percent, ShieldCheck, Users, X } from 'lucide-react'
 import { useAppStore } from '../store/AppStore'
 
 export default function AdminLayout() {
@@ -23,6 +23,7 @@ export default function AdminLayout() {
 
   const navItems = useMemo(
     () => [
+      { to: '/admin/dashboard', label: 'Dashboard', icon: BarChart3 },
       { to: '/admin/users', label: 'Người dùng', icon: Users, badge: pendingApprovalsCount || undefined },
       { to: '/admin/orders', label: 'Booking & thanh toán', icon: ShieldCheck, badge: openDisputesCount || undefined },
       { to: '/admin/services', label: 'Services', icon: BriefcaseBusiness },
@@ -38,6 +39,7 @@ export default function AdminLayout() {
   )
 
   const pageTitle = useMemo(() => {
+    if (location.pathname.includes('/admin/dashboard')) return 'Dashboard'
     if (location.pathname.includes('/admin/orders')) return 'Booking & thanh toán'
     if (location.pathname.includes('/admin/services')) return 'Services'
     if (location.pathname.includes('/admin/payments')) return 'Payments'

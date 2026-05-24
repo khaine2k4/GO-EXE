@@ -12,7 +12,9 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useToast } from '../components/Toast'
+import CustomDialog from '../components/CustomDialog'
 import {
+  cancelBooking,
   completeBooking,
   confirmBooking,
   getBooking,
@@ -48,6 +50,7 @@ const STATUS_LABEL: Record<string, string> = {
   CONFIRMED: 'ĐÃ XÁC NHẬN',
   IN_PROGRESS: 'ĐANG THỰC HIỆN',
   COMPLETED: 'HOÀN THÀNH',
+  DISPUTED: 'KHIẾU NẠI',
   CANCELLED: 'ĐÃ HỦY',
   REJECTED: 'TỪ CHỐI',
 }
@@ -58,6 +61,7 @@ const STATUS_COLOR: Record<string, string> = {
   CONFIRMED: 'bg-indigo-50 text-indigo-600 ring-indigo-100',
   IN_PROGRESS: 'bg-yellow-50 text-yellow-600 ring-yellow-100',
   COMPLETED: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+  DISPUTED: 'bg-rose-50 text-rose-600 ring-rose-100',
   CANCELLED: 'bg-slate-50 text-slate-400 ring-slate-100',
   REJECTED: 'bg-rose-50 text-rose-600 ring-rose-100',
 }
@@ -80,6 +84,7 @@ export default function PhotographerBookingDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [stagedImages, setStagedImages] = useState<string[]>([])
+  const [dialog, setDialog] = useState<{ isOpen: boolean; title: string; message: string; type: 'confirm' | 'prompt'; placeholder?: string; onConfirm: (val?: string) => void } | null>(null)
 
   const loadBooking = async () => {
     if (!id) return
@@ -140,6 +145,7 @@ export default function PhotographerBookingDetailPage() {
   const canConfirm = currentBooking.status === 'PENDING_CONFIRMATION'
   const canStart = currentBooking.status === 'CONFIRMED'
   const canComplete = currentBooking.status === 'IN_PROGRESS'
+  const canCancelStudio = currentBooking.status === 'PENDING_CONFIRMATION' || currentBooking.status === 'CONFIRMED'
 
   async function handleConfirmJob() {
     setActionLoading(true)
@@ -163,26 +169,65 @@ export default function PhotographerBookingDetailPage() {
   }
 
   async function handleRejectJob() {
-    const reason = prompt('Nhập lý do từ chối (không bắt buộc):')
-    if (reason === null) return // Cancelled prompt
-    setActionLoading(true)
-    try {
-      await rejectBooking(currentBooking.id, reason || undefined)
-      toast.push({
-        type: 'success',
-        title: 'Từ chối thành công',
-        message: 'Lịch chụp đã được từ chối.',
-      })
-      await loadBooking()
-    } catch {
-      toast.push({
-        type: 'error',
-        title: 'Lỗi',
-        message: 'Không thể từ chối lịch chụp.',
-      })
-    } finally {
-      setActionLoading(false)
-    }
+    setDialog({
+      isOpen: true,
+      title: 'Từ Chối Nhận Lịch Chụp',
+      message: 'Bạn có chắc chắn muốn từ chối nhận lịch đặt chụp này không? Vui lòng nhập lý do từ chối:',
+      type: 'prompt',
+      placeholder: 'Nhập lý do từ chối...',
+      onConfirm: async (reason) => {
+        setDialog(null)
+        setActionLoading(true)
+        try {
+          await rejectBooking(currentBooking.id, reason || undefined)
+          toast.push({
+            type: 'success',
+            title: 'Từ chối thành công',
+            message: 'Lịch chụp đã được từ chối.',
+          })
+          await loadBooking()
+        } catch {
+          toast.push({
+            type: 'error',
+            title: 'Lỗi',
+            message: 'Không thể từ chối lịch chụp.',
+          })
+        } finally {
+          setActionLoading(false)
+        }
+      }
+    })
+  }
+
+  async function handleCancelBooking() {
+    setDialog({
+      isOpen: true,
+      title: 'Hủy Lịch Đặt Chụp',
+      message: 'Bạn có chắc chắn muốn hủy ca chụp này? Vui lòng nhập lý do hủy (mã đơn sẽ được hoàn tiền nếu đã thanh toán):',
+      type: 'prompt',
+      placeholder: 'Nhập lý do hủy...',
+      onConfirm: async (reason) => {
+        setDialog(null)
+        setActionLoading(true)
+        try {
+          await cancelBooking(currentBooking.id, reason || 'Studio cancelled booking')
+          toast.push({
+            type: 'success',
+            title: 'Đã hủy lịch chụp',
+            message: 'Slot đã được mở lại. Nếu booking đã thanh toán, payment sẽ chờ admin hoàn tiền.',
+          })
+          await loadBooking()
+        } catch {
+          toast.push({
+            type: 'error',
+            title: 'Không thể hủy lịch',
+            message: 'Studio chỉ được hủy booking ở trạng thái chờ xác nhận hoặc đã xác nhận.',
+          })
+        } finally {
+          setActionLoading(false)
+        }
+      }
+    })
   }
 
   async function handleStartJob() {
@@ -299,6 +344,15 @@ export default function PhotographerBookingDetailPage() {
               className="inline-flex h-12 items-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-8 text-[11px] font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-600/10 transition-all active:scale-[0.98] disabled:opacity-50"
             >
               Bắt đầu chụp (In Progress)
+            </button>
+          )}
+          {canCancelStudio && (
+            <button
+              onClick={handleCancelBooking}
+              disabled={actionLoading}
+              className="inline-flex h-12 items-center gap-2 rounded-2xl border border-rose-200 bg-white px-6 text-[11px] font-black uppercase tracking-widest text-rose-600 transition-all hover:bg-rose-50 active:scale-[0.98] disabled:opacity-50"
+            >
+              Hủy lịch chụp
             </button>
           )}
           {canComplete && (
@@ -548,6 +602,16 @@ export default function PhotographerBookingDetailPage() {
           </div>
         </div>
       </div>
+
+      <CustomDialog
+        isOpen={!!dialog?.isOpen}
+        title={dialog?.title || ''}
+        message={dialog?.message || ''}
+        type={dialog?.type || 'confirm'}
+        placeholder={dialog?.placeholder || ''}
+        onConfirm={dialog?.onConfirm || (() => {})}
+        onCancel={() => setDialog(null)}
+      />
     </div>
   )
 }

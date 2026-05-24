@@ -20,8 +20,8 @@ export default function PhotographerCommissionSettingPage() {
     try {
       setSetting(await getStudioCommissionSetting())
     } catch {
-      setError('Khong tai duoc cau hinh commission.')
-      toast.push({ type: 'error', title: 'Tai commission setting that bai' })
+      setError('Không tải được cấu hình commission.')
+      toast.push({ type: 'error', title: 'Tải commission setting thất bại' })
     } finally {
       setLoading(false)
     }
@@ -31,8 +31,8 @@ export default function PhotographerCommissionSettingPage() {
     fetchData()
   }, [])
 
-  if (loading) return <StateBox text="Dang tai commission setting..." />
-  if (error || !setting) return <StateBox text={error || 'Khong co commission setting.'} />
+  if (loading) return <StateBox text="Đang tải commission setting..." />
+  if (error || !setting) return <StateBox text={error || 'Không có commission setting.'} />
 
   return (
     <div className="space-y-6 pb-20">
@@ -45,7 +45,7 @@ export default function PhotographerCommissionSettingPage() {
           </div>
           <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50">
             <RefreshCw className="h-4 w-4" />
-            Refresh
+            Làm mới
           </button>
         </div>
       </section>
@@ -55,21 +55,21 @@ export default function PhotographerCommissionSettingPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
             <Percent className="h-6 w-6" />
           </div>
-          <p className="mt-5 text-xs font-black uppercase tracking-widest text-slate-400">Current commission</p>
+          <p className="mt-5 text-xs font-black uppercase tracking-widest text-slate-400">Commission hiện tại</p>
           <div className="mt-2 text-5xl font-black tracking-tight text-slate-950">{setting.commissionPercent}%</div>
-          <p className="mt-3 text-sm font-medium text-slate-500">Updated at {formatDate(setting.updatedAt)}</p>
+          <p className="mt-3 text-sm font-medium text-slate-500">Cập nhật lúc {formatDate(setting.updatedAt)}</p>
         </section>
 
         <section className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-900">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-1 h-5 w-5 shrink-0" />
             <div>
-              <h2 className="text-base font-black text-amber-950">Read-only MVP</h2>
+              <h2 className="text-base font-black text-amber-950">Chỉ xem trong MVP</h2>
               <p className="mt-2 text-sm font-semibold leading-6">
-                Project hien tai chua co rule ro rang cho studio tu chinh commission. Commission la phi nen tang, nen man hinh nay chi hien thi gia tri dang duoc he thong su dung.
+                Project hiện tại chưa có rule rõ ràng cho studio tự chỉnh commission. Commission là phí nền tảng, nên màn hình này chỉ hiển thị giá trị đang được hệ thống sử dụng.
               </p>
               <p className="mt-2 text-sm font-semibold leading-6">
-                Booking cu da luu snapshot commission rieng, nen thay doi commission tuong lai neu duoc phe duyet cung khong duoc sua lai booking cu.
+                Booking cũ đã lưu snapshot commission riêng, nên thay đổi commission tương lai nếu được phê duyệt cũng không sửa lại booking cũ.
               </p>
             </div>
           </div>

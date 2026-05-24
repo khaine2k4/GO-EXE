@@ -16,12 +16,12 @@ export default function PhotographerDashboardPage() {
   useEffect(() => {
     getStudioDashboard()
       .then(setDashboard)
-      .catch(() => setError('Khong the tai dashboard studio.'))
+      .catch(() => setError('Không thể tải dashboard studio.'))
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <StateBox text="Dang tai dashboard..." />
-  if (error || !dashboard) return <StateBox text={error || 'Khong co du lieu dashboard.'} />
+  if (loading) return <StateBox text="Đang tải dashboard..." />
+  if (error || !dashboard) return <StateBox text={error || 'Không có dữ liệu dashboard.'} />
 
   const totalPortfolios = dashboard.totalPortfolios ?? dashboard.portfolioImages ?? 0
   const revenue = dashboard.totalRevenue ?? dashboard.grossRevenue ?? 0
@@ -33,8 +33,8 @@ export default function PhotographerDashboardPage() {
       <div className="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Studio dashboard</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">Tong quan hoat dong</h1>
-          <p className="mt-2 text-sm font-medium text-slate-500">So lieu lay truc tiep tu /api/studio/dashboard.</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-950">Tổng quan hoạt động</h1>
+          <p className="mt-2 text-sm font-medium text-slate-500">Số liệu lấy trực tiếp từ /api/studio/dashboard.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/photographer/services" className="rounded-xl bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-widest text-white">Services</Link>
@@ -44,19 +44,19 @@ export default function PhotographerDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Tong services" value={dashboard.totalServices} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Services active" value={dashboard.activeServices} icon={<Camera className="h-5 w-5" />} />
+        <Metric label="Tổng services" value={dashboard.totalServices} icon={<Camera className="h-5 w-5" />} />
+        <Metric label="Services đang hoạt động" value={dashboard.activeServices} icon={<Camera className="h-5 w-5" />} />
         <Metric label="Packages" value={dashboard.totalPackages} icon={<Package className="h-5 w-5" />} />
         <Metric label="Portfolio" value={totalPortfolios} icon={<Image className="h-5 w-5" />} />
         <Metric label="Bookings" value={dashboard.totalBookings ?? 0} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Pending" value={dashboard.pendingBookings} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Completed" value={dashboard.completedBookings} icon={<Camera className="h-5 w-5" />} />
+        <Metric label="Đang chờ" value={dashboard.pendingBookings} icon={<Camera className="h-5 w-5" />} />
+        <Metric label="Hoàn thành" value={dashboard.completedBookings} icon={<Camera className="h-5 w-5" />} />
         <Metric label="Doanh thu" value={formatVnd(revenue)} icon={<Wallet className="h-5 w-5" />} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-4 text-xl font-black text-slate-950">Services gan day</h2>
+          <h2 className="mb-4 text-xl font-black text-slate-950">Services gần đây</h2>
           {dashboard.recentServices?.length ? (
             <div className="space-y-3">
               {dashboard.recentServices.map((service) => (
@@ -65,28 +65,28 @@ export default function PhotographerDashboardPage() {
                     <div className="font-black text-slate-950">{service.name}</div>
                     <div className="text-sm font-semibold text-slate-500">{service.categoryName}</div>
                   </div>
-                  <span className={service.isActive ? 'text-emerald-600 font-black text-sm' : 'text-slate-400 font-black text-sm'}>{service.isActive ? 'Active' : 'Inactive'}</span>
+                  <span className={service.isActive ? 'text-emerald-600 font-black text-sm' : 'text-slate-400 font-black text-sm'}>{service.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}</span>
                 </Link>
               ))}
             </div>
-          ) : <StateBox text="Chua co service." compact />}
+          ) : <StateBox text="Chưa có service." compact />}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-4 text-xl font-black text-slate-950">Packages gan day</h2>
+          <h2 className="mb-4 text-xl font-black text-slate-950">Packages gần đây</h2>
           {dashboard.recentPackages?.length ? (
             <div className="space-y-3">
               {dashboard.recentPackages.map((item) => (
                 <div key={item.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-4">
                   <div>
                     <div className="font-black text-slate-950">{item.name}</div>
-                    <div className="text-sm font-semibold text-slate-500">{item.isActive ? 'Active' : 'Inactive'}</div>
+                    <div className="text-sm font-semibold text-slate-500">{item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}</div>
                   </div>
                   <span className="font-black text-indigo-600">{formatVnd(item.price)}</span>
                 </div>
               ))}
             </div>
-          ) : <StateBox text="Chua co package." compact />}
+          ) : <StateBox text="Chưa có package." compact />}
         </section>
       </div>
 

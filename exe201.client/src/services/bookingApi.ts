@@ -75,6 +75,10 @@ export function cancelBooking(id: string | number, reason?: string) {
   return api.put<BookingDto>(`/bookings/${id}/cancel`, { reason }).then((res) => res.data)
 }
 
+export function disputeBooking(id: string | number, reason: string) {
+  return api.put<BookingDto>(`/bookings/${id}/dispute`, { reason }).then((res) => res.data)
+}
+
 export function vnpayCreatePaymentUrl(bookingId: number) {
   return api.post<{ paymentUrl: string }>('/payments/vnpay-create', { bookingId }).then((res) => res.data)
 }
