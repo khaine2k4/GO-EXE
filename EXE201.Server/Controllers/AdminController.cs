@@ -166,6 +166,56 @@ namespace EXE201.Server.Controllers
             }
         }
 
+        [HttpGet("bookings/{id:long}")]
+        public async Task<IActionResult> GetBookingDetail(long id)
+        {
+            try
+            {
+                var booking = await _adminService.GetAdminBookingDetailAsync(id);
+                return booking == null ? NotFound("Booking not found.") : Ok(booking);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("bookings/{id:long}/resolve-dispute")]
+        public async Task<IActionResult> ResolveDispute(long id, [FromBody] ResolveDisputeRequestDto request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Decision))
+            {
+                return BadRequest("Decision is required.");
+            }
+
+            try
+            {
+                var booking = await _adminService.ResolveDisputeAsync(id, request, GetAdminId());
+                return booking == null ? NotFound("Booking not found.") : Ok(new { message = "Dispute resolved.", booking });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("dashboard-stats")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            try
+            {
+                return Ok(await _adminService.GetAdminDashboardStatsAsync());
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpGet("reports")]
         public async Task<IActionResult> GetReports([FromQuery] string? search, [FromQuery] string? status, [FromQuery] string? targetType, [FromQuery] string? sortBy)
         {

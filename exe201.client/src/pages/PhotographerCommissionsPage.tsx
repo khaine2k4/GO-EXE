@@ -38,8 +38,8 @@ export default function PhotographerCommissionsPage() {
     try {
       setItems(await getStudioCommissions(params))
     } catch {
-      setError('Khong tai duoc commission studio.')
-      toast.push({ type: 'error', title: 'Tai commission that bai' })
+      setError('Không tải được commission studio.')
+      toast.push({ type: 'error', title: 'Tải commission thất bại' })
     } finally {
       setLoading(false)
     }
@@ -59,28 +59,28 @@ export default function PhotographerCommissionsPage() {
         <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="relative min-w-[280px] xl:w-[420px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tim booking, customer, service..." className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
+            <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm booking, khách hàng, dịch vụ..." className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
             {searchTerm && <button type="button" onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"><X className="h-4 w-4" /></button>}
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <DateInput label="From" value={from} onChange={setFrom} />
-            <DateInput label="To" value={to} onChange={setTo} />
+            <DateInput label="Từ ngày" value={from} onChange={setFrom} />
+            <DateInput label="Đến ngày" value={to} onChange={setTo} />
             <SelectBox icon={<SlidersHorizontal className="h-4 w-4" />} value={sortBy} onChange={setSortBy} options={[
-              { value: 'newest', label: 'Moi nhat' },
-              { value: 'oldest', label: 'Cu nhat' },
+              { value: 'newest', label: 'Mới nhất' },
+              { value: 'oldest', label: 'Cũ nhất' },
               { value: 'commission_desc', label: 'Commission cao' },
-              { value: 'commission_asc', label: 'Commission thap' },
+              { value: 'commission_asc', label: 'Commission thấp' },
               { value: 'gross_desc', label: 'Gross cao' },
-              { value: 'gross_asc', label: 'Gross thap' },
+              { value: 'gross_asc', label: 'Gross thấp' },
             ]} />
-            <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh</button>
+            <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Làm mới</button>
           </div>
         </div>
         {error && <div className="border-b border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
-        {loading ? <TableSkeleton columns={10} /> : items.length === 0 ? <EmptyState text="Khong co commission phu hop." /> : (
+        {loading ? <TableSkeleton columns={10} /> : items.length === 0 ? <EmptyState text="Không có commission phù hợp." /> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1120px]">
-              <thead><tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500"><th className="px-5 py-3">Booking</th><th className="px-5 py-3">Customer</th><th className="px-5 py-3">Service</th><th className="px-5 py-3 text-right">Gross</th><th className="px-5 py-3 text-right">Rate</th><th className="px-5 py-3 text-right">Commission</th><th className="px-5 py-3 text-right">Net</th><th className="px-5 py-3">Booking</th><th className="px-5 py-3">Payment</th><th className="px-5 py-3">Dates</th></tr></thead>
+              <thead><tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500"><th className="px-5 py-3">Booking</th><th className="px-5 py-3">Khách hàng</th><th className="px-5 py-3">Dịch vụ</th><th className="px-5 py-3 text-right">Tổng tiền</th><th className="px-5 py-3 text-right">Rate</th><th className="px-5 py-3 text-right">Commission</th><th className="px-5 py-3 text-right">Thực nhận</th><th className="px-5 py-3">Booking</th><th className="px-5 py-3">Payment</th><th className="px-5 py-3">Thời gian</th></tr></thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.bookingId} className="border-b border-slate-100 hover:bg-slate-50/70">
@@ -93,7 +93,7 @@ export default function PhotographerCommissionsPage() {
                     <td className="px-5 py-4 text-right text-sm font-semibold text-emerald-700">{formatVnd(item.netRevenue)}</td>
                     <td className="px-5 py-4"><Badge value={item.bookingStatus} /></td>
                     <td className="px-5 py-4"><Badge value={item.paymentStatus} /></td>
-                    <td className="px-5 py-4"><div className="text-xs text-slate-500">Completed: {formatDate(item.completedAt)}</div><div className="mt-1 text-xs text-slate-500">Paid: {formatDate(item.paidAt)}</div></td>
+                    <td className="px-5 py-4"><div className="text-xs text-slate-500">Hoàn thành: {formatDate(item.completedAt)}</div><div className="mt-1 text-xs text-slate-500">Đã trả: {formatDate(item.paidAt)}</div></td>
                   </tr>
                 ))}
               </tbody>

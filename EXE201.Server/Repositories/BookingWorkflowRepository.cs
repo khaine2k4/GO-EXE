@@ -144,7 +144,11 @@ namespace EXE201.Server.Repositories
         {
             var query = BookingQuery().Where(b => b.CustomerId == customerId);
             if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
-                query = query.Where(b => b.Status.StatusName == status);
+            {
+                query = status == "DISPUTED"
+                    ? query.Where(b => b.DisputedAt != null && b.DisputeResolvedAt == null)
+                    : query.Where(b => b.Status.StatusName == status && (b.DisputedAt == null || b.DisputeResolvedAt != null));
+            }
             return await query.OrderByDescending(b => b.CreatedAt).ToListAsync();
         }
 
@@ -152,7 +156,11 @@ namespace EXE201.Server.Repositories
         {
             var query = BookingQuery().Where(b => b.StudioId == studioId);
             if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
-                query = query.Where(b => b.Status.StatusName == status);
+            {
+                query = status == "DISPUTED"
+                    ? query.Where(b => b.DisputedAt != null && b.DisputeResolvedAt == null)
+                    : query.Where(b => b.Status.StatusName == status && (b.DisputedAt == null || b.DisputeResolvedAt != null));
+            }
             return await query.OrderByDescending(b => b.CreatedAt).ToListAsync();
         }
 

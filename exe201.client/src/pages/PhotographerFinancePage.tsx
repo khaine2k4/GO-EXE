@@ -4,6 +4,14 @@ import { useToast } from '../components/Toast'
 import { getStudioSettlements, type SettlementItem, type SettlementStatus } from '../services/settlementApi'
 
 const statusOptions: SettlementStatus[] = ['ALL', 'READY', 'PENDING', 'PAID', 'FAILED', 'CANCELLED']
+const statusLabels: Record<string, string> = {
+  ALL: 'Tất cả trạng thái',
+  READY: 'Sẵn sàng payout',
+  PENDING: 'Đang chờ',
+  PAID: 'Đã payout',
+  FAILED: 'Thất bại',
+  CANCELLED: 'Đã hủy',
+}
 
 function formatVnd(value?: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} VND`
@@ -26,8 +34,8 @@ export default function PhotographerFinancePage() {
     try {
       setItems(await getStudioSettlements({ status }))
     } catch {
-      setError('Khong tai duoc settlement cua studio.')
-      toast.push({ type: 'error', title: 'Tai settlement that bai' })
+      setError('Không tải được settlement của studio.')
+      toast.push({ type: 'error', title: 'Tải settlement thất bại' })
     } finally {
       setLoading(false)
     }
@@ -50,16 +58,16 @@ export default function PhotographerFinancePage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Studio finance</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-950">Settlements</h1>
-            <p className="mt-1 text-sm font-medium text-slate-500">Tien studio duoc tao khi booking COMPLETED. Admin se chuyen khoan thu cong va danh dau PAID.</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">Quyết toán</h1>
+            <p className="mt-1 text-sm font-medium text-slate-500">Tiền studio được tạo khi booking COMPLETED. Admin sẽ chuyển khoản thủ công và đánh dấu PAID.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <select value={status} onChange={(event) => setStatus(event.target.value as SettlementStatus)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none">
-              {statusOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+              {statusOptions.map((item) => <option key={item} value={item}>{statusLabels[item] ?? item}</option>)}
             </select>
             <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Làm mới
             </button>
           </div>
         </div>
@@ -67,27 +75,27 @@ export default function PhotographerFinancePage() {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Ready to payout" value={formatVnd(totals.ready)} tone="indigo" />
-        <Metric label="Paid" value={formatVnd(totals.paid)} tone="emerald" />
-        <Metric label="Pending records" value={totals.pendingCount} />
-        <Metric label="Gross tracked" value={formatVnd(totals.gross)} />
+        <Metric label="Sẵn sàng payout" value={formatVnd(totals.ready)} tone="indigo" />
+        <Metric label="Đã payout" value={formatVnd(totals.paid)} tone="emerald" />
+        <Metric label="Bản ghi đang chờ" value={totals.pendingCount} />
+        <Metric label="Tổng tiền theo dõi" value={formatVnd(totals.gross)} />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-slate-50/70 p-4">
-          <h2 className="text-base font-semibold text-slate-900">Settlement history</h2>
+          <h2 className="text-base font-semibold text-slate-900">Lịch sử settlement</h2>
         </div>
-        {loading ? <TableSkeleton /> : items.length === 0 ? <EmptyState text="Khong co settlement phu hop." /> : (
+        {loading ? <TableSkeleton /> : items.length === 0 ? <EmptyState text="Không có settlement phù hợp." /> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px]">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
                   <th className="px-5 py-3">Booking</th>
-                  <th className="px-5 py-3 text-right">Gross</th>
-                  <th className="px-5 py-3 text-right">Platform fee</th>
-                  <th className="px-5 py-3 text-right">Studio amount</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Dates</th>
+                  <th className="px-5 py-3 text-right">Tổng tiền</th>
+                  <th className="px-5 py-3 text-right">Phí nền tảng</th>
+                  <th className="px-5 py-3 text-right">Tiền studio</th>
+                  <th className="px-5 py-3">Trạng thái</th>
+                  <th className="px-5 py-3">Thời gian</th>
                 </tr>
               </thead>
               <tbody>
@@ -102,8 +110,8 @@ export default function PhotographerFinancePage() {
                     <td className="px-5 py-4 text-right text-sm font-bold text-emerald-700">{formatVnd(item.studioAmount)}</td>
                     <td className="px-5 py-4"><StatusBadge status={item.status} /></td>
                     <td className="px-5 py-4 text-xs text-slate-500">
-                      <div>Completed: {formatDate(item.completedAt)}</div>
-                      <div className="mt-1">Paid: {formatDate(item.paidAt)}</div>
+                      <div>Hoàn thành: {formatDate(item.completedAt)}</div>
+                      <div className="mt-1">Đã trả: {formatDate(item.paidAt)}</div>
                     </td>
                   </tr>
                 ))}
@@ -123,7 +131,7 @@ function Metric({ label, value, tone = 'slate' }: { label: string; value: string
 
 function StatusBadge({ status }: { status: string }) {
   const style = status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : status === 'READY' ? 'bg-indigo-50 text-indigo-700' : status === 'FAILED' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'
-  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${style}`}><CircleDollarSign className="h-3.5 w-3.5" />{status}</span>
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${style}`}><CircleDollarSign className="h-3.5 w-3.5" />{statusLabels[status] ?? status}</span>
 }
 
 function TableSkeleton() {

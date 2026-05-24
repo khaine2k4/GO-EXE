@@ -54,3 +54,7 @@ export function upsertWorkingDay(payload: { date: string; isAvailable: boolean; 
 export function updateSlotStatus(slotId: number, status: 'OPEN' | 'CLOSED') {
   return api.put<{ message: string }>(`/schedules/slots/${slotId}/status`, { status }).then((res) => res.data)
 }
+
+export function createSlot(payload: { date: string; startTime: string; endTime: string }) {
+  return api.post<TimeSlotItem>('/schedules/slots', payload).then((res) => res.data)
+}

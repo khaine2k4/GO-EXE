@@ -16,6 +16,7 @@ import {
   User,
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import CustomDialog from '../components/CustomDialog'
 import {
   completeBooking,
   confirmBooking,
@@ -68,6 +69,7 @@ export default function PhotographerBookingsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null)
+  const [dialog, setDialog] = useState<{ isOpen: boolean; title: string; message: string; type: 'confirm' | 'prompt'; placeholder?: string; onConfirm: (val?: string) => void } | null>(null)
 
   // Calendar States
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -118,26 +120,34 @@ export default function PhotographerBookingsPage() {
   }
 
   const handleReject = async (id: number) => {
-    const reason = prompt('Nhập lý do từ chối (không bắt buộc):')
-    if (reason === null) return // User cancelled prompt
-    setActionLoadingId(id)
-    try {
-      await rejectBooking(id, reason || undefined)
-      toast.push({
-        type: 'success',
-        title: 'Đã từ chối',
-        message: 'Đã từ chối lịch chụp này thành công.',
-      })
-      await fetchBookings()
-    } catch {
-      toast.push({
-        type: 'error',
-        title: 'Thất bại',
-        message: 'Không thể từ chối lịch chụp này.',
-      })
-    } finally {
-      setActionLoadingId(null)
-    }
+    setDialog({
+      isOpen: true,
+      title: 'Từ Chối Đơn Đặt Lịch',
+      message: 'Bạn có chắc chắn muốn từ chối nhận lịch chụp này không? Vui lòng nhập lý do từ chối:',
+      type: 'prompt',
+      placeholder: 'Nhập lý do từ chối...',
+      onConfirm: async (reason) => {
+        setDialog(null)
+        setActionLoadingId(id)
+        try {
+          await rejectBooking(id, reason || undefined)
+          toast.push({
+            type: 'success',
+            title: 'Đã từ chối',
+            message: 'Đã từ chối lịch chụp này thành công.',
+          })
+          await fetchBookings()
+        } catch {
+          toast.push({
+            type: 'error',
+            title: 'Thất bại',
+            message: 'Không thể từ chối lịch chụp này.',
+          })
+        } finally {
+          setActionLoadingId(null)
+        }
+      }
+    })
   }
 
   const handleStart = async (id: number) => {
@@ -294,7 +304,7 @@ export default function PhotographerBookingsPage() {
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Lịch chụp (UC52)
+            Lịch chụp
           </button>
         </div>
       </div>
@@ -640,6 +650,15 @@ export default function PhotographerBookingsPage() {
           </aside>
         </div>
       )}
+      <CustomDialog
+        isOpen={!!dialog?.isOpen}
+        title={dialog?.title || ''}
+        message={dialog?.message || ''}
+        type={dialog?.type || 'confirm'}
+        placeholder={dialog?.placeholder || ''}
+        onConfirm={dialog?.onConfirm || (() => {})}
+        onCancel={() => setDialog(null)}
+      />
     </div>
   )
 }

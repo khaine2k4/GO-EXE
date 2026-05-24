@@ -247,6 +247,15 @@ namespace EXE201.Server.Services
         public Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null)
             => _adminRepository.GetBookingsAsync(search, status, paymentStatus, sortBy);
 
+        public Task<AdminBookingDetailDto?> GetAdminBookingDetailAsync(long bookingId)
+            => _adminRepository.GetAdminBookingDetailAsync(bookingId);
+
+        public Task<AdminDashboardDto> GetAdminDashboardStatsAsync()
+            => _adminRepository.GetAdminDashboardStatsAsync();
+
+        public Task<AdminBookingDetailDto?> ResolveDisputeAsync(long bookingId, ResolveDisputeRequestDto request, long adminId)
+            => _adminRepository.ResolveDisputeAsync(bookingId, request.Decision, request.AdminNote, adminId);
+
         public Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null)
             => _adminRepository.GetReportsAsync(search, status, targetType, sortBy);
 

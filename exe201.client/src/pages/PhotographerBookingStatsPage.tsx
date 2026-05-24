@@ -46,8 +46,8 @@ export default function PhotographerBookingStatsPage() {
     try {
       setStats(await getStudioBookingStatistics(params))
     } catch {
-      setError('Khong tai duoc thong ke booking.')
-      toast.push({ type: 'error', title: 'Tai booking stats that bai' })
+      setError('Không tải được thống kê booking.')
+      toast.push({ type: 'error', title: 'Tải booking stats thất bại' })
     } finally {
       setLoading(false)
     }
@@ -63,35 +63,35 @@ export default function PhotographerBookingStatsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Booking statistics</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-950">Thong ke booking studio</h1>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">Thống kê booking studio</h1>
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <DateInput label="From" value={from} onChange={setFrom} />
-            <DateInput label="To" value={to} onChange={setTo} />
-            <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh</button>
+            <DateInput label="Từ ngày" value={from} onChange={setFrom} />
+            <DateInput label="Đến ngày" value={to} onChange={setTo} />
+            <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Làm mới</button>
           </div>
         </div>
         {error && <div className="mt-4 rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Total" value={stats.totalBookings} />
-        <Metric label="Pending" value={stats.pendingBookings} tone="amber" />
-        <Metric label="Confirmed" value={stats.confirmedBookings} tone="indigo" />
-        <Metric label="In Progress" value={stats.inProgressBookings} tone="indigo" />
-        <Metric label="Completed" value={stats.completedBookings} tone="emerald" />
-        <Metric label="Cancelled" value={stats.cancelledBookings} tone="rose" />
-        <Metric label="Completion Rate" value={`${stats.completionRate}%`} tone="emerald" />
-        <Metric label="Cancellation Rate" value={`${stats.cancellationRate}%`} tone="rose" />
+        <Metric label="Tổng booking" value={stats.totalBookings} />
+        <Metric label="Đang chờ" value={stats.pendingBookings} tone="amber" />
+        <Metric label="Đã xác nhận" value={stats.confirmedBookings} tone="indigo" />
+        <Metric label="Đang thực hiện" value={stats.inProgressBookings} tone="indigo" />
+        <Metric label="Hoàn thành" value={stats.completedBookings} tone="emerald" />
+        <Metric label="Đã hủy" value={stats.cancelledBookings} tone="rose" />
+        <Metric label="Tỷ lệ hoàn thành" value={`${stats.completionRate}%`} tone="emerald" />
+        <Metric label="Tỷ lệ hủy" value={`${stats.cancellationRate}%`} tone="rose" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-50/70 p-4"><h2 className="text-base font-semibold text-slate-900">Monthly bookings</h2></div>
-          {loading ? <TableSkeleton columns={4} /> : stats.monthlyBookings.length === 0 ? <EmptyState text="Khong co monthly booking." /> : (
+          <div className="border-b border-slate-200 bg-slate-50/70 p-4"><h2 className="text-base font-semibold text-slate-900">Booking hàng tháng</h2></div>
+          {loading ? <TableSkeleton columns={4} /> : stats.monthlyBookings.length === 0 ? <EmptyState text="Không có booking hàng tháng." /> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px]">
-                <thead><tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500"><th className="px-5 py-3">Month</th><th className="px-5 py-3 text-center">Total</th><th className="px-5 py-3 text-center">Completed</th><th className="px-5 py-3 text-center">Cancelled</th></tr></thead>
+                <thead><tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500"><th className="px-5 py-3">Tháng</th><th className="px-5 py-3 text-center">Tổng</th><th className="px-5 py-3 text-center">Hoàn thành</th><th className="px-5 py-3 text-center">Đã hủy</th></tr></thead>
                 <tbody>{stats.monthlyBookings.map((item) => <tr key={`${item.year}-${item.month}`} className="border-b border-slate-100 hover:bg-slate-50/70"><td className="px-5 py-4 text-sm font-semibold">{formatMonth(item.year, item.month)}</td><td className="px-5 py-4 text-center text-sm">{item.totalBookings}</td><td className="px-5 py-4 text-center text-sm text-emerald-700">{item.completedBookings}</td><td className="px-5 py-4 text-center text-sm text-rose-700">{item.cancelledBookings}</td></tr>)}</tbody>
               </table>
             </div>
@@ -99,11 +99,11 @@ export default function PhotographerBookingStatsPage() {
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-50/70 p-4"><h2 className="text-base font-semibold text-slate-900">Top services</h2></div>
-          {loading ? <TableSkeleton columns={4} /> : stats.topServices.length === 0 ? <EmptyState text="Khong co top service." /> : (
+          <div className="border-b border-slate-200 bg-slate-50/70 p-4"><h2 className="text-base font-semibold text-slate-900">Top dịch vụ</h2></div>
+          {loading ? <TableSkeleton columns={4} /> : stats.topServices.length === 0 ? <EmptyState text="Không có top service." /> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px]">
-                <thead><tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500"><th className="px-5 py-3">Service</th><th className="px-5 py-3 text-center">Bookings</th><th className="px-5 py-3 text-right">Gross</th><th className="px-5 py-3 text-right">Net</th></tr></thead>
+                <thead><tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500"><th className="px-5 py-3">Dịch vụ</th><th className="px-5 py-3 text-center">Booking</th><th className="px-5 py-3 text-right">Tổng tiền</th><th className="px-5 py-3 text-right">Thực nhận</th></tr></thead>
                 <tbody>{stats.topServices.map((item) => <tr key={item.serviceId} className="border-b border-slate-100 hover:bg-slate-50/70"><td className="px-5 py-4 text-sm font-semibold">{item.serviceName}</td><td className="px-5 py-4 text-center text-sm">{item.bookingCount}</td><td className="px-5 py-4 text-right text-sm">{formatVnd(item.grossRevenue)}</td><td className="px-5 py-4 text-right text-sm text-emerald-700">{formatVnd(item.netRevenue)}</td></tr>)}</tbody>
               </table>
             </div>

@@ -48,8 +48,8 @@ export default function AdminRevenuePage() {
       setSummary(summaryData)
       setMonthly(monthlyData)
     } catch {
-      setError('Khong tai duoc du lieu doanh thu nen tang.')
-      toast.push({ type: 'error', title: 'Tai revenue that bai' })
+      setError('Không tải được dữ liệu doanh thu nền tảng.')
+      toast.push({ type: 'error', title: 'Tải doanh thu thất bại' })
     } finally {
       setLoading(false)
     }
@@ -69,51 +69,51 @@ export default function AdminRevenuePage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Platform revenue</h2>
-            <p className="mt-1 text-sm text-slate-500">So lieu tinh tu booking COMPLETED co payment PAID.</p>
+            <h2 className="text-lg font-semibold text-slate-950">Doanh thu nền tảng</h2>
+            <p className="mt-1 text-sm text-slate-500">Số liệu tính từ booking COMPLETED có payment PAID.</p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <DateInput label="From" value={from} onChange={setFrom} />
-            <DateInput label="To" value={to} onChange={setTo} />
+            <DateInput label="Từ ngày" value={from} onChange={setFrom} />
+            <DateInput label="Đến ngày" value={to} onChange={setTo} />
             <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Làm mới
             </button>
-            {(from || to) && <button type="button" onClick={clearDates} className="h-10 rounded-lg px-3 text-sm font-medium text-indigo-600 hover:bg-indigo-50">Clear</button>}
+            {(from || to) && <button type="button" onClick={clearDates} className="h-10 rounded-lg px-3 text-sm font-medium text-indigo-600 hover:bg-indigo-50">Xóa lọc</button>}
           </div>
         </div>
         {error && <div className="mt-4 rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
       </section>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Gross Revenue" value={formatVnd(summary.grossRevenue)} tone="slate" />
+        <Metric label="Tổng giao dịch" value={formatVnd(summary.grossRevenue)} tone="slate" />
         <Metric label="Platform Commission" value={formatVnd(summary.platformCommission)} tone="indigo" />
-        <Metric label="Studio Payout" value={formatVnd(summary.studioPayout)} tone="emerald" />
-        <Metric label="Completed Bookings" value={summary.completedBookings} tone="slate" />
-        <Metric label="Paid Payments" value={summary.paidPayments} tone="emerald" />
-        <Metric label="Refunded Amount" value={formatVnd(summary.refundedAmount)} tone="rose" />
-        <Metric label="Average Commission" value={`${summary.averageCommissionRate}%`} tone="amber" />
+        <Metric label="Tiền trả studio" value={formatVnd(summary.studioPayout)} tone="emerald" />
+        <Metric label="Booking hoàn thành" value={summary.completedBookings} tone="slate" />
+        <Metric label="Payment đã trả" value={summary.paidPayments} tone="emerald" />
+        <Metric label="Số tiền hoàn" value={formatVnd(summary.refundedAmount)} tone="rose" />
+        <Metric label="Commission trung bình" value={`${summary.averageCommissionRate}%`} tone="amber" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/70 p-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Monthly revenue</h2>
-            <p className="text-sm text-slate-500">Grouped by booking completed date.</p>
+            <h2 className="text-base font-semibold text-slate-900">Doanh thu hàng tháng</h2>
+            <p className="text-sm text-slate-500">Nhóm theo ngày hoàn thành booking.</p>
           </div>
           <CalendarDays className="h-5 w-5 text-slate-400" />
         </div>
 
-        {loading ? <TableSkeleton columns={5} /> : monthly.length === 0 ? <EmptyState text="Khong co du lieu monthly revenue." /> : (
+        {loading ? <TableSkeleton columns={5} /> : monthly.length === 0 ? <EmptyState text="Không có dữ liệu doanh thu hàng tháng." /> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px]">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
-                  <th className="px-5 py-3">Month</th>
-                  <th className="px-5 py-3 text-right">Gross Revenue</th>
+                  <th className="px-5 py-3">Tháng</th>
+                  <th className="px-5 py-3 text-right">Tổng giao dịch</th>
                   <th className="px-5 py-3 text-right">Platform Commission</th>
-                  <th className="px-5 py-3 text-right">Studio Payout</th>
-                  <th className="px-5 py-3 text-center">Completed</th>
+                  <th className="px-5 py-3 text-right">Tiền trả studio</th>
+                  <th className="px-5 py-3 text-center">Hoàn thành</th>
                 </tr>
               </thead>
               <tbody>

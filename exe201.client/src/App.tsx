@@ -25,6 +25,7 @@ import PhotographerBookingsPage from './pages/PhotographerBookingsPage'
 import PhotographerServicesPage from './pages/PhotographerServicesPage'
 import PhotographerPackagesPage from './pages/PhotographerPackagesPage'
 import AdminUsersPage from './pages/AdminUsersPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminOrdersPage from './pages/AdminOrdersPage'
 import AdminCategoriesPage from './pages/AdminCategoriesPage'
 import AdminServicesPage from './pages/AdminServicesPage'
@@ -71,6 +72,7 @@ export default function App() {
 
       {/* Admin Dedicated Workspace Sidebar Layout */}
       <Route element={<RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>}>
+        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/orders" element={<AdminOrdersPage />} />
         <Route path="/admin/services" element={<AdminServicesPage />} />
@@ -167,7 +169,7 @@ export default function App() {
         {/* Redirect root based on role if logged in */}
         <Route path="*" element={
           role === 'PHOTOGRAPHER' ? <Navigate to="/photographer/dashboard" replace />
-            : role === 'ADMIN' ? <Navigate to="/admin/users" replace />
+            : role === 'ADMIN' ? <Navigate to="/admin/dashboard" replace />
               : <NotFoundPage />
         } />
       </Route>

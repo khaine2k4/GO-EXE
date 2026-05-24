@@ -6,7 +6,7 @@ import { getServices, type ServiceSearchParams } from '../services/serviceApi'
 import type { Category, ServiceSummary } from '../services/catalogTypes'
 
 function formatVnd(value?: number) {
-  if (!value) return 'Lien he'
+  if (!value) return 'Liên hệ'
   return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
 }
 
@@ -26,7 +26,7 @@ export default function PhotosetsPage() {
       setCategories(categoryData)
       setServices(serviceData)
     } catch {
-      setError('Khong the tai danh sach dich vu.')
+      setError('Không thể tải danh sách dịch vụ.')
     } finally {
       setLoading(false)
     }
@@ -56,16 +56,16 @@ export default function PhotosetsPage() {
       <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Dich vu chup anh</p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">Tim, loc va so sanh studio</h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500">Du lieu lay truc tiep tu API services, categories va packages.</p>
+            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Dịch vụ chụp ảnh</p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">Tìm, lọc và so sánh studio</h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500">Dữ liệu lấy trực tiếp từ API services, categories và packages.</p>
           </div>
           <button
             type="button"
             onClick={() => setShowFilters((value) => !value)}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-xs font-black uppercase tracking-widest text-white"
           >
-            <SlidersHorizontal className="h-4 w-4" /> Bo loc
+            <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
           </button>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default function PhotosetsPage() {
               <input
                 value={filters.keyword}
                 onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
-                placeholder="Tim ten dich vu, studio, danh muc..."
+                placeholder="Tìm tên dịch vụ, studio, danh mục..."
                 className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-sm font-semibold outline-none focus:border-indigo-500"
               />
             </label>
@@ -87,7 +87,7 @@ export default function PhotosetsPage() {
               onChange={(event) => setFilters((prev) => ({ ...prev, categoryId: event.target.value ? Number(event.target.value) : '' }))}
               className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
             >
-              <option value="">Tat ca danh muc</option>
+              <option value="">Tất cả danh mục</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>{category.name}</option>
               ))}
@@ -95,25 +95,25 @@ export default function PhotosetsPage() {
             <input
               value={filters.city}
               onChange={(event) => setFilters((prev) => ({ ...prev, city: event.target.value }))}
-              placeholder="Thanh pho"
+              placeholder="Thành phố"
               className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
             />
             <input
               type="number"
               value={filters.minPrice}
               onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: event.target.value ? Number(event.target.value) : '' }))}
-              placeholder="Gia tu"
+              placeholder="Giá từ"
               className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
             />
             <input
               type="number"
               value={filters.maxPrice}
               onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: event.target.value ? Number(event.target.value) : '' }))}
-              placeholder="Gia den"
+              placeholder="Giá đến"
               className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
             />
             <div className="flex gap-2">
-              <button type="button" onClick={applyFilters} className="h-11 rounded-xl bg-indigo-600 px-4 text-xs font-black uppercase tracking-widest text-white">Loc</button>
+              <button type="button" onClick={applyFilters} className="h-11 rounded-xl bg-indigo-600 px-4 text-xs font-black uppercase tracking-widest text-white">Lọc</button>
               {hasFilter && (
                 <button type="button" onClick={clearFilters} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500">
                   <X className="h-4 w-4" />
@@ -125,11 +125,11 @@ export default function PhotosetsPage() {
       )}
 
       {loading ? (
-        <StateBox text="Dang tai dich vu..." />
+        <StateBox text="Đang tải dịch vụ..." />
       ) : error ? (
         <StateBox text={error} />
       ) : services.length === 0 ? (
-        <StateBox text="Khong co dich vu phu hop." />
+        <StateBox text="Không có dịch vụ phù hợp." />
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {services.map((service) => (
@@ -149,9 +149,9 @@ export default function PhotosetsPage() {
                   </div>
                   <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase text-indigo-700">{service.categoryName}</span>
                 </div>
-                <p className="line-clamp-2 text-sm text-slate-500">{service.description || 'Chua co mo ta.'}</p>
+                <p className="line-clamp-2 text-sm text-slate-500">{service.description || 'Chưa có mô tả.'}</p>
                 <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-sm font-black text-indigo-600">Tu {formatVnd(service.minPrice)}</span>
+                  <span className="text-sm font-black text-indigo-600">Từ {formatVnd(service.minPrice)}</span>
                   <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-600">
                     <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {service.rating?.toFixed?.(1) ?? service.rating} ({service.reviewCount})
                   </span>

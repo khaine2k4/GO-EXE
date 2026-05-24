@@ -11,6 +11,9 @@ namespace EXE201.Server.Services
         Task<bool> ApproveStudioAsync(long studioId, long adminId);
         Task<bool> RejectStudioAsync(long studioId, string reason, long adminId);
         Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null);
+        Task<AdminBookingDetailDto?> GetAdminBookingDetailAsync(long bookingId);
+        Task<AdminDashboardDto> GetAdminDashboardStatsAsync();
+        Task<AdminBookingDetailDto?> ResolveDisputeAsync(long bookingId, ResolveDisputeRequestDto request, long adminId);
         Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null);
         Task<bool> ResolveReportAsync(long reportId, string status, string? handlerNote, long adminId);
         Task<bool> BanStudioAsync(long studioId, string reason, long adminId);

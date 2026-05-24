@@ -5,7 +5,7 @@ import { getStudioDetail } from '../services/studioApi'
 import type { StudioDetail } from '../services/catalogTypes'
 
 function formatVnd(value?: number) {
-  if (!value) return 'Lien he'
+  if (!value) return 'Liên hệ'
   return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
 }
 
@@ -21,17 +21,17 @@ export default function PhotographerProfilePage() {
     setLoading(true)
     getStudioDetail(id)
       .then(setStudio)
-      .catch(() => setError('Khong the tai thong tin studio.'))
+      .catch(() => setError('Không thể tải thông tin studio.'))
       .finally(() => setLoading(false))
   }, [id])
 
-  if (loading) return <StateBox text="Dang tai studio..." />
-  if (error || !studio) return <StateBox text={error || 'Khong tim thay studio.'} />
+  if (loading) return <StateBox text="Đang tải studio..." />
+  if (error || !studio) return <StateBox text={error || 'Không tìm thấy studio.'} />
 
   return (
     <div className="space-y-8 pb-20">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-black text-slate-500 hover:text-slate-950">
-        <ArrowLeft className="h-4 w-4" /> Quay lai
+        <ArrowLeft className="h-4 w-4" /> Quay lại
       </button>
 
       <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-100">
@@ -57,24 +57,24 @@ export default function PhotographerProfilePage() {
         </div>
         <div className="grid gap-8 p-6 lg:grid-cols-[1fr_360px]">
           <main className="space-y-8">
-            <Section title="Gioi thieu">
-              <p className="leading-7 text-slate-600">{studio.description || 'Studio chua cap nhat mo ta.'}</p>
+            <Section title="Giới thiệu">
+              <p className="leading-7 text-slate-600">{studio.description || 'Studio chưa cập nhật mô tả.'}</p>
             </Section>
-            <Section title="Dich vu">
-              {studio.services.length === 0 ? <Empty text="Chua co dich vu public." /> : (
+            <Section title="Dịch vụ">
+              {studio.services.length === 0 ? <Empty text="Chưa có dịch vụ public." /> : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {studio.services.map((service) => (
                     <Link key={service.id} to={`/photosets/${service.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-indigo-200">
                       <h3 className="font-black text-slate-950">{service.name}</h3>
                       <p className="mt-1 text-sm font-semibold text-slate-500">{service.categoryName}</p>
-                      <p className="mt-3 text-sm font-black text-indigo-600">Tu {formatVnd(service.minPrice)}</p>
+                      <p className="mt-3 text-sm font-black text-indigo-600">Từ {formatVnd(service.minPrice)}</p>
                     </Link>
                   ))}
                 </div>
               )}
             </Section>
             <Section title="Portfolio">
-              {studio.portfolio.length === 0 ? <Empty text="Chua co portfolio." /> : (
+              {studio.portfolio.length === 0 ? <Empty text="Chưa có portfolio." /> : (
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                   {studio.portfolio.map((item) => <img key={item.id} src={item.imageUrl} alt={item.caption || studio.name} className="aspect-square rounded-2xl object-cover" />)}
                 </div>
@@ -83,7 +83,7 @@ export default function PhotographerProfilePage() {
           </main>
           <aside>
             <Section title="Reviews">
-              {studio.reviews.length === 0 ? <Empty text="Chua co review." /> : (
+              {studio.reviews.length === 0 ? <Empty text="Chưa có review." /> : (
                 <div className="space-y-3">
                   {studio.reviews.map((review) => (
                     <div key={review.id} className="rounded-2xl bg-slate-50 p-4">
@@ -91,7 +91,7 @@ export default function PhotographerProfilePage() {
                         <span className="font-black text-slate-950">{review.customerName}</span>
                         <span className="inline-flex items-center gap-1 text-sm font-black text-amber-500"><Star className="h-4 w-4 fill-current" /> {review.rating}</span>
                       </div>
-                      <p className="mt-2 text-sm text-slate-600">{review.comment || 'Khong co binh luan.'}</p>
+                      <p className="mt-2 text-sm text-slate-600">{review.comment || 'Không có bình luận.'}</p>
                     </div>
                   ))}
                 </div>

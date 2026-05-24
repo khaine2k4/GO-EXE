@@ -376,8 +376,16 @@ namespace EXE201.Server.Services
             if (booking == null || !await CanAccessBookingAsync(userId, role, booking)) return null;
 
             var oldStatus = booking.Status.StatusName;
-            if (role != "CUSTOMER") return null;
-            if (oldStatus is not (BookingPendingPayment or BookingPendingConfirmation)) return null;
+            var oldEffectiveStatus = IsDisputed(booking) ? "DISPUTED" : oldStatus;
+            var canCancel = role switch
+            {
+                "CUSTOMER" => oldStatus is BookingPendingPayment or BookingPendingConfirmation && !IsDisputed(booking),
+                "STUDIO_OWNER" => oldStatus is BookingPendingConfirmation or BookingConfirmed && !IsDisputed(booking),
+                "ADMIN" => oldStatus is BookingPendingPayment or BookingPendingConfirmation or BookingConfirmed or BookingInProgress,
+                _ => false
+            };
+
+            if (!canCancel) return null;
 
             var cancelledId = await _repo.GetBookingStatusIdAsync(BookingCancelled);
             if (cancelledId == null) return null;
@@ -394,16 +402,39 @@ namespace EXE201.Server.Services
             {
                 MarkLatestPayment(booking, PaymentFailed, "Booking cancelled before payment");
             }
-            else if (oldStatus == BookingPendingConfirmation)
+            else
             {
-                MarkLatestPaidPaymentForRefund(booking, reason ?? "Customer cancelled before studio confirmation");
+                MarkLatestPaidPaymentForRefund(booking, reason ?? $"{role} cancelled booking");
             }
 
-            AddBookingLogEntry(booking.BookingId, oldStatus, BookingCancelled, userId, reason ?? "Customer cancelled");
+            AddBookingLogEntry(booking.BookingId, oldEffectiveStatus, BookingCancelled, userId, reason ?? $"{role} cancelled booking");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
             return await GetBookingForUserAsync(userId, role, booking.BookingId);
+        }
+
+        public async Task<BookingResponse?> DisputeBookingAsync(long customerId, long bookingId, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) return null;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingInProgress) return null;
+            if (IsDisputed(booking)) return null;
+
+            booking.DisputedAt = DateTime.UtcNow;
+            booking.DisputeNote = reason.Trim();
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = customerId;
+
+            AddBookingLogEntry(booking.BookingId, BookingInProgress, "DISPUTED", customerId, reason.Trim());
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
         public async Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role)
@@ -703,6 +734,9 @@ namespace EXE201.Server.Services
             return false;
         }
 
+        private static bool IsDisputed(Booking booking)
+            => booking.DisputedAt.HasValue && !booking.DisputeResolvedAt.HasValue;
+
         private void AddBookingLogEntry(long bookingId, string? oldStatus, string newStatus, long changedBy, string? note)
         {
             _repo.AddBookingLog(new BookingLog
@@ -857,7 +891,7 @@ namespace EXE201.Server.Services
 
         private static BookingResponse MapBooking(Booking b)
         {
-            var status = b.Status.StatusName;
+            var status = IsDisputed(b) ? "DISPUTED" : b.Status.StatusName;
             return new BookingResponse
             {
                 Id = b.BookingId,
