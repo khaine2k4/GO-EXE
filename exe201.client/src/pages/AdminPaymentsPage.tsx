@@ -26,6 +26,7 @@ const statusOptions: { value: AdminPaymentStatus; label: string }[] = [
 const methodOptions: { value: AdminPaymentMethod; label: string }[] = [
   { value: 'ALL', label: 'Tất cả phương thức' },
   { value: 'CASH', label: 'Tiền mặt' },
+  { value: 'PAYOS', label: 'payOS (VietQR)' },
   { value: 'VNPAY', label: 'VNPAY' },
   { value: 'BANK_TRANSFER', label: 'Chuyển khoản' },
   { value: 'MOMO', label: 'Momo' },

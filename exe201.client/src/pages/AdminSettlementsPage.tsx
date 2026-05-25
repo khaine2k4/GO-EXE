@@ -54,10 +54,10 @@ export default function AdminSettlementsPage() {
     fetchData()
   }, [fetchData])
 
-  async function handlePayout(item: SettlementItem) {
+  async function handlePayout(item: SettlementItem, method: string) {
     setPayingId(item.settlementId)
     try {
-      const response = await markSettlementPaid(item.settlementId, item.payoutMethod || 'MANUAL')
+      const response = await markSettlementPaid(item.settlementId, method)
       setItems((current) => current.map((row) => row.settlementId === item.settlementId ? response.settlement : row))
       toast.push({ type: 'success', title: 'Đã xác nhận payout', message: item.bookingCode })
     } catch {
@@ -150,10 +150,31 @@ export default function AdminSettlementsPage() {
                       <div className="mt-1">Đã trả: {formatDate(item.paidAt)}</div>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button type="button" onClick={() => handlePayout(item)} disabled={item.status === 'PAID' || payingId === item.settlementId} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-950 px-3 text-xs font-bold text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Xác nhận payout
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        {item.status !== 'PAID' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handlePayout(item, 'PAYOS_PAYOUT')}
+                              disabled={payingId === item.settlementId}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              payOS Payout
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePayout(item, 'MANUAL')}
+                              disabled={payingId === item.settlementId}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Manual Payout
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400">Đã quyết toán ({item.payoutMethod})</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

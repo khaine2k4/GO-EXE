@@ -1,16 +1,19 @@
 using exe201.Server.Models;
 using EXE201.Server.DTOs;
 using Microsoft.EntityFrameworkCore;
+using EXE201.Server.Services;
 
 namespace EXE201.Server.Repositories
 {
     public class AdminRepository : IAdminRepository
     {
         private readonly PhotoStudioBookingContext _context;
+        private readonly IPayOsService _payOsService;
 
-        public AdminRepository(PhotoStudioBookingContext context)
+        public AdminRepository(PhotoStudioBookingContext context, IPayOsService payOsService)
         {
             _context = context;
+            _payOsService = payOsService;
         }
 
         public async Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null)
@@ -657,10 +660,32 @@ namespace EXE201.Server.Repositories
             if (settlement.Status is "PAID" or "CANCELLED")
                 throw new InvalidOperationException("Settlement cannot be paid in its current status.");
 
+            var normPayoutMethod = payoutMethod?.Trim().ToUpperInvariant() ?? "MANUAL";
+
+            if (normPayoutMethod == "PAYOS_PAYOUT")
+            {
+                // In Sandbox / MVP environment, we use a standard sandbox destination account since
+                // database does not store individual Studio bank details yet.
+                var accountNumber = "123456789";
+                var bankCode = "970422"; // MB Bank (Military Bank) BIN Code
+                var accountName = "NGUYEN VAN A";
+
+                var payoutSuccess = await _payOsService.ExecutePayoutAsync(
+                    accountNumber,
+                    bankCode,
+                    accountName,
+                    (int)settlement.StudioAmount,
+                    $"Thanh toan studio BK {settlement.Booking.BookingCode}"
+                );
+
+                if (!payoutSuccess)
+                {
+                    throw new InvalidOperationException("PayOS automated payout failed. Check configuration or balance.");
+                }
+            }
+
             settlement.Status = "PAID";
-            settlement.PayoutMethod = string.IsNullOrWhiteSpace(payoutMethod)
-                ? settlement.PayoutMethod
-                : payoutMethod.Trim().ToUpperInvariant();
+            settlement.PayoutMethod = normPayoutMethod;
             settlement.PaidAt = DateTime.UtcNow;
             settlement.UpdatedAt = DateTime.UtcNow;
 

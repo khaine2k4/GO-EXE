@@ -83,6 +83,10 @@ export function vnpayCreatePaymentUrl(bookingId: number) {
   return api.post<{ paymentUrl: string }>('/payments/vnpay-create', { bookingId }).then((res) => res.data)
 }
 
+export function payosCreatePaymentUrl(bookingId: number) {
+  return api.post<{ paymentUrl: string }>('/payments/payos-create', { bookingId }).then((res) => res.data)
+}
+
 export function confirmBooking(id: string | number) {
   return api.put<BookingDto>(`/bookings/${id}/confirm`).then((res) => res.data)
 }

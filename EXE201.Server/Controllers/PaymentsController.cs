@@ -111,11 +111,59 @@ namespace EXE201.Server.Controllers
             return Ok(new { RspCode = "97", Message = "Invalid signature or order not found" });
         }
 
+        [HttpPost("payos-create")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> CreatePayOsPayment([FromBody] PayOsCreatePaymentRequestDto request)
+        {
+            if (request == null || request.BookingId <= 0)
+            {
+                return BadRequest("Invalid booking ID.");
+            }
+
+            var paymentUrl = await _bookingService.CreatePayOsPaymentUrlAsync(GetCurrentUserId(), request.BookingId);
+            if (string.IsNullOrEmpty(paymentUrl))
+            {
+                return BadRequest("Could not create payOS payment URL.");
+            }
+
+            return Ok(new { paymentUrl });
+        }
+
+        [HttpGet("payos-return")]
+        [AllowAnonymous]
+        public async Task<IActionResult> PayOsReturn([FromQuery] long orderCode, [FromQuery] string status)
+        {
+            // payOS orderCode maps to bookingId in our system
+            var paymentStatus = status == "PAID" || status == "success" ? "success" : "fail";
+            return Redirect($"http://localhost:5173/customer/bookings/{orderCode}?paymentStatus={paymentStatus}");
+        }
+
+        [HttpPost("payos-webhook")]
+        [AllowAnonymous]
+        public async Task<IActionResult> PayOsWebhook()
+        {
+            using var reader = new System.IO.StreamReader(Request.Body);
+            var body = await reader.ReadToEndAsync();
+
+            var success = await _bookingService.ProcessPayOsWebhookAsync(body);
+            if (success)
+            {
+                return Ok(new { code = "00", desc = "success" });
+            }
+
+            return BadRequest("Signature verification failed or booking not found.");
+        }
+
         private long GetCurrentUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         private string GetCurrentRole() => User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
     }
 
     public class VnPayCreatePaymentRequestDto
+    {
+        public long BookingId { get; set; }
+    }
+
+    public class PayOsCreatePaymentRequestDto
     {
         public long BookingId { get; set; }
     }
