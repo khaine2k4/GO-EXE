@@ -29,11 +29,13 @@ namespace EXE201.Server.Services
 
         private readonly IBookingWorkflowRepository _repo;
         private readonly IConfiguration _configuration;
+        private readonly IPayOsService _payOsService;
 
-        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration)
+        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration, IPayOsService payOsService)
         {
             _repo = repo;
             _configuration = configuration;
+            _payOsService = payOsService;
         }
 
         public async Task<List<WorkingScheduleResponse>> GetMySchedulesAsync(long ownerId)
@@ -398,8 +400,16 @@ namespace EXE201.Server.Services
             if (booking == null || !await CanAccessBookingAsync(userId, role, booking)) return null;
 
             var oldStatus = booking.Status.StatusName;
-            if (role != "CUSTOMER") return null;
-            if (oldStatus is not (BookingPendingPayment or BookingPendingConfirmation)) return null;
+            var oldEffectiveStatus = IsDisputed(booking) ? "DISPUTED" : oldStatus;
+            var canCancel = role switch
+            {
+                "CUSTOMER" => oldStatus is BookingPendingPayment or BookingPendingConfirmation && !IsDisputed(booking),
+                "STUDIO_OWNER" => oldStatus is BookingPendingConfirmation or BookingConfirmed && !IsDisputed(booking),
+                "ADMIN" => oldStatus is BookingPendingPayment or BookingPendingConfirmation or BookingConfirmed or BookingInProgress,
+                _ => false
+            };
+
+            if (!canCancel) return null;
 
             var cancelledId = await _repo.GetBookingStatusIdAsync(BookingCancelled);
             if (cancelledId == null) return null;
@@ -416,16 +426,39 @@ namespace EXE201.Server.Services
             {
                 MarkLatestPayment(booking, PaymentFailed, "Booking cancelled before payment");
             }
-            else if (oldStatus == BookingPendingConfirmation)
+            else
             {
-                MarkLatestPaidPaymentForRefund(booking, reason ?? "Customer cancelled before studio confirmation");
+                MarkLatestPaidPaymentForRefund(booking, reason ?? $"{role} cancelled booking");
             }
 
-            AddBookingLogEntry(booking.BookingId, oldStatus, BookingCancelled, userId, reason ?? "Customer cancelled");
+            AddBookingLogEntry(booking.BookingId, oldEffectiveStatus, BookingCancelled, userId, reason ?? $"{role} cancelled booking");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
             return await GetBookingForUserAsync(userId, role, booking.BookingId);
+        }
+
+        public async Task<BookingResponse?> DisputeBookingAsync(long customerId, long bookingId, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) return null;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingInProgress) return null;
+            if (IsDisputed(booking)) return null;
+
+            booking.DisputedAt = DateTime.UtcNow;
+            booking.DisputeNote = reason.Trim();
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = customerId;
+
+            AddBookingLogEntry(booking.BookingId, BookingInProgress, "DISPUTED", customerId, reason.Trim());
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
         public async Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role)
@@ -725,6 +758,9 @@ namespace EXE201.Server.Services
             return false;
         }
 
+        private static bool IsDisputed(Booking booking)
+            => booking.DisputedAt.HasValue && !booking.DisputeResolvedAt.HasValue;
+
         private void AddBookingLogEntry(long bookingId, string? oldStatus, string newStatus, long changedBy, string? note)
         {
             _repo.AddBookingLog(new BookingLog
@@ -879,7 +915,7 @@ namespace EXE201.Server.Services
 
         private static BookingResponse MapBooking(Booking b)
         {
-            var status = b.Status.StatusName;
+            var status = IsDisputed(b) ? "DISPUTED" : b.Status.StatusName;
             return new BookingResponse
             {
                 Id = b.BookingId,
@@ -924,5 +960,98 @@ namespace EXE201.Server.Services
             RefundPendingReason = p.RefundPendingReason,
             CreatedAt = p.CreatedAt.ToString("O")
         };
+
+        // payOS
+        public async Task<string?> CreatePayOsPaymentUrlAsync(long customerId, long bookingId)
+        {
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingPendingPayment) return null;
+            if (booking.PaymentExpiresAt != null && booking.PaymentExpiresAt <= DateTime.UtcNow) return null;
+
+            var payosMethod = await _repo.GetPaymentMethodAsync("PAYOS")
+                ?? await _repo.GetPaymentMethodAsync("BANK_TRANSFER")
+                ?? throw new InvalidOperationException("Payment method PAYOS was not found.");
+
+            // Get or create pending payment for PAYOS
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()
+                ?? await CreatePendingPaymentAsync(booking, "PAYOS");
+
+            payment.MethodId = payosMethod.MethodId;
+            payment.Method = payosMethod;
+            payment.PaymentProvider = "PAYOS";
+
+            await _repo.SaveChangesAsync();
+
+            // Create payment link via payOS
+            var orderCode = booking.BookingId; // Must be unique numeric code
+            var amount = (int)payment.Amount;
+            var description = $"Thanh toan BK{booking.BookingId}";
+            if (description.Length > 25) description = description.Substring(0, 25);
+            var returnUrl = _configuration["PayOS:ReturnUrl"] ?? "http://localhost:5289/api/payments/payos-return";
+            var cancelUrl = _configuration["PayOS:CancelUrl"] ?? "http://localhost:5173/customer/bookings";
+
+            try
+            {
+                var result = await _payOsService.CreatePaymentLinkAsync(orderCode, amount, description, cancelUrl, returnUrl);
+                return result.CheckoutUrl;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating PayOS payment link: {ex.Message}");
+                return null;
+            }
+        }
+
+        public async Task<bool> ProcessPayOsWebhookAsync(string webhookBodyJson)
+        {
+            try
+            {
+                var verifiedData = await _payOsService.VerifyWebhookDataAsync(webhookBodyJson);
+                if (verifiedData == null) return false;
+
+                var bookingId = verifiedData.OrderCode;
+                await using var tx = await _repo.BeginTransactionAsync();
+
+                var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+                if (booking == null) return false;
+
+                var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+                if (payment == null) return false;
+
+                // Idempotency check: only process if payment is PENDING
+                if (payment.PaymentStatus.StatusName != PaymentPending)
+                {
+                    await tx.CommitAsync();
+                    return true;
+                }
+
+                var paidStatus = await _repo.GetPaymentStatusAsync(PaymentPaid);
+                var pendingConfirmationId = await _repo.GetBookingStatusIdAsync(BookingPendingConfirmation);
+                if (paidStatus == null || pendingConfirmationId == null) return false;
+
+                payment.PaymentStatusId = paidStatus.PaymentStatusId;
+                payment.PaymentStatus = paidStatus;
+                payment.TransactionCode = verifiedData.Reference ?? $"PAYOS-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+                payment.PaidAt = DateTime.UtcNow;
+                payment.UpdatedAt = DateTime.UtcNow;
+
+                booking.StatusId = pendingConfirmationId.Value;
+                booking.PaymentExpiresAt = null;
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.Slot.Status = SlotBooked;
+
+                AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingPendingConfirmation, booking.CustomerId, "Paid successfully via payOS (VietQR)");
+
+                await _repo.SaveChangesAsync();
+                await tx.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing PayOS Webhook: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

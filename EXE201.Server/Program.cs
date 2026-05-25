@@ -62,6 +62,14 @@ namespace EXE201.Server
             builder.Services.AddHostedService<EXE201.Server.Services.BookingExpiryWorker>();
             builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiModerationService, EXE201.Server.Services.GeminiModerationService>();
 
+            // Register payOS
+            builder.Services.AddSingleton(new PayOS.PayOSClient(
+                builder.Configuration["PayOS:ClientId"]!,
+                builder.Configuration["PayOS:ApiKey"]!,
+                builder.Configuration["PayOS:ChecksumKey"]!
+            ));
+            builder.Services.AddScoped<EXE201.Server.Services.IPayOsService, EXE201.Server.Services.PayOsService>();
+
             var jwtSettings = builder.Configuration.GetSection("Jwt");
             builder.Services.AddAuthentication(options =>
             {

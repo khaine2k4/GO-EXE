@@ -75,8 +75,16 @@ export function cancelBooking(id: string | number, reason?: string) {
   return api.put<BookingDto>(`/bookings/${id}/cancel`, { reason }).then((res) => res.data)
 }
 
+export function disputeBooking(id: string | number, reason: string) {
+  return api.put<BookingDto>(`/bookings/${id}/dispute`, { reason }).then((res) => res.data)
+}
+
 export function vnpayCreatePaymentUrl(bookingId: number) {
   return api.post<{ paymentUrl: string }>('/payments/vnpay-create', { bookingId }).then((res) => res.data)
+}
+
+export function payosCreatePaymentUrl(bookingId: number) {
+  return api.post<{ paymentUrl: string }>('/payments/payos-create', { bookingId }).then((res) => res.data)
 }
 
 export function confirmBooking(id: string | number) {

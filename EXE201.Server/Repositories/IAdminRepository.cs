@@ -5,6 +5,9 @@ namespace EXE201.Server.Repositories
     public interface IAdminRepository
     {
         Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null);
+        Task<AdminBookingDetailDto?> GetAdminBookingDetailAsync(long bookingId);
+        Task<AdminDashboardDto> GetAdminDashboardStatsAsync();
+        Task<AdminBookingDetailDto?> ResolveDisputeAsync(long bookingId, string decision, string? adminNote, long adminId);
         Task<List<AdminReportDto>> GetReportsAsync(string? search = null, string? status = null, string? targetType = null, string? sortBy = null);
         Task<bool> ResolveReportAsync(long reportId, string status, string? handlerNote, long adminId);
         Task<List<AdminReviewDto>> GetReviewsAsync(string? search = null, bool? isHidden = null);

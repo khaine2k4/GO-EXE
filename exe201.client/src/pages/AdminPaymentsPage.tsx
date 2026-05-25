@@ -14,25 +14,35 @@ import {
 } from '../services/adminPaymentApi'
 
 const statusOptions: { value: AdminPaymentStatus; label: string }[] = [
-  { value: 'ALL', label: 'Tat ca status' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'PAID', label: 'Paid' },
-  { value: 'FAILED', label: 'Failed' },
-  { value: 'REFUNDED', label: 'Refunded' },
-  { value: 'CANCELLED', label: 'Cancelled' },
-  { value: 'REFUND_PENDING', label: 'Refund Pending' },
+  { value: 'ALL', label: 'Tất cả trạng thái' },
+  { value: 'PENDING', label: 'Chờ thanh toán' },
+  { value: 'PAID', label: 'Đã thanh toán' },
+  { value: 'FAILED', label: 'Thất bại' },
+  { value: 'REFUNDED', label: 'Đã hoàn tiền' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+  { value: 'REFUND_PENDING', label: 'Chờ hoàn tiền' },
 ]
 
 const methodOptions: { value: AdminPaymentMethod; label: string }[] = [
-  { value: 'ALL', label: 'Tat ca method' },
-  { value: 'CASH', label: 'Cash' },
+  { value: 'ALL', label: 'Tất cả phương thức' },
+  { value: 'CASH', label: 'Tiền mặt' },
+  { value: 'PAYOS', label: 'payOS (VietQR)' },
   { value: 'VNPAY', label: 'VNPAY' },
-  { value: 'BANK_TRANSFER', label: 'Bank transfer' },
+  { value: 'BANK_TRANSFER', label: 'Chuyển khoản' },
   { value: 'MOMO', label: 'Momo' },
   { value: 'PAYPAL', label: 'PayPal' },
 ]
 
 const updateStatusOptions: Exclude<AdminPaymentStatus, 'ALL'>[] = ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'CANCELLED', 'REFUND_PENDING']
+
+const paymentStatusLabels: Record<string, string> = {
+  PENDING: 'Chờ thanh toán',
+  PAID: 'Đã thanh toán',
+  FAILED: 'Thất bại',
+  REFUNDED: 'Đã hoàn tiền',
+  CANCELLED: 'Đã hủy',
+  REFUND_PENDING: 'Chờ hoàn tiền',
+}
 
 function formatVnd(value?: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} VND`
@@ -75,7 +85,7 @@ export default function AdminPaymentsPage() {
     try {
       setPayments(await getAdminPayments(params))
     } catch {
-      setError('Khong tai duoc danh sach payment tu API admin.')
+      setError('Không tải được danh sách payment từ API admin.')
     } finally {
       setLoading(false)
     }
@@ -95,7 +105,7 @@ export default function AdminPaymentsPage() {
     try {
       setDetail(await getAdminPaymentDetail(paymentId))
     } catch {
-      setError('Khong tai duoc chi tiet payment.')
+      setError('Không tải được chi tiết payment.')
     } finally {
       setDetailLoading(false)
     }
@@ -121,13 +131,13 @@ export default function AdminPaymentsPage() {
         reason: reasonText.trim() || undefined,
         transactionCode: transactionCode.trim() || undefined,
       })
-      toast.push({ type: 'success', title: 'Da cap nhat payment', message: response.payment.paymentCode })
+      toast.push({ type: 'success', title: 'Đã cập nhật payment', message: response.payment.paymentCode })
       setUpdatingPayment(null)
       setDetail(response.payment)
       await fetchData()
     } catch {
-      setError('Cap nhat trang thai payment that bai.')
-      toast.push({ type: 'error', title: 'Cap nhat payment that bai' })
+      setError('Cập nhật trạng thái payment thất bại.')
+      toast.push({ type: 'error', title: 'Cập nhật payment thất bại' })
     } finally {
       setActionLoading(false)
     }
@@ -150,10 +160,10 @@ export default function AdminPaymentsPage() {
   return (
     <div className="space-y-5 pb-12">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Tong payment" value={stats.total} />
-        <Metric label="Da thanh toan" value={stats.paid} tone="emerald" />
-        <Metric label="Dang cho" value={stats.pending} tone="amber" />
-        <Metric label="Tong gia tri" value={formatVnd(stats.amount)} tone="indigo" />
+        <Metric label="Tổng payment" value={stats.total} />
+        <Metric label="Đã thanh toán" value={stats.paid} tone="emerald" />
+        <Metric label="Đang chờ" value={stats.pending} tone="amber" />
+        <Metric label="Tổng giá trị" value={formatVnd(stats.amount)} tone="indigo" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -163,7 +173,7 @@ export default function AdminPaymentsPage() {
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Tim payment, booking, giao dich, khach, studio..."
+              placeholder="Tìm payment, booking, giao dịch, khách, studio..."
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
             />
             {searchTerm && (
@@ -181,16 +191,16 @@ export default function AdminPaymentsPage() {
               value={sortBy}
               onChange={setSortBy}
               options={[
-                { value: 'newest', label: 'Moi nhat' },
-                { value: 'oldest', label: 'Cu nhat' },
-                { value: 'amount_desc', label: 'Tien cao' },
-                { value: 'amount_asc', label: 'Tien thap' },
-                { value: 'status', label: 'Theo status' },
+                { value: 'newest', label: 'Mới nhất' },
+                { value: 'oldest', label: 'Cũ nhất' },
+                { value: 'amount_desc', label: 'Tiền cao' },
+                { value: 'amount_asc', label: 'Tiền thấp' },
+                { value: 'status', label: 'Theo trạng thái' },
               ]}
             />
             <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Lam moi
+              Làm mới
             </button>
           </div>
         </div>
@@ -200,10 +210,10 @@ export default function AdminPaymentsPage() {
         <PaymentsTable payments={payments} loading={loading} detailLoading={detailLoading} onDetail={openDetail} />
 
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-xs text-slate-500">
-          <span>Hien thi {payments.length} payment</span>
+          <span>Hiển thị {payments.length} payment</span>
           {(searchTerm || status !== 'ALL' || method !== 'ALL') && (
             <button type="button" onClick={clearFilters} className="font-medium text-indigo-600 hover:text-indigo-700">
-              Xoa bo loc
+              Xóa bộ lọc
             </button>
           )}
         </div>
@@ -241,7 +251,7 @@ export default function AdminPaymentsPage() {
 
 function PaymentsTable({ payments, loading, detailLoading, onDetail }: { payments: AdminPaymentItem[]; loading: boolean; detailLoading: boolean; onDetail: (paymentId: number) => void }) {
   if (loading) return <TableSkeleton columns={10} />
-  if (payments.length === 0) return <EmptyState text="Khong co payment phu hop." />
+  if (payments.length === 0) return <EmptyState text="Không có payment phù hợp." />
 
   return (
     <div className="overflow-x-auto">
@@ -250,14 +260,14 @@ function PaymentsTable({ payments, loading, detailLoading, onDetail }: { payment
           <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
             <th className="px-5 py-3">Payment</th>
             <th className="px-5 py-3">Booking</th>
-            <th className="px-5 py-3">Customer</th>
+            <th className="px-5 py-3">Khách hàng</th>
             <th className="px-5 py-3">Studio</th>
-            <th className="px-5 py-3 text-right">Amount</th>
-            <th className="px-5 py-3">Method</th>
-            <th className="px-5 py-3">Status</th>
-            <th className="px-5 py-3">Transaction</th>
-            <th className="px-5 py-3">Dates</th>
-            <th className="px-5 py-3 text-right">Actions</th>
+            <th className="px-5 py-3 text-right">Số tiền</th>
+            <th className="px-5 py-3">Phương thức</th>
+            <th className="px-5 py-3">Trạng thái</th>
+            <th className="px-5 py-3">Giao dịch</th>
+            <th className="px-5 py-3">Thời gian</th>
+            <th className="px-5 py-3 text-right">Thao tác</th>
           </tr>
         </thead>
         <tbody>
@@ -284,14 +294,14 @@ function PaymentsTable({ payments, loading, detailLoading, onDetail }: { payment
                 {payment.providerRef && <div className="mt-1 max-w-[160px] truncate text-xs text-slate-400">{payment.providerRef}</div>}
               </td>
               <td className="px-5 py-4">
-                <div className="text-xs text-slate-500">Paid: {formatDate(payment.paidAt)}</div>
-                <div className="mt-1 text-xs text-slate-500">Created: {formatDate(payment.createdAt)}</div>
+                <div className="text-xs text-slate-500">Đã trả: {formatDate(payment.paidAt)}</div>
+                <div className="mt-1 text-xs text-slate-500">Tạo lúc: {formatDate(payment.createdAt)}</div>
               </td>
               <td className="px-5 py-4">
                 <div className="flex justify-end">
                   <button type="button" onClick={() => onDetail(payment.paymentId)} disabled={detailLoading} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60">
                     <Eye className="h-4 w-4" />
-                    Detail
+                    Chi tiết
                   </button>
                 </div>
               </td>
@@ -307,28 +317,28 @@ function PaymentDetailModal({ payment, onClose, onUpdate }: { payment: AdminPaym
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
       <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }} className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-        <ModalHeader title="Payment detail" subtitle={payment.paymentCode} onClose={onClose} />
+        <ModalHeader title="Chi tiết payment" subtitle={payment.paymentCode} onClose={onClose} />
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <InfoRow label="Status" value={<PaymentStatusBadge status={payment.paymentStatus} />} />
-          <InfoRow label="Amount" value={formatVnd(payment.amount)} />
-          <InfoRow label="Method" value={payment.paymentMethod} />
-          <InfoRow label="Transaction" value={payment.transactionCode || '-'} />
-          <InfoRow label="Provider ref" value={payment.providerRef || '-'} />
-          <InfoRow label="Failure reason" value={payment.failureReason || '-'} />
-          <InfoRow label="Paid at" value={formatDate(payment.paidAt)} />
-          <InfoRow label="Refunded at" value={formatDate(payment.refundedAt)} />
+          <InfoRow label="Trạng thái" value={<PaymentStatusBadge status={payment.paymentStatus} />} />
+          <InfoRow label="Số tiền" value={formatVnd(payment.amount)} />
+          <InfoRow label="Phương thức" value={payment.paymentMethod} />
+          <InfoRow label="Giao dịch" value={payment.transactionCode || '-'} />
+          <InfoRow label="Mã tham chiếu" value={payment.providerRef || '-'} />
+          <InfoRow label="Lý do thất bại" value={payment.failureReason || '-'} />
+          <InfoRow label="Đã trả lúc" value={formatDate(payment.paidAt)} />
+          <InfoRow label="Đã hoàn tiền lúc" value={formatDate(payment.refundedAt)} />
           <InfoRow label="Booking" value={`${payment.bookingCode} · ${payment.bookingStatus}`} />
-          <InfoRow label="Package" value={payment.packageName} />
-          <InfoRow label="Customer" value={`${payment.customerName} · ${payment.customerEmail}`} />
+          <InfoRow label="Gói chụp" value={payment.packageName} />
+          <InfoRow label="Khách hàng" value={`${payment.customerName} · ${payment.customerEmail}`} />
           <InfoRow label="Studio" value={payment.studioName} />
-          <InfoRow label="Shooting date" value={payment.shootingDate || '-'} />
-          <InfoRow label="Location" value={payment.shootingLocation || '-'} />
+          <InfoRow label="Ngày chụp" value={payment.shootingDate || '-'} />
+          <InfoRow label="Địa điểm" value={payment.shootingLocation || '-'} />
           <InfoRow label="Commission" value={`${payment.commissionPercent}% · ${formatVnd(payment.commissionAmount)}`} />
-          <InfoRow label="Studio revenue" value={formatVnd(payment.studioRevenue)} />
+          <InfoRow label="Doanh thu studio" value={formatVnd(payment.studioRevenue)} />
         </div>
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">Close</button>
-          <button type="button" onClick={onUpdate} className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800">Update status</button>
+          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">Đóng</button>
+          <button type="button" onClick={onUpdate} className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800">Cập nhật trạng thái</button>
         </div>
       </motion.div>
     </div>
@@ -361,27 +371,27 @@ function UpdateStatusModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
       <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }} className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-        <ModalHeader title="Update payment status" subtitle={payment.paymentCode} onClose={onClose} />
+        <ModalHeader title="Cập nhật trạng thái payment" subtitle={payment.paymentCode} onClose={onClose} />
         <div className="mt-5 space-y-4">
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Trạng thái</span>
             <select value={nextStatus} onChange={(event) => setNextStatus(event.target.value as Exclude<AdminPaymentStatus, 'ALL'>)} className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10">
-              {updateStatusOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+              {updateStatusOptions.map((item) => <option key={item} value={item}>{paymentStatusLabels[item] ?? item}</option>)}
             </select>
           </label>
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Transaction code</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mã giao dịch</span>
             <input value={transactionCode} onChange={(event) => setTransactionCode(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
           </label>
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reason / note</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lý do / ghi chú</span>
             <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={4} className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
           </label>
-          <p className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs font-medium text-amber-800">Manual update chi doi payment status va timestamp lien quan, khong tu doi booking status.</p>
+          <p className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs font-medium text-amber-800">Cập nhật thủ công chỉ đổi trạng thái payment và timestamp liên quan, không tự đổi trạng thái booking.</p>
         </div>
         <div className="mt-5 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
-          <button type="button" onClick={onSubmit} disabled={loading} className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">{loading ? 'Updating...' : 'Confirm update'}</button>
+          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50">Hủy</button>
+          <button type="button" onClick={onSubmit} disabled={loading} className="h-10 rounded-lg bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400">{loading ? 'Đang cập nhật...' : 'Xác nhận cập nhật'}</button>
         </div>
       </motion.div>
     </div>
@@ -446,7 +456,7 @@ function PaymentStatusBadge({ status }: { status: string }) {
     CANCELLED: 'border-slate-200 bg-slate-50 text-slate-500',
     REFUND_PENDING: 'border-indigo-200 bg-indigo-50 text-indigo-700',
   }
-  return <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium ${config[status] ?? config.PENDING}`}>{status}</span>
+  return <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-medium ${config[status] ?? config.PENDING}`}>{paymentStatusLabels[status] ?? status}</span>
 }
 
 function TableSkeleton({ columns }: { columns: number }) {

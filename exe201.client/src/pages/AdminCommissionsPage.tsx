@@ -38,8 +38,8 @@ export default function AdminCommissionsPage() {
     try {
       setItems(await getAdminCommissions(params))
     } catch {
-      setError('Khong tai duoc danh sach commission.')
-      toast.push({ type: 'error', title: 'Tai commission that bai' })
+      setError('Không tải được danh sách commission.')
+      toast.push({ type: 'error', title: 'Tải commission thất bại' })
     } finally {
       setLoading(false)
     }
@@ -69,7 +69,7 @@ export default function AdminCommissionsPage() {
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Tim booking, studio, customer, service..."
+              placeholder="Tìm booking, studio, khách hàng, dịch vụ..."
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
             />
             {searchTerm && (
@@ -80,46 +80,46 @@ export default function AdminCommissionsPage() {
           </div>
 
           <div className="flex flex-wrap items-end gap-2">
-            <DateInput label="From" value={from} onChange={setFrom} />
-            <DateInput label="To" value={to} onChange={setTo} />
+            <DateInput label="Từ ngày" value={from} onChange={setFrom} />
+            <DateInput label="Đến ngày" value={to} onChange={setTo} />
             <SelectBox
               icon={<SlidersHorizontal className="h-4 w-4" />}
               value={sortBy}
               onChange={setSortBy}
               options={[
-                { value: 'newest', label: 'Moi nhat' },
-                { value: 'oldest', label: 'Cu nhat' },
+                { value: 'newest', label: 'Mới nhất' },
+                { value: 'oldest', label: 'Cũ nhất' },
                 { value: 'commission_desc', label: 'Commission cao' },
-                { value: 'commission_asc', label: 'Commission thap' },
+                { value: 'commission_asc', label: 'Commission thấp' },
                 { value: 'gross_desc', label: 'Gross cao' },
-                { value: 'gross_asc', label: 'Gross thap' },
+                { value: 'gross_asc', label: 'Gross thấp' },
               ]}
             />
             <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:bg-slate-50">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              Làm mới
             </button>
           </div>
         </div>
 
         {error && <div className="border-b border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
 
-        {loading ? <TableSkeleton columns={11} /> : items.length === 0 ? <EmptyState text="Khong co commission phu hop." /> : (
+        {loading ? <TableSkeleton columns={11} /> : items.length === 0 ? <EmptyState text="Không có commission phù hợp." /> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1280px]">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
                   <th className="px-5 py-3">Booking</th>
                   <th className="px-5 py-3">Studio</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Service</th>
+                  <th className="px-5 py-3">Khách hàng</th>
+                  <th className="px-5 py-3">Dịch vụ</th>
                   <th className="px-5 py-3 text-right">Gross</th>
                   <th className="px-5 py-3 text-right">Rate</th>
                   <th className="px-5 py-3 text-right">Commission</th>
-                  <th className="px-5 py-3 text-right">Studio Revenue</th>
+                  <th className="px-5 py-3 text-right">Doanh thu studio</th>
                   <th className="px-5 py-3">Booking</th>
                   <th className="px-5 py-3">Payment</th>
-                  <th className="px-5 py-3">Dates</th>
+                  <th className="px-5 py-3">Thời gian</th>
                 </tr>
               </thead>
               <tbody>
@@ -139,8 +139,8 @@ export default function AdminCommissionsPage() {
                     <td className="px-5 py-4"><Badge value={item.bookingStatus} tone="emerald" /></td>
                     <td className="px-5 py-4"><Badge value={item.paymentStatus} tone="indigo" /></td>
                     <td className="px-5 py-4">
-                      <div className="text-xs text-slate-500">Completed: {formatDate(item.completedAt)}</div>
-                      <div className="mt-1 text-xs text-slate-500">Paid: {formatDate(item.paidAt)}</div>
+                      <div className="text-xs text-slate-500">Hoàn thành: {formatDate(item.completedAt)}</div>
+                      <div className="mt-1 text-xs text-slate-500">Đã trả: {formatDate(item.paidAt)}</div>
                     </td>
                   </tr>
                 ))}
@@ -150,10 +150,10 @@ export default function AdminCommissionsPage() {
         )}
 
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-xs text-slate-500">
-          <span>Hien thi {items.length} commission records</span>
+          <span>Hiển thị {items.length} bản ghi commission</span>
           {(searchTerm || from || to || sortBy !== 'newest') && (
             <button type="button" onClick={clearFilters} className="font-medium text-indigo-600 hover:text-indigo-700">
-              Xoa bo loc
+              Xóa bộ lọc
             </button>
           )}
         </div>

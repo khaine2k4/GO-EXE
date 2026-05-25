@@ -1,7 +1,7 @@
 import api from './api'
 
 export type AdminPaymentStatus = 'ALL' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELLED' | 'REFUND_PENDING'
-export type AdminPaymentMethod = 'ALL' | 'CASH' | 'VNPAY' | 'BANK_TRANSFER' | 'MOMO' | 'PAYPAL'
+export type AdminPaymentMethod = 'ALL' | 'CASH' | 'VNPAY' | 'BANK_TRANSFER' | 'MOMO' | 'PAYPAL' | 'PAYOS'
 
 export type AdminPaymentItem = {
   paymentId: number

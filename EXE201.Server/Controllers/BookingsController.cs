@@ -86,6 +86,20 @@ namespace EXE201.Server.Controllers
             return booking == null ? BadRequest("Booking cannot be cancelled.") : Ok(booking);
         }
 
+        [HttpPut("{id:long}/dispute")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> Dispute(long id, [FromBody] BookingActionRequest request)
+        {
+            var reason = request.Reason ?? request.Note;
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                return BadRequest("Dispute reason is required.");
+            }
+
+            var booking = await _bookingService.DisputeBookingAsync(GetCurrentUserId(), id, reason);
+            return booking == null ? BadRequest("Booking cannot be disputed.") : Ok(booking);
+        }
+
         private long GetCurrentUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         private string GetCurrentRole() => User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
     }
