@@ -12,6 +12,7 @@ namespace EXE201.Server.Services
         private const string BookingPendingConfirmation = "PENDING_CONFIRMATION";
         private const string BookingConfirmed = "CONFIRMED";
         private const string BookingInProgress = "IN_PROGRESS";
+        private const string BookingAwaitingCustomer = "AWAITING_CUSTOMER";
         private const string BookingCompleted = "COMPLETED";
         private const string BookingCancelled = "CANCELLED";
         private const string BookingRejected = "REJECTED";
@@ -345,28 +346,49 @@ namespace EXE201.Server.Services
                 ownerId,
                 bookingId,
                 BookingInProgress,
-                BookingCompleted,
-                async b =>
+                BookingAwaitingCustomer,
+                _ => { },
+                "Studio submitted completion for customer confirmation");
+
+        public async Task<BookingResponse?> ConfirmCompletionAsync(long customerId, long bookingId)
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingAwaitingCustomer) return null;
+
+            var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
+            if (completedId == null) return null;
+
+            booking.StatusId = completedId.Value;
+            booking.CompletedAt = DateTime.UtcNow;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = customerId;
+
+            if (!await _repo.SettlementExistsAsync(booking.BookingId))
+            {
+                _repo.AddSettlement(new Settlement
                 {
-                    b.CompletedAt = DateTime.UtcNow;
-                    if (!await _repo.SettlementExistsAsync(b.BookingId))
-                    {
-                        _repo.AddSettlement(new Settlement
-                        {
-                            BookingId = b.BookingId,
-                            StudioId = b.StudioId,
-                            GrossAmount = b.TotalPrice,
-                            PlatformFeePercent = b.CommissionPercent,
-                            PlatformFeeAmount = b.CommissionAmount,
-                            StudioAmount = b.StudioRevenue,
-                            Status = "READY",
-                            PayoutMethod = "MANUAL",
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        });
-                    }
-                },
-                "Studio completed booking");
+                    BookingId = booking.BookingId,
+                    StudioId = booking.StudioId,
+                    GrossAmount = booking.TotalPrice,
+                    PlatformFeePercent = booking.CommissionPercent,
+                    PlatformFeeAmount = booking.CommissionAmount,
+                    StudioAmount = booking.StudioRevenue,
+                    Status = "READY",
+                    PayoutMethod = "MANUAL",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            AddBookingLogEntry(booking.BookingId, BookingAwaitingCustomer, BookingCompleted, customerId, "Customer confirmed booking completion");
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
+        }
 
         public async Task<BookingResponse?> CancelBookingAsync(long userId, string role, long bookingId, string? reason)
         {

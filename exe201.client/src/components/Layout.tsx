@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { ChevronDown, LogOut, Menu, X, MessageCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -12,18 +12,26 @@ const NAV: Record<string, { label: string; to: string }[]> = {
     { label: 'My Bookings', to: '/customer/bookings' },
     { label: 'Become a Studio', to: '/register' },
   ],
+  CUSTOMER: [
+    { label: 'Home', to: '/' },
+    { label: 'Services', to: '/photosets' },
+    { label: 'Studios', to: '/gallery' },
+    { label: 'My Bookings', to: '/customer/bookings' },
+    { label: 'Become a Studio', to: '/register' },
+  ],
   PHOTOGRAPHER: [
-    { label: 'Dashboard', to: '/photographer/dashboard' },
-    { label: 'Bookings', to: '/photographer/bookings' },
-    { label: 'Revenue', to: '/photographer/revenue' },
-    { label: 'Commissions', to: '/photographer/commissions' },
-    { label: 'Settlements', to: '/photographer/finance' },
-    { label: 'Schedule', to: '/photographer/schedule' },
-    { label: 'Booking Stats', to: '/photographer/booking-stats' },
-    { label: 'Services', to: '/photographer/services' },
-    { label: 'Packages', to: '/photographer/packages' },
-    { label: 'Portfolio', to: '/photographer/portfolio' },
-    { label: 'Wallet', to: '/photographer/wallet' },
+    { label: 'Overview', to: '/photographer/dashboard' },
+    { label: 'Manage', to: '/photographer/dashboard?tab=manage' },
+    { label: 'Bookings', to: '/photographer/dashboard?tab=bookings' },
+    { label: 'Finance', to: '/photographer/dashboard?tab=finance' },
+    { label: 'Content', to: '/photographer/dashboard?tab=content' },
+  ],
+  STUDIO_OWNER: [
+    { label: 'Overview', to: '/photographer/dashboard' },
+    { label: 'Manage', to: '/photographer/dashboard?tab=manage' },
+    { label: 'Bookings', to: '/photographer/dashboard?tab=bookings' },
+    { label: 'Finance', to: '/photographer/dashboard?tab=finance' },
+    { label: 'Content', to: '/photographer/dashboard?tab=content' },
   ],
   ADMIN: [
     { label: 'Users', to: '/admin/users' },
@@ -34,26 +42,38 @@ const NAV: Record<string, { label: string; to: string }[]> = {
 
 const ROLE_LABEL: Record<string, string> = {
   USER: 'Customer',
+  CUSTOMER: 'Customer',
   PHOTOGRAPHER: 'Photographer',
+  STUDIO_OWNER: 'Photographer',
   ADMIN: 'Admin',
 }
 
 export default function Layout() {
   const { state, actions } = useAppStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
 
   const user = state.currentUser
-  const role = user?.role ?? 'USER'
+  const role = String(user?.role ?? 'USER')
   const links = NAV[role] ?? NAV.USER
-  const homePath = role === 'PHOTOGRAPHER' ? '/photographer/dashboard' : role === 'ADMIN' ? '/admin/users' : '/'
-  const myPhotographer = role === 'PHOTOGRAPHER' ? state.photographers.find((p) => p.id === user?.id) : null
+  const isPhotographer = role === 'PHOTOGRAPHER' || role === 'STUDIO_OWNER'
+  const homePath = isPhotographer ? '/photographer/dashboard' : role === 'ADMIN' ? '/admin/users' : '/'
+  const myPhotographer = isPhotographer ? state.photographers.find((p) => p.id === user?.id) : null
 
   function handleLogout() {
     actions.logout()
     setProfileOpen(false)
     navigate('/login')
+  }
+
+  function isActiveLink(to: string) {
+    const [path, query] = to.split('?')
+    if (query) return location.pathname === path && location.search === `?${query}`
+    if (to === '/') return location.pathname === '/'
+    if (to === '/photographer/dashboard') return location.pathname === to && !location.search
+    return location.pathname === to
   }
 
   return (
@@ -73,18 +93,15 @@ export default function Layout() {
 
           <nav className="hidden items-center gap-1 md:flex">
             {links.map((item) => (
-              <NavLink
+              <Link
                 key={item.to}
                 to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) =>
-                  `rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                    isActive ? 'bg-[var(--color-fog)] text-[var(--color-ink)]' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'
-                  }`
-                }
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  isActiveLink(item.to) ? 'bg-[var(--color-fog)] text-[var(--color-ink)]' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'
+                }`}
               >
                 {item.label}
-              </NavLink>
+              </Link>
             ))}
           </nav>
 
@@ -189,19 +206,16 @@ export default function Layout() {
             >
               <div className="space-y-1 p-3">
                 {links.map((item) => (
-                  <NavLink
+                  <Link
                     key={item.to}
                     to={item.to}
-                    end={item.to === '/'}
                     onClick={() => setMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `block rounded-full px-4 py-3 text-sm font-medium ${
-                        isActive ? 'bg-[var(--color-ink)] text-white' : 'text-slate-600 hover:bg-[var(--color-fog)]'
-                      }`
-                    }
+                    className={`block rounded-full px-4 py-3 text-sm font-medium ${
+                      isActiveLink(item.to) ? 'bg-[var(--color-ink)] text-white' : 'text-slate-600 hover:bg-[var(--color-fog)]'
+                    }`}
                   >
                     {item.label}
-                  </NavLink>
+                  </Link>
                 ))}
               </div>
             </motion.nav>

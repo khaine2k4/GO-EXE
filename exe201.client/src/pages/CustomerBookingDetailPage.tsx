@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, MapPin, RotateCcw, MessageCircle } from 'lucide-react'
-import { cancelBooking, getBooking, type BookingDto } from '../services/bookingApi'
+import { ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, MapPin, RotateCcw, MessageCircle } from 'lucide-react'
+import { cancelBooking, confirmCompletion, getBooking, type BookingDto } from '../services/bookingApi'
 import { useToast } from '../components/Toast'
 
 function formatVnd(value: number) {
@@ -17,6 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING_CONFIRMATION: 'Chờ Studio xác nhận',
   CONFIRMED: 'Đã xác nhận',
   IN_PROGRESS: 'Đang chụp',
+  AWAITING_CUSTOMER: 'Chờ bạn xác nhận',
   COMPLETED: 'Hoàn thành',
   CANCELLED: 'Đã hủy',
   REJECTED: 'Bị từ chối',
@@ -55,6 +56,20 @@ export default function CustomerBookingDetailPage() {
     }
   }
 
+  async function handleConfirmCompletion() {
+    if (!booking) return
+    setActioning(true)
+    try {
+      const updated = await confirmCompletion(booking.id)
+      setBooking(updated)
+      toast.push({ type: 'success', title: 'Đã xác nhận hoàn thành', message: 'Booking đã hoàn thành và settlement sẵn sàng cho admin xử lý.' })
+    } catch {
+      toast.push({ type: 'error', title: 'Không thể xác nhận', message: 'Booking chỉ xác nhận được sau khi Studio gửi hoàn tất.' })
+    } finally {
+      setActioning(false)
+    }
+  }
+
   if (loading) return <StateBox text="Đang tải chi tiết booking..." />
   if (error || !booking) return <StateBox text={error || 'Không tìm thấy booking.'} />
 
@@ -81,6 +96,16 @@ export default function CustomerBookingDetailPage() {
                 className="inline-flex h-11 items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 text-xs font-black uppercase tracking-widest text-rose-700 disabled:opacity-50"
               >
                 <RotateCcw className="h-4 w-4" /> Hủy booking
+              </button>
+            )}
+            {booking.status === 'AWAITING_CUSTOMER' && (
+              <button
+                type="button"
+                onClick={handleConfirmCompletion}
+                disabled={actioning}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Xác nhận hoàn thành
               </button>
             )}
             <button
@@ -124,6 +149,8 @@ function StatusBadge({ status }: { status: string }) {
     ? 'bg-slate-100 text-slate-500'
     : status === 'COMPLETED'
       ? 'bg-emerald-50 text-emerald-700'
+      : status === 'AWAITING_CUSTOMER'
+        ? 'bg-cyan-50 text-cyan-700'
       : status === 'PENDING_PAYMENT'
         ? 'bg-amber-50 text-amber-700'
         : 'bg-blue-50 text-[var(--color-azure)]'

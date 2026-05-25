@@ -16,6 +16,7 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING_CONFIRMATION: 'Chờ Studio xác nhận',
   CONFIRMED: 'Đã xác nhận',
   IN_PROGRESS: 'Đang chụp',
+  AWAITING_CUSTOMER: 'Chờ bạn xác nhận',
   COMPLETED: 'Hoàn thành',
   CANCELLED: 'Đã hủy',
   REJECTED: 'Bị từ chối',
@@ -26,6 +27,7 @@ const TABS = [
   { label: 'Chờ thanh toán', value: 'PENDING_PAYMENT' },
   { label: 'Chờ xác nhận', value: 'PENDING_CONFIRMATION' },
   { label: 'Đã xác nhận', value: 'CONFIRMED' },
+  { label: 'Chờ bạn xác nhận', value: 'AWAITING_CUSTOMER' },
   { label: 'Hoàn thành', value: 'COMPLETED' },
   { label: 'Đã hủy', value: 'CANCELLED' },
 ]
@@ -116,6 +118,8 @@ function StatusBadge({ status }: { status: string }) {
     ? 'bg-slate-100 text-slate-500'
     : status === 'COMPLETED'
       ? 'bg-emerald-50 text-emerald-700'
+      : status === 'AWAITING_CUSTOMER'
+        ? 'bg-cyan-50 text-cyan-700'
       : status === 'PENDING_PAYMENT'
         ? 'bg-amber-50 text-amber-700'
         : 'bg-indigo-50 text-indigo-700'

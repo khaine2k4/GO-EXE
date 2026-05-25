@@ -4,6 +4,14 @@ import { useToast } from '../components/Toast'
 import { getAdminSettlements, markSettlementPaid, type SettlementItem, type SettlementStatus } from '../services/settlementApi'
 
 const statusOptions: SettlementStatus[] = ['ALL', 'READY', 'PENDING', 'PAID', 'FAILED', 'CANCELLED']
+const statusLabels: Record<string, string> = {
+  ALL: 'All',
+  READY: 'Ready settlement',
+  PENDING: 'Pending',
+  PAID: 'Paid by admin',
+  FAILED: 'Failed',
+  CANCELLED: 'Cancelled',
+}
 
 function formatVnd(value?: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} VND`
@@ -22,6 +30,8 @@ export default function AdminSettlementsPage() {
   const [loading, setLoading] = useState(false)
   const [payingId, setPayingId] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [payoutMethod, setPayoutMethod] = useState('BANK_TRANSFER')
+  const [confirmTarget, setConfirmTarget] = useState<SettlementItem | null>(null)
 
   const params = useMemo(() => ({
     status,
@@ -47,13 +57,16 @@ export default function AdminSettlementsPage() {
   }, [fetchData])
 
   async function handlePayout(item: SettlementItem) {
+    if (item.status !== 'READY') return
+
     setPayingId(item.settlementId)
     try {
-      const response = await markSettlementPaid(item.settlementId, item.payoutMethod || 'MANUAL')
+      const response = await markSettlementPaid(item.settlementId, payoutMethod || item.payoutMethod || 'MANUAL')
       setItems((current) => current.map((row) => row.settlementId === item.settlementId ? response.settlement : row))
-      toast.push({ type: 'success', title: 'Da xac nhan payout', message: item.bookingCode })
+      setConfirmTarget(null)
+      toast.push({ type: 'success', title: 'Admin confirmed payout', message: item.bookingCode })
     } catch {
-      toast.push({ type: 'error', title: 'Payout that bai' })
+      toast.push({ type: 'error', title: 'Confirm payout failed' })
     } finally {
       setPayingId(null)
     }
@@ -71,9 +84,9 @@ export default function AdminSettlementsPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Settlements</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-950">Studio payout queue</h1>
-            <p className="mt-1 text-sm font-medium text-slate-500">Theo doi dong tien tu booking da hoan thanh va xac nhan chuyen khoan thu cong.</p>
+            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Payout approvals</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">Confirm studio payouts</h1>
+            <p className="mt-1 text-sm font-medium text-slate-500">Booking chi vao day sau khi customer xac nhan hoan thanh. Admin confirm thi settlement moi thanh PAID.</p>
           </div>
           <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -85,7 +98,7 @@ export default function AdminSettlementsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric label="Records" value={totals.count} />
-        <Metric label="Ready payout" value={totals.ready} tone="indigo" />
+        <Metric label="Ready settlement" value={totals.ready} tone="indigo" />
         <Metric label="Studio amount" value={formatVnd(totals.studioAmount)} tone="emerald" />
         <Metric label="Platform fee" value={formatVnd(totals.platformFee)} tone="rose" />
       </div>
@@ -98,7 +111,12 @@ export default function AdminSettlementsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <select value={status} onChange={(event) => setStatus(event.target.value as SettlementStatus)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none">
-              {statusOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+              {statusOptions.map((item) => <option key={item} value={item}>{statusLabels[item] ?? item}</option>)}
+            </select>
+            <select value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none">
+              <option value="BANK_TRANSFER">Bank transfer</option>
+              <option value="CASH">Cash</option>
+              <option value="MANUAL">Manual</option>
             </select>
             <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none">
               <option value="newest">Moi nhat</option>
@@ -142,9 +160,9 @@ export default function AdminSettlementsPage() {
                       <div className="mt-1">Paid: {formatDate(item.paidAt)}</div>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button type="button" onClick={() => handlePayout(item)} disabled={item.status === 'PAID' || payingId === item.settlementId} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-950 px-3 text-xs font-bold text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
+                      <button type="button" onClick={() => setConfirmTarget(item)} disabled={item.status !== 'READY' || payingId === item.settlementId} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-950 px-3 text-xs font-bold text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
                         <CheckCircle2 className="h-4 w-4" />
-                        Payout
+                        {item.status === 'READY' ? 'Confirm payout' : 'Confirmed'}
                       </button>
                     </td>
                   </tr>
@@ -154,6 +172,48 @@ export default function AdminSettlementsPage() {
           </div>
         )}
       </section>
+
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Confirm payout</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">{confirmTarget.studioName}</h2>
+                <p className="mt-2 text-sm font-medium text-slate-500">This will mark the settlement as paid by admin.</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="font-semibold text-slate-500">Booking</span>
+                <span className="font-mono font-black text-slate-800">#{confirmTarget.bookingCode}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                <span className="font-semibold text-slate-500">Studio amount</span>
+                <span className="font-black text-emerald-700">{formatVnd(confirmTarget.studioAmount)}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                <span className="font-semibold text-slate-500">Method</span>
+                <span className="font-black text-slate-800">{payoutMethod}</span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmTarget(null)} disabled={payingId === confirmTarget.settlementId} className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="button" onClick={() => handlePayout(confirmTarget)} disabled={payingId === confirmTarget.settlementId} className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-indigo-600 disabled:bg-slate-300">
+                <CheckCircle2 className="h-4 w-4" />
+                {payingId === confirmTarget.settlementId ? 'Confirming...' : 'Confirm payout'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -165,7 +225,7 @@ function Metric({ label, value, tone = 'slate' }: { label: string; value: string
 
 function StatusBadge({ status }: { status: string }) {
   const style = status === 'PAID' ? 'bg-emerald-50 text-emerald-700' : status === 'READY' ? 'bg-indigo-50 text-indigo-700' : status === 'FAILED' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600'
-  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${style}`}><CircleDollarSign className="h-3.5 w-3.5" />{status}</span>
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${style}`}><CircleDollarSign className="h-3.5 w-3.5" />{statusLabels[status] ?? status}</span>
 }
 
 function TableSkeleton() {

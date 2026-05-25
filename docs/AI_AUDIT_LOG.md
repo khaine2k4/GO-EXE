@@ -1,5 +1,31 @@
 # AI Audit Log
 
+## 2026-05-24 - Photographer Studio Dashboard Consolidation
+
+- Refactored the Photographer studio management area into a single dashboard-centered flow:
+  - Replaced the old standalone `PhotographerDashboardPage` with a tab-driven dashboard at `/photographer/dashboard`.
+  - Added overview cards for services, active services, packages, portfolio photos, bookings, revenue, rating, and reviews.
+  - Added quick sections for recent services, recent packages, portfolio preview, booking summary, revenue summary, and rating summary.
+  - Added management components under `src/components/photographer/management` for services, packages, portfolio, bookings, finance, and profile.
+  - Moved create/edit/detail workflows into drawer-style panels where practical instead of exposing large forms immediately.
+  - Updated Photographer navigation to focus on Dashboard plus dashboard tabs.
+  - Redirected legacy Photographer routes such as `/photographer/services`, `/photographer/packages`, `/photographer/bookings`, `/photographer/revenue`, `/photographer/commissions`, and `/photographer/wallet` to the corresponding `/photographer/dashboard?tab=...` view.
+- Follow-up fixes:
+  - Reduced the top Photographer navigation to `Studio` and `Schedule` so it no longer duplicates dashboard tabs.
+  - Added explicit `CUSTOMER` and `STUDIO_OWNER` frontend navigation aliases to preserve customer `My Bookings` and backend role compatibility.
+  - Added `127.0.0.1:5173` to the backend CORS allowlist for local Vite sessions opened via IP instead of `localhost`.
+  - Moved schedule management into `/photographer/dashboard?tab=schedule` and redirected `/photographer/schedule` there.
+  - Added manual slot creation to the dashboard schedule tab so studios can open bookable times when weekly generation is not enough.
+  - Made the booking modal always show the time-selection section and default to simulated bank-transfer payment for MVP booking creation.
+  - Changed booking completion so Studio submission moves bookings to `AWAITING_CUSTOMER`; customers must confirm completion before the backend creates a `READY` settlement for admin payout.
+  - Added API route `PUT /api/bookings/{id}/confirm-completion` for role `CUSTOMER`; request body is empty and response is `BookingResponse`.
+  - Clarified Admin payout confirmation in `/admin/settlements`: renamed the navigation/page to Payout approvals, added payout method selection, and restricted the confirm action to `READY` settlements.
+  - Replaced the browser-native admin payout confirmation alert with an in-app modal to avoid the `localhost says` dialog.
+- Preserved existing API contracts and reused current studio, booking, revenue, commission, settlement, portfolio, package, and service endpoints.
+- Verification:
+  - `npm run build` inside `exe201.client` succeeded.
+  - `dotnet build EXE201.sln` succeeded.
+
 ## 2026-05-23 - Premium Frontend UI Refactor
 
 - Applied the `docs/DESIGN.md` visual direction to the frontend:

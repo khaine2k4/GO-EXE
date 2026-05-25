@@ -35,7 +35,7 @@ export default function BookingModal({
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(service?.packages[0]?.id ?? null)
   const [shootingLocation, setShootingLocation] = useState('')
   const [note, setNote] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('VNPAY')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER')
   const [submitting, setSubmitting] = useState(false)
   const [successCode, setSuccessCode] = useState('')
   const [error, setError] = useState('')
@@ -48,7 +48,7 @@ export default function BookingModal({
     setSelectedPackageId(service?.packages[0]?.id ?? null)
     setShootingLocation('')
     setNote('')
-    setPaymentMethod('VNPAY')
+    setPaymentMethod('BANK_TRANSFER')
     setSubmitting(false)
     setSuccessCode('')
     setError('')
@@ -207,9 +207,11 @@ export default function BookingModal({
                         <BookingCalendar value={date} onChange={setDate} busyDates={[]} />
                       </Panel>
 
-                      {service && date && (
+                      {service && (
                         <Panel icon={<Clock className="h-4 w-4" />} title="Chọn giờ chụp">
-                          {slotLoading ? (
+                          {!date ? (
+                            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400">Chon ngay chup truoc de xem gio trong.</div>
+                          ) : slotLoading ? (
                             <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400">Đang tải slot...</div>
                           ) : openSlots.length === 0 ? (
                             <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400">Ngày này chưa có slot trống.</div>
