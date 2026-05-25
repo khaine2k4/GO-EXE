@@ -21,6 +21,8 @@ namespace EXE201.Server.Services
         {
             "zalo",
             "facebook",
+            "fb",
+            "zl",
             "telegram",
             "messenger",
             "instagram",

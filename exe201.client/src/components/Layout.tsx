@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { ChevronDown, LogOut, Menu, X, MessageCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
+import AIChatbot from './AIChatbot'
 
 const NAV: Record<string, { label: string; to: string }[]> = {
   USER: [
@@ -238,6 +239,7 @@ export default function Layout() {
       </footer>
 
       {profileOpen && <div className="fixed inset-0 z-30" onClick={() => setProfileOpen(false)} />}
+      <AIChatbot />
     </div>
   )
 }
