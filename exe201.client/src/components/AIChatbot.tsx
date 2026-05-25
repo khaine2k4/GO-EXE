@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, Sparkles, Bot, User, CornerDownLeft } from 'lucide-react'
+import { X, Send, Sparkles, Bot, CornerDownLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
@@ -304,11 +304,7 @@ export default function AIChatbot() {
                     {renderMessageContent(msg.content)}
                   </div>
 
-                  {msg.sender === 'user' && (
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 shadow-sm">
-                      <User className="h-4 w-4 text-indigo-500" />
-                    </div>
-                  )}
+                  {/* Removed User avatar to prevent bubble crowding */}
                 </div>
               ))}
 
@@ -338,6 +334,7 @@ export default function AIChatbot() {
                   onKeyDown={handleKeyDown}
                   placeholder="Hỏi GO! Assistant về thợ ảnh Đà Nẵng..."
                   className="w-full bg-transparent py-1.5 pl-4 text-slate-800 placeholder-slate-400 border-none outline-none focus:outline-none focus:ring-0 focus:ring-offset-0 text-sm leading-normal"
+                  style={{ outline: 'none', boxShadow: 'none', border: 'none' }}
                 />
                 <button
                   onClick={handleSend}
@@ -349,7 +346,7 @@ export default function AIChatbot() {
                 </button>
               </div>
               <div className="mt-2.5 flex items-center justify-between px-2 text-[9px] text-slate-400 font-medium">
-                <span>GO! Assistant • Gemini 2.5 Intel</span>
+                <span>GO! Assistant • Hỗ trợ trực tuyến</span>
                 <span className="flex items-center gap-0.5">
                   Nhấn <CornerDownLeft className="h-2 w-2" /> để gửi
                 </span>
