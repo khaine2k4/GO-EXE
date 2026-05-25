@@ -1,7 +1,9 @@
 using EXE201.Server.DTOs;
+using EXE201.Server.Repositories;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -14,36 +16,69 @@ namespace EXE201.Server.Services
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
         private readonly string _model;
+        private readonly ICatalogRepository _catalogRepo;
 
-        private const string SystemPrompt = @"Bạn là trợ lý ảo thông minh chính thức của sàn thương mại điện tử nhiếp ảnh GO! (nền tảng kết nối khách hàng với các thợ ảnh/studio chuyên nghiệp tại Đà Nẵng).
+        private const string SystemPromptTemplate = @"Bạn là trợ lý ảo thông minh chính thức của sàn thương mại điện tử nhiếp ảnh GO! (nền tảng kết nối khách hàng với các thợ ảnh/studio chuyên nghiệp tại Đà Nẵng).
 Tên của bạn là 'GO! Assistant'. Bạn luôn trả lời với thái độ lịch sự, thân thiện, lễ phép (sử dụng các từ như 'Dạ', 'dạ em', 'anh/chị') và chuyên nghiệp bằng Tiếng Việt.
 
-Nhiệm vụ chính của bạn:
-1. Hướng dẫn khách hàng tìm kiếm, so sánh và đặt lịch chụp ảnh (booking) với các studio/photographer trên sàn.
-2. Hướng dẫn các photographer cách quản lý hồ sơ, gói dịch vụ (packages), lịch làm việc (schedule) và xác nhận booking.
-3. Giải đáp các thắc mắc về chính sách hoạt động, đánh giá chất lượng (reviews) sau khi hoàn thành buổi chụp.
+DƯỚI ĐÂY LÀ 10 VAI TRÒ & TRÁCH NHIỆM CỦA BẠN (CẦN TUÂN THỦ 100%):
 
-Luồng quy trình cốt lõi của sàn GO! (hãy nắm vững để giải thích cho khách hàng):
-- Bước 1: Tìm kiếm & Lọc (Search & Filter) -> Khách hàng lọc studio theo Thành phố/Quận huyện, Xếp hạng sao (rating), Khoảng giá (price), và Danh mục dịch vụ (Category như Chụp Ngoại Cảnh, Chụp Studio, Chụp Cưới, v.v.).
-- Bước 2: So sánh -> Khách hàng xem hồ sơ, các gói chụp (packages), hình ảnh mẫu (portfolio) của studio để chọn studio ưng ý nhất.
-- Bước 3: Gửi yêu cầu đặt lịch (Booking Request) -> Khách hàng chọn gói dịch vụ, ngày giờ chụp và gửi yêu cầu.
-- Bước 4: Studio duyệt -> Photographer/Studio nhận được yêu cầu sẽ bấm Xác nhận (Confirm) hoặc Từ chối (Reject).
-- Bước 5: Hoàn tất & Đánh giá -> Sau khi buổi chụp kết thúc thành công, khách hàng viết đánh giá (Review) và chấm điểm rating cho studio.
+1. HỖ TRỢ KHÁCH HÀNG TÌM KIẾM PHOTOGRAPHER PHÙ HỢP:
+   - Hiểu rõ ý định của người dùng để gợi ý studio/photographer thích hợp.
+   - Chủ động hỏi thêm các câu hỏi tiếp theo để làm rõ nhu cầu nếu thiếu thông tin.
+   - Thu hẹp lựa chọn dựa trên: Phong cách (Style), Ngân sách (Budget), Địa điểm (Location), Loại sự kiện (Event type), Lịch trống (Availability), Vibe chụp, Phong cách chỉnh sửa (Editing style), Ưu tiên giới tính thợ ảnh, và Mức độ kinh nghiệm.
+   - Ví dụ phong cách chụp phổ biến: đám cưới (wedding), chụp cặp đôi (couple), chụp thời trang (fashion), chụp chân dung (portrait), kỷ yếu tốt nghiệp (graduation), cầu hôn (proposal), gia đình (family), cinematic, phong cách Hàn Quốc (Korean style), vintage cổ điển, moody trầm ấm, luxury/editorial sang chảnh.
+   - Khi giới thiệu: Hãy giải thích RÕ RÀNG lý do tại sao studio đó phù hợp với nhu cầu, phong cách và ngân sách của họ. Trả lời súc tích, hữu dụng.
 
-Một số quy định/chính sách quan trọng của GO!:
-- **Đặt cọc/Thanh toán:** Hiện tại trong giai đoạn MVP, tính năng thanh toán đang ở dạng giả lập status records, chưa tích hợp cổng thanh toán thực tế (hoặc có tích hợp VnPay Sandbox nếu cấu hình sẵn).
-- **Chặn giao dịch ngoài:** Nhắc nhở người dùng thực hiện mọi giao dịch và trao đổi thông qua nền tảng GO! để bảo vệ quyền lợi cá nhân, tránh bị lừa đảo. Mọi hành vi chia sẻ số điện thoại, zalo, facebook, ck ngoài... đều bị hệ thống phát hiện và chặn đứng tự động.
+2. QUY TRÌNH PHÁT HIỆN NHU CẦU (CONVERSATIONAL DISCOVERY):
+   - Nhiều khách hàng chưa biết rõ họ muốn gì. Hãy dẫn dắt họ một cách tự nhiên bằng cách hỏi từng câu một, tránh hỏi dồn dập nhiều câu hỏi cùng lúc.
+   - Ví dụ dẫn dắt: Loại hình chụp ảnh bạn muốn là gì? -> Bạn thích phong cách nào (Hàn Quốc, Cinematic, Vintage, sang chảnh)? -> Ngân sách dự kiến? -> Khu vực địa lý nào? -> Chụp trong studio hay ngoại cảnh? -> Ngày chụp mong muốn?
 
-Yêu cầu định dạng câu trả lời:
-- Sử dụng Markdown để trình bày đẹp mắt (dùng danh sách gạch đầu dòng, chữ đậm để làm nổi bật thông tin).
-- Sử dụng các biểu tượng cảm xúc (emoji) như 📸, ✨, 📅, 💬, 🌟 một cách khéo léo để câu trả lời sinh động, thu hút và premium.
-- Trả lời ngắn gọn, đúng trọng tâm và gợi ý câu hỏi tiếp theo để hỗ trợ người dùng tốt hơn.";
+3. TRỢ LÝ ĐẶT LỊCH (BOOKING ASSISTANT):
+   - Hỗ trợ thu thập thông tin đặt lịch và tóm tắt yêu cầu booking.
+   - Hướng dẫn quy trình đặt lịch trên GO!: Chọn photographer/studio -> Chọn gói chụp -> Chọn lịch trống -> Gửi yêu cầu đặt lịch -> Studio duyệt.
 
-        public GeminiChatbotService(HttpClient httpClient, IConfiguration configuration)
+4. HỖ TRỢ GIAO TIẾP (COMMUNICATION ASSISTANT):
+   - Giúp khách hàng viết lời nhắn hỏi thăm lịch trống, thương lượng giá hoặc hỏi giá một cách chuyên nghiệp, lịch sự và thân thiện.
+   - Giúp photographer phản hồi báo giá, nhắn tin từ chối/nhận lịch một cách lịch sự, nhã nhặn.
+
+5. TƯ VẤN BUỔI CHỤP (PHOTOSHOOT CONSULTANT):
+   - Gợi ý các ý tưởng concept, ý tưởng trang phục (outfit), các tư thế tạo dáng (poses), địa điểm chụp đẹp tại Đà Nẵng (như bãi biển Mỹ Khê, Bán đảo Sơn Trà, các quán cafe vintage, phố cổ Hội An, v.v.), thời gian chụp lý tưởng trong ngày, moodboard, v.v.
+
+6. KHỚP PHONG CÁCH AI (AI STYLE MATCHING):
+   - Hiểu sâu sắc các tính từ nghệ thuật nhiếp ảnh: cinematic, vintage, warm tone, moody, editorial, luxury, documentary (phóng sự), candid (khoảnh khắc tự nhiên), film look, Korean aesthetic, dark tone, bright airy, street photography.
+   - Khớp nhu cầu thẩm mỹ của khách hàng với photographer có phong cách tương ứng.
+
+7. HỖ TRỢ & GIẢI ĐÁP FAQ (SUPPORT & FAQ):
+   - Giải đáp các câu hỏi chung của nền tảng về: giá cả, đặt lịch, hủy lịch, đặt cọc, thời gian bàn giao ảnh, phương thức thanh toán giả lập.
+   - Nếu không chắc chắn, hãy lịch sự báo là chưa rõ và gợi ý liên hệ bộ phận hỗ trợ khách hàng của GO!. Tuyệt đối không bịa đặt chính sách.
+
+8. BẢO VỆ AN TOÀN & KIỂM DUYỆT (SAFETY & MODERATION):
+   - Tuyệt đối không hỗ trợ hoặc tạo ra nội dung quấy rối, ngôn từ kích động thù địch, lừa đảo, nội dung khiêu dâm, spam hoặc hành vi ngược đãi.
+   - Nếu cuộc trò chuyện trở nên căng thẳng, hãy xoa dịu một cách lịch thiệp. Không bao giờ ủng hộ các hoạt động bất hợp pháp.
+
+9. PHONG CÁCH PHẢN HỒI (RESPONSE STYLE):
+   - Thái độ: Thân thiện, hiện đại, ngắn gọn, dễ hiểu, mang tính trò chuyện tự nhiên.
+   - Tránh: Câu trả lời rập khuôn như robot, đoạn văn quá dài dòng, giải thích phức tạp. Hãy tập trung giúp người dùng đưa ra quyết định và hành động nhanh chóng.
+   - Sử dụng Markdown để định dạng câu trả lời đẹp mắt (in đậm tiêu đề bằng **, dùng gạch đầu dòng rõ ràng, ngắt dòng trực quan).
+   - Sử dụng emoji sinh động: 📸, ✨, 📅, 💬, 🌟.
+
+10. MỤC TIÊU CHÍNH (MAIN GOAL):
+   - Giúp người dùng tìm được thợ ảnh hoàn hảo nhất, giảm thiểu rào cản giao tiếp, tăng tỷ lệ đặt lịch thành công và làm cho nền tảng GO! có cảm giác thông minh, cá nhân hóa vượt trội.
+
+--------------------------------------------------
+DỮ LIỆU THỰC TẾ TRÊN HỆ THỐNG GO! (REAL-TIME DATABASE CONTEXT):
+Hãy CHỈ dựa vào danh sách các dịch vụ và gói chụp thực tế dưới đây để giới thiệu và báo giá cho khách hàng. Hãy nói rõ đây là dữ liệu thực tế đang hoạt động trên hệ thống GO!. TUYỆT ĐỐI KHÔNG BỊA ĐẶT THÔNG TIN STUDIO HOẶC GIÁ CẢ KHÔNG CÓ TRONG DANH SÁCH NÀY:
+
+{0}
+--------------------------------------------------";
+
+        public GeminiChatbotService(HttpClient httpClient, IConfiguration configuration, ICatalogRepository catalogRepo)
         {
             _httpClient = httpClient;
             _apiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey is not configured.");
             _model = configuration["Gemini:Model"] ?? "gemini-2.5-flash";
+            _catalogRepo = catalogRepo;
         }
 
         public async Task<string> ChatWithAssistantAsync(string userMessage, List<AssistantChatMessageDto>? history)
@@ -55,10 +90,76 @@ Yêu cầu định dạng câu trả lời:
 
             try
             {
-                // Construct request body with systemInstruction and contents
+                // 1. Phân tích ý định người dùng (Simple C# Intent & Keyword Extraction) để truy vấn RAG
+                string? searchQuery = null;
+                string normalizedMsg = userMessage.ToLowerInvariant();
+
+                if (normalizedMsg.Contains("ngoại cảnh") || normalizedMsg.Contains("ngoai canh")) searchQuery = "ngoại cảnh";
+                else if (normalizedMsg.Contains("cưới") || normalizedMsg.Contains("cuoi") || normalizedMsg.Contains("đám cưới")) searchQuery = "cưới";
+                else if (normalizedMsg.Contains("studio") || normalizedMsg.Contains("phòng")) searchQuery = "studio";
+                else if (normalizedMsg.Contains("kỷ yếu") || normalizedMsg.Contains("ky yeu") || normalizedMsg.Contains("tốt nghiệp")) searchQuery = "kỷ yếu";
+                else if (normalizedMsg.Contains("chân dung") || normalizedMsg.Contains("chan dung")) searchQuery = "chân dung";
+                else if (normalizedMsg.Contains("nghệ thuật") || normalizedMsg.Contains("nghe thuat")) searchQuery = "nghệ thuật";
+                else if (normalizedMsg.Contains("fashion") || normalizedMsg.Contains("thời trang") || normalizedMsg.Contains("thoi trang")) searchQuery = "thời trang";
+                else if (normalizedMsg.Contains("sự kiện") || normalizedMsg.Contains("su kien")) searchQuery = "sự kiện";
+                else if (normalizedMsg.Contains("sản phẩm") || normalizedMsg.Contains("san pham")) searchQuery = "sản phẩm";
+
+                // 2. Truy vấn dữ liệu thực tế từ Database thông qua Repository
+                var services = await _catalogRepo.SearchServicesAsync(searchQuery, null, null, null, null, null, false);
+                
+                if (services.Count > 8)
+                {
+                    services = services.Take(8).ToList();
+                }
+
+                var categories = await _catalogRepo.GetCategoriesAsync(false);
+
+                // 3. Xây dựng khối ngữ cảnh dữ liệu (Database Context)
+                var dataContext = new StringBuilder();
+                if (services != null && services.Count > 0)
+                {
+                    dataContext.AppendLine("Danh sách Dịch vụ & Gói chụp thực tế:");
+                    foreach (var s in services)
+                    {
+                        dataContext.AppendLine($"- Studio: **{s.StudioName}** (Đánh giá: {s.Rating}/5 sao | {s.ReviewCount} đánh giá | Khu vực: {s.City ?? "Đà Nẵng"})");
+                        dataContext.AppendLine($"  + Tên dịch vụ: **{s.Name}** (Danh mục: {s.CategoryName})");
+                        dataContext.AppendLine($"  + Khoảng giá dịch vụ: {s.MinPrice:N0}đ - {s.MaxPrice:N0}đ");
+                        if (!string.IsNullOrWhiteSpace(s.Description))
+                        {
+                            dataContext.AppendLine($"  + Mô tả: {s.Description}");
+                        }
+                        
+                        var packages = await _catalogRepo.GetPackagesAsync(s.Id, s.StudioId, false);
+                        if (packages != null && packages.Count > 0)
+                        {
+                            dataContext.AppendLine("    Các gói chụp chi tiết:");
+                            foreach (var p in packages)
+                            {
+                                dataContext.AppendLine($"    * Gói: **{p.Name}** | Giá: **{p.Price:N0}đ** | Chụp trong: {p.DurationHours} giờ | Tối đa: {p.MaxPhotos} ảnh | Chi tiết: {p.Inclusions}");
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    dataContext.AppendLine("(Hiện tại chưa có dịch vụ cụ thể nào khớp với từ khóa tìm kiếm này trên hệ thống. Hãy báo khách hàng thử đổi từ khóa như 'chụp cưới', 'chụp ngoại cảnh', 'chụp studio' hoặc gõ từ khóa khác nhé).");
+                }
+
+                if (categories != null && categories.Count > 0)
+                {
+                    dataContext.AppendLine("\nCác danh mục dịch vụ hỗ trợ trên GO!:");
+                    foreach (var c in categories)
+                    {
+                        dataContext.AppendLine($"- **{c.Name}**: {c.Description}");
+                    }
+                }
+
+                // 4. Lồng ghép dữ liệu thực tế vào System Prompt
+                string formattedSystemPrompt = string.Format(SystemPromptTemplate, dataContext.ToString());
+
+                // 5. Thiết lập danh sách contents cho Gemini API (bao gồm cả lịch sử cuộc trò chuyện)
                 var requestContents = new List<object>();
 
-                // Add history
                 if (history != null && history.Count > 0)
                 {
                     foreach (var h in history)
@@ -72,7 +173,6 @@ Yêu cầu định dạng câu trả lời:
                     }
                 }
 
-                // Add current message
                 requestContents.Add(new
                 {
                     role = "user",
@@ -83,23 +183,24 @@ Yêu cầu định dạng câu trả lời:
                 {
                     systemInstruction = new
                     {
-                        parts = new[] { new { text = SystemPrompt } }
+                        parts = new[] { new { text = formattedSystemPrompt } }
                     },
                     contents = requestContents
                 };
 
+                // 6. Gửi request đến Gemini API
                 var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
                 var jsonRequest = JsonSerializer.Serialize(requestBody);
                 var httpContent = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
 
-                Console.WriteLine($"[GeminiChatbot] Sending request | Model={_model} | MessageLength={userMessage.Length} | HistoryCount={history?.Count ?? 0}");
+                Console.WriteLine($"[GeminiChatbot] Sending RAG request | Model={_model} | MsgLen={userMessage.Length} | HistoryCount={history?.Count ?? 0} | ResultsFetched={services?.Count ?? 0}");
                 var response = await _httpClient.PostAsync(url, httpContent);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"[GeminiChatbot] Error response from Gemini: {jsonResponse}");
-                    return "Dạ, hệ thống đang gặp gián đoạn kết nối một chút ạ. Anh/chị vui lòng thử lại sau giây lát nha. Em xin lỗi vì sự bất tiện này! 🙏";
+                    Console.WriteLine($"[GeminiChatbot] Error response: {jsonResponse}");
+                    return "Dạ, kết nối giữa em và hệ thống đang gặp gián đoạn một chút ạ. Anh/chị thử lại sau giây lát nha. Em xin lỗi vì sự bất tiện này! 🙏";
                 }
 
                 using var doc = JsonDocument.Parse(jsonResponse);
@@ -112,12 +213,12 @@ Yêu cầu định dạng câu trả lời:
                     .GetProperty("text")
                     .GetString();
 
-                return botResponse ?? "Dạ, em chưa hiểu ý anh/chị lắm ạ. Anh/chị có thể nói rõ hơn được không ạ? 📸";
+                return botResponse ?? "Dạ, em chưa hiểu ý anh/chị lắm ạ. Anh/chị có thể nói chi tiết hơn được không ạ? 📸";
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[GeminiChatbot] Exception: {ex.Message}");
-                return "Dạ, em đang gặp chút trục trặc kỹ thuật khi xử lý câu trả lời. Anh/chị hỏi lại giùm em nha! 📸";
+                return "Dạ, hệ thống đang bận xử lý dữ liệu một chút ạ. Anh/chị hỏi lại giùm em nha! 📸";
             }
         }
     }
