@@ -17,6 +17,7 @@
       <Version>8.*-*</Version>
     </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="payOS" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup>

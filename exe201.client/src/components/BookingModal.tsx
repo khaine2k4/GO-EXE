@@ -7,9 +7,9 @@ import { useAppStore } from '../store/AppStore'
 import { useToast } from './Toast'
 import type { Photographer, Photoset } from '../types'
 import type { ServiceDetail } from '../services/catalogTypes'
-import { createBooking, getStudioSlots, payBooking, vnpayCreatePaymentUrl, type TimeSlotDto } from '../services/bookingApi'
+import { createBooking, getStudioSlots, payBooking, vnpayCreatePaymentUrl, payosCreatePaymentUrl, type TimeSlotDto } from '../services/bookingApi'
 
-type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'VNPAY'
+type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'VNPAY' | 'PAYOS'
 
 export default function BookingModal({
   photographer,
@@ -89,7 +89,15 @@ export default function BookingModal({
           shootingLocation: shootingLocation.trim(),
           note: note.trim() || undefined,
         })
-        if (paymentMethod === 'VNPAY') {
+        if (paymentMethod === 'PAYOS') {
+          const payosRes = await payosCreatePaymentUrl(booking.id)
+          if (payosRes?.paymentUrl) {
+            window.location.href = payosRes.paymentUrl
+            return
+          } else {
+            throw new Error('Không thể tạo link thanh toán VietQR.')
+          }
+        } else if (paymentMethod === 'VNPAY') {
           const vnpayRes = await vnpayCreatePaymentUrl(booking.id)
           if (vnpayRes?.paymentUrl) {
             window.location.href = vnpayRes.paymentUrl
@@ -261,19 +269,25 @@ export default function BookingModal({
                           <CreditCard className="h-4 w-4 text-indigo-600" /> Chọn phương thức thanh toán
                         </div>
                         <div className="grid gap-2">
-                          {(['VNPAY', 'BANK_TRANSFER', 'CASH'] as PaymentMethod[]).map((method) => (
+                          {(['PAYOS', 'VNPAY', 'BANK_TRANSFER', 'CASH'] as PaymentMethod[]).map((method) => (
                             <button
                               key={method}
                               type="button"
                               onClick={() => setPaymentMethod(method)}
                               className={`rounded-xl border px-3 py-3 text-left text-xs font-black transition ${paymentMethod === method ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
                             >
+                              {method === 'PAYOS' && '💳 Quét VietQR qua payOS (Napas 24/7)'}
                               {method === 'VNPAY' && '💳 Thanh toán Online qua VNPay'}
                               {method === 'BANK_TRANSFER' && '💸 Chuyển khoản (Giả lập)'}
                               {method === 'CASH' && '💵 Tiền mặt tại Studio (Giả lập)'}
                             </button>
                           ))}
                         </div>
+                        {paymentMethod === 'PAYOS' && (
+                          <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-xs font-semibold leading-5 text-indigo-800 border border-indigo-100">
+                            Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của <span className="font-black text-indigo-950">payOS (VietQR)</span> để quét mã chuyển khoản Napas 24/7.
+                          </div>
+                        )}
                         {paymentMethod === 'VNPAY' && (
                           <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-xs font-semibold leading-5 text-emerald-800 border border-emerald-100">
                             Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của <span className="font-black text-emerald-950">VNPay Sandbox</span> để thực hiện thanh toán trực tuyến.

@@ -28,11 +28,13 @@ namespace EXE201.Server.Services
 
         private readonly IBookingWorkflowRepository _repo;
         private readonly IConfiguration _configuration;
+        private readonly IPayOsService _payOsService;
 
-        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration)
+        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration, IPayOsService payOsService)
         {
             _repo = repo;
             _configuration = configuration;
+            _payOsService = payOsService;
         }
 
         public async Task<List<WorkingScheduleResponse>> GetMySchedulesAsync(long ownerId)
@@ -936,5 +938,98 @@ namespace EXE201.Server.Services
             RefundPendingReason = p.RefundPendingReason,
             CreatedAt = p.CreatedAt.ToString("O")
         };
+
+        // payOS
+        public async Task<string?> CreatePayOsPaymentUrlAsync(long customerId, long bookingId)
+        {
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingPendingPayment) return null;
+            if (booking.PaymentExpiresAt != null && booking.PaymentExpiresAt <= DateTime.UtcNow) return null;
+
+            var payosMethod = await _repo.GetPaymentMethodAsync("PAYOS")
+                ?? await _repo.GetPaymentMethodAsync("BANK_TRANSFER")
+                ?? throw new InvalidOperationException("Payment method PAYOS was not found.");
+
+            // Get or create pending payment for PAYOS
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()
+                ?? await CreatePendingPaymentAsync(booking, "PAYOS");
+
+            payment.MethodId = payosMethod.MethodId;
+            payment.Method = payosMethod;
+            payment.PaymentProvider = "PAYOS";
+
+            await _repo.SaveChangesAsync();
+
+            // Create payment link via payOS
+            var orderCode = booking.BookingId; // Must be unique numeric code
+            var amount = (int)payment.Amount;
+            var description = $"Thanh toan BK{booking.BookingId}";
+            if (description.Length > 25) description = description.Substring(0, 25);
+            var returnUrl = _configuration["PayOS:ReturnUrl"] ?? "http://localhost:5289/api/payments/payos-return";
+            var cancelUrl = _configuration["PayOS:CancelUrl"] ?? "http://localhost:5173/customer/bookings";
+
+            try
+            {
+                var result = await _payOsService.CreatePaymentLinkAsync(orderCode, amount, description, cancelUrl, returnUrl);
+                return result.CheckoutUrl;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating PayOS payment link: {ex.Message}");
+                return null;
+            }
+        }
+
+        public async Task<bool> ProcessPayOsWebhookAsync(string webhookBodyJson)
+        {
+            try
+            {
+                var verifiedData = await _payOsService.VerifyWebhookDataAsync(webhookBodyJson);
+                if (verifiedData == null) return false;
+
+                var bookingId = verifiedData.OrderCode;
+                await using var tx = await _repo.BeginTransactionAsync();
+
+                var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+                if (booking == null) return false;
+
+                var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+                if (payment == null) return false;
+
+                // Idempotency check: only process if payment is PENDING
+                if (payment.PaymentStatus.StatusName != PaymentPending)
+                {
+                    await tx.CommitAsync();
+                    return true;
+                }
+
+                var paidStatus = await _repo.GetPaymentStatusAsync(PaymentPaid);
+                var pendingConfirmationId = await _repo.GetBookingStatusIdAsync(BookingPendingConfirmation);
+                if (paidStatus == null || pendingConfirmationId == null) return false;
+
+                payment.PaymentStatusId = paidStatus.PaymentStatusId;
+                payment.PaymentStatus = paidStatus;
+                payment.TransactionCode = verifiedData.Reference ?? $"PAYOS-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+                payment.PaidAt = DateTime.UtcNow;
+                payment.UpdatedAt = DateTime.UtcNow;
+
+                booking.StatusId = pendingConfirmationId.Value;
+                booking.PaymentExpiresAt = null;
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.Slot.Status = SlotBooked;
+
+                AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingPendingConfirmation, booking.CustomerId, "Paid successfully via payOS (VietQR)");
+
+                await _repo.SaveChangesAsync();
+                await tx.CommitAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing PayOS Webhook: {ex.Message}");
+                return false;
+            }
+        }
     }
 }

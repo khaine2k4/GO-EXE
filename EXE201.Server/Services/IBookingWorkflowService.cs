@@ -28,5 +28,9 @@ namespace EXE201.Server.Services
         Task<int> ExpirePendingBookingsAsync();
         Task<string?> CreateVnPayPaymentUrlAsync(long customerId, long bookingId, string ipAddress);
         Task<bool> ProcessVnPayReturnAsync(Dictionary<string, string> vnpayParams);
+
+        // payOS
+        Task<string?> CreatePayOsPaymentUrlAsync(long customerId, long bookingId);
+        Task<bool> ProcessPayOsWebhookAsync(string webhookBodyJson);
     }
 }
