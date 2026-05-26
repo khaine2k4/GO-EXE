@@ -133,8 +133,9 @@ namespace EXE201.Server.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> PayOsReturn([FromQuery] long orderCode, [FromQuery] string status)
         {
-            // payOS orderCode maps to bookingId in our system
-            var paymentStatus = status == "PAID" || status == "success" ? "success" : "fail";
+            // Process the return URL parameters, query PayOS API for verification, and update database state
+            var success = await _bookingService.ProcessPayOsReturnAsync(orderCode, status);
+            var paymentStatus = success ? "success" : "fail";
             return Redirect($"http://localhost:5173/customer/bookings/{orderCode}?paymentStatus={paymentStatus}");
         }
 
