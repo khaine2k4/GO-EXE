@@ -61,6 +61,7 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Services.IStudioRevenueService, EXE201.Server.Services.StudioRevenueService>();
             builder.Services.AddHostedService<EXE201.Server.Services.BookingExpiryWorker>();
             builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiModerationService, EXE201.Server.Services.GeminiModerationService>();
+            builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiChatbotService, EXE201.Server.Services.GeminiChatbotService>();
 
             // Register payOS
             builder.Services.AddSingleton(new PayOS.PayOSClient(

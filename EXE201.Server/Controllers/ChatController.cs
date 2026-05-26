@@ -18,17 +18,20 @@ namespace EXE201.Server.Controllers
         private readonly IStudioRepository _studioRepo;
         private readonly IHubContext<ChatHub> _hubContext;
         private readonly Services.IGeminiModerationService _moderationService;
+        private readonly Services.IGeminiChatbotService _chatbotService;
 
         public ChatController(
             IChatRepository chatRepo, 
             IStudioRepository studioRepo, 
             IHubContext<ChatHub> hubContext,
-            Services.IGeminiModerationService moderationService)
+            Services.IGeminiModerationService moderationService,
+            Services.IGeminiChatbotService chatbotService)
         {
             _chatRepo = chatRepo;
             _studioRepo = studioRepo;
             _hubContext = hubContext;
             _moderationService = moderationService;
+            _chatbotService = chatbotService;
         }
 
         private long GetCurrentUserId()
@@ -218,6 +221,22 @@ namespace EXE201.Server.Controllers
             await _hubContext.Clients.Group($"conv_{id}").SendAsync("ReceiveMessage", msgDto);
 
             return Ok(msgDto);
+        }
+
+
+        // ── POST /api/chat/assistant ──────────────────────────────
+        // Endpoint trò chuyện với trợ lý ảo AI
+        [HttpPost("assistant")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ChatWithAssistant([FromBody] AssistantChatRequestDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Message))
+            {
+                return BadRequest("Nội dung tin nhắn không được để trống.");
+            }
+
+            var botResponse = await _chatbotService.ChatWithAssistantAsync(dto.Message, dto.History);
+            return Ok(new { Response = botResponse });
         }
     }
 }

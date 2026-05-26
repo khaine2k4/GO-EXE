@@ -21,6 +21,8 @@ namespace EXE201.Server.Services
         {
             "zalo",
             "facebook",
+            "fb",
+            "zl",
             "telegram",
             "messenger",
             "instagram",
@@ -66,8 +68,9 @@ namespace EXE201.Server.Services
         public GeminiModerationService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["Gemini:ApiKey"] ?? string.Empty;
-            _model = configuration["Gemini:Model"] ?? "gemini-2.5-flash";
+            _apiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey is not configured.");
+            _model = configuration["Gemini:Model"] ?? "gemini-3.1-flash-lite";
+
         }
 
         public async Task<(bool IsViolated, string Reason)> ModerateMessageAsync(string content, bool throwOnError = false)
