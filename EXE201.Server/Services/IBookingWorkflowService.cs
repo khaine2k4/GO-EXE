@@ -20,6 +20,7 @@ namespace EXE201.Server.Services
         Task<BookingResponse?> RejectBookingAsync(long ownerId, long bookingId, string? reason);
         Task<BookingResponse?> MarkInProgressAsync(long ownerId, long bookingId);
         Task<BookingResponse?> CompleteBookingAsync(long ownerId, long bookingId);
+        Task<BookingResponse?> ConfirmCompletionAsync(long customerId, long bookingId);
         Task<BookingResponse?> CancelBookingAsync(long userId, string role, long bookingId, string? reason);
         Task<BookingResponse?> DisputeBookingAsync(long customerId, long bookingId, string reason);
 
@@ -28,5 +29,9 @@ namespace EXE201.Server.Services
         Task<int> ExpirePendingBookingsAsync();
         Task<string?> CreateVnPayPaymentUrlAsync(long customerId, long bookingId, string ipAddress);
         Task<bool> ProcessVnPayReturnAsync(Dictionary<string, string> vnpayParams);
+
+        // payOS
+        Task<string?> CreatePayOsPaymentUrlAsync(long customerId, long bookingId);
+        Task<bool> ProcessPayOsWebhookAsync(string webhookBodyJson);
     }
 }

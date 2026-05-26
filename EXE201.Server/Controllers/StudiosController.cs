@@ -16,6 +16,16 @@ namespace EXE201.Server.Controllers
             _catalogService = catalogService;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> Search(
+            [FromQuery] string? keyword,
+            [FromQuery] string? search,
+            [FromQuery] string? city,
+            [FromQuery] long? categoryId)
+        {
+            return Ok(await _catalogService.SearchStudiosAsync(keyword ?? search, city, categoryId));
+        }
+
         [HttpGet("{id:long}")]
         public async Task<IActionResult> GetStudio(long id)
         {

@@ -344,8 +344,8 @@ GO
 CREATE TABLE booking_statuses (
     status_id   BIGINT      PRIMARY KEY IDENTITY(1,1),
     status_name VARCHAR(20) NOT NULL UNIQUE
-    -- PENDING | CONFIRMED | REJECTED | CANCELLED
-    -- IN_PROGRESS | COMPLETED | DISPUTED
+    -- PENDING_PAYMENT | PENDING_CONFIRMATION | CONFIRMED | IN_PROGRESS
+    -- AWAITING_CUSTOMER | COMPLETED | CANCELLED | REJECTED
 );
 GO
 
@@ -419,7 +419,7 @@ CREATE INDEX IX_bookings_code     ON bookings(booking_code);
 
 -- [FIX-07] Filtered unique index: chỉ enforce 1 booking/slot với trạng thái ACTIVE
 -- CANCELLED(6) và REJECTED(7) không bị đếm → slot có thể được đặt lại
--- (status_id: PENDING_PAYMENT=1, PENDING_CONFIRMATION=2, CONFIRMED=3, IN_PROGRESS=4, COMPLETED=5, CANCELLED=6, REJECTED=7)
+-- (status_id: PENDING_PAYMENT=1, PENDING_CONFIRMATION=2, CONFIRMED=3, IN_PROGRESS=4, COMPLETED=5, CANCELLED=6, REJECTED=7, AWAITING_CUSTOMER=8)
 -- Note: SQL Server filtered index KHÔNG hỗ trợ NOT IN → dùng <> AND <>
 CREATE UNIQUE INDEX UX_bookings_slot_active
     ON bookings(slot_id)
@@ -1050,7 +1050,8 @@ INSERT INTO booking_statuses (status_name) VALUES
 ('IN_PROGRESS'),
 ('COMPLETED'),
 ('CANCELLED'),
-('REJECTED');
+('REJECTED'),
+('AWAITING_CUSTOMER');
 
 INSERT INTO payment_methods (method_name) VALUES
 ('VNPAY'), ('MOMO'), ('CASH'), ('BANK_TRANSFER'), ('PAYPAL');

@@ -1,9 +1,8 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ArrowLeft, CalendarDays, CircleDollarSign, Clock, MapPin, RotateCcw, MessageCircle } from 'lucide-react'
-import { cancelBooking, disputeBooking, getBooking, type BookingDto } from '../services/bookingApi'
+import { ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, MapPin, RotateCcw, MessageCircle } from 'lucide-react'
+import { cancelBooking, confirmCompletion, getBooking, type BookingDto } from '../services/bookingApi'
 import { useToast } from '../components/Toast'
-import CustomDialog from '../components/CustomDialog'
 
 function formatVnd(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
@@ -18,8 +17,8 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING_CONFIRMATION: 'Chờ Studio xác nhận',
   CONFIRMED: 'Đã xác nhận',
   IN_PROGRESS: 'Đang chụp',
+  AWAITING_CUSTOMER: 'Chờ bạn xác nhận',
   COMPLETED: 'Hoàn thành',
-  DISPUTED: 'Khiếu nại',
   CANCELLED: 'Đã hủy',
   REJECTED: 'Bị từ chối',
 }
@@ -32,7 +31,6 @@ export default function CustomerBookingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actioning, setActioning] = useState(false)
   const [error, setError] = useState('')
-  const [dialog, setDialog] = useState<{ isOpen: boolean; title: string; message: string; type: 'confirm' | 'prompt'; placeholder?: string; onConfirm: (val?: string) => void } | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -45,56 +43,35 @@ export default function CustomerBookingDetailPage() {
 
   async function handleCancel() {
     if (!booking) return
-    setDialog({
-      isOpen: true,
-      title: 'Hủy Đặt Lịch Chụp',
-      message: 'Bạn có chắc chắn muốn hủy đặt lịch này không? Vui lòng nhập lý do hủy bên dưới:',
-      type: 'prompt',
-      placeholder: 'Nhập lý do hủy...',
-      onConfirm: async (reason) => {
-        setDialog(null)
-        setActioning(true)
-        try {
-          const updated = await cancelBooking(booking.id, reason || 'Customer cancelled')
-          setBooking(updated)
-          toast.push({ type: 'info', title: 'Đã hủy booking', message: 'Slot đã được giải phóng theo quy tắc MVP.' })
-        } catch {
-          toast.push({ type: 'error', title: 'Không thể hủy booking', message: 'Chỉ được tự hủy trước khi Studio xác nhận.' })
-        } finally {
-          setActioning(false)
-        }
-      }
-    })
+    const reason = window.prompt('Nhập lý do hủy booking') || 'Customer cancelled'
+    setActioning(true)
+    try {
+      const updated = await cancelBooking(booking.id, reason)
+      setBooking(updated)
+      toast.push({ type: 'info', title: 'Đã hủy booking', message: 'Slot đã được giải phóng theo quy tắc MVP.' })
+    } catch {
+      toast.push({ type: 'error', title: 'Không thể hủy booking', message: 'Chỉ được tự hủy trước khi Studio xác nhận.' })
+    } finally {
+      setActioning(false)
+    }
   }
 
-  async function handleDispute() {
+  async function handleConfirmCompletion() {
     if (!booking) return
-    setDialog({
-      isOpen: true,
-      title: 'Khiếu Nại Lịch Chụp',
-      message: 'Vui lòng nhập chi tiết nội dung khiếu nại để gửi cho ban quản trị Admin phân xử:',
-      type: 'prompt',
-      placeholder: 'Nhập nội dung khiếu nại...',
-      onConfirm: async (reason) => {
-        if (!reason?.trim()) return
-        setDialog(null)
-        setActioning(true)
-        try {
-          const updated = await disputeBooking(booking.id, reason.trim())
-          setBooking(updated)
-          toast.push({ type: 'success', title: 'Đã gửi khiếu nại', message: 'Admin sẽ xem xét và phân xử booking này.' })
-        } catch {
-          toast.push({ type: 'error', title: 'Không thể khiếu nại', message: 'Chỉ hỗ trợ khi booking đang ở trạng thái IN_PROGRESS.' })
-        } finally {
-          setActioning(false)
-        }
-      }
-    })
+    setActioning(true)
+    try {
+      const updated = await confirmCompletion(booking.id)
+      setBooking(updated)
+      toast.push({ type: 'success', title: 'Đã xác nhận hoàn thành', message: 'Booking đã hoàn thành và settlement sẵn sàng cho admin xử lý.' })
+    } catch {
+      toast.push({ type: 'error', title: 'Không thể xác nhận', message: 'Booking chỉ xác nhận được sau khi Studio gửi hoàn tất.' })
+    } finally {
+      setActioning(false)
+    }
   }
 
   if (loading) return <StateBox text="Đang tải chi tiết booking..." />
   if (error || !booking) return <StateBox text={error || 'Không tìm thấy booking.'} />
-  const canDispute = booking.status === 'IN_PROGRESS' && booking.latestPayment?.status === 'PAID'
 
   return (
     <div className="mx-auto max-w-5xl pb-20">
@@ -121,21 +98,21 @@ export default function CustomerBookingDetailPage() {
                 <RotateCcw className="h-4 w-4" /> Hủy booking
               </button>
             )}
-            {canDispute && (
+            {booking.status === 'AWAITING_CUSTOMER' && (
               <button
                 type="button"
-                onClick={handleDispute}
+                onClick={handleConfirmCompletion}
                 disabled={actioning}
-                className="inline-flex h-11 items-center gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 text-xs font-black uppercase tracking-widest text-amber-700 disabled:opacity-50"
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50"
               >
-                <AlertTriangle className="h-4 w-4" /> Khiếu nại đặt lịch
+                <CheckCircle2 className="h-4 w-4" /> Xác nhận hoàn thành
               </button>
             )}
             <button
               onClick={() => nav(`/chat?studioId=${booking.studioId}&bookingId=${booking.id}`)}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-4 text-xs font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100"
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-[var(--color-border)] bg-white px-4 text-sm font-medium text-[var(--color-ink)] transition hover:border-[var(--color-azure)] hover:text-[var(--color-azure)]"
             >
-              <MessageCircle className="h-4.5 w-4.5" /> Nhắn tin với Studio
+              <MessageCircle className="h-4 w-4" /> Nhắn tin với Studio
             </button>
           </div>
         </div>
@@ -150,7 +127,7 @@ export default function CustomerBookingDetailPage() {
         <div className="mt-8 rounded-2xl bg-slate-50 p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tiền</span>
-            <span className="text-2xl font-black text-indigo-600">{formatVnd(booking.totalPrice)}</span>
+            <span className="text-2xl font-black text-[var(--color-azure)]">{formatVnd(booking.totalPrice)}</span>
           </div>
           <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-600">
             <div>Phí nền tảng: {formatVnd(booking.commissionAmount)}</div>
@@ -163,16 +140,6 @@ export default function CustomerBookingDetailPage() {
       <Link to="/photosets" className="mt-6 inline-flex rounded-2xl bg-slate-950 px-6 py-3 text-xs font-black uppercase tracking-widest text-white">
         Đặt thêm dịch vụ
       </Link>
-
-      <CustomDialog
-        isOpen={!!dialog?.isOpen}
-        title={dialog?.title || ''}
-        message={dialog?.message || ''}
-        type={dialog?.type || 'confirm'}
-        placeholder={dialog?.placeholder || ''}
-        onConfirm={dialog?.onConfirm || (() => {})}
-        onCancel={() => setDialog(null)}
-      />
     </div>
   )
 }
@@ -180,13 +147,13 @@ export default function CustomerBookingDetailPage() {
 function StatusBadge({ status }: { status: string }) {
   const color = status === 'CANCELLED' || status === 'REJECTED'
     ? 'bg-slate-100 text-slate-500'
-    : status === 'DISPUTED'
-      ? 'bg-rose-50 text-rose-700'
     : status === 'COMPLETED'
       ? 'bg-emerald-50 text-emerald-700'
+      : status === 'AWAITING_CUSTOMER'
+        ? 'bg-cyan-50 text-cyan-700'
       : status === 'PENDING_PAYMENT'
         ? 'bg-amber-50 text-amber-700'
-        : 'bg-indigo-50 text-indigo-700'
+        : 'bg-blue-50 text-[var(--color-azure)]'
 
   return (
     <span className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${color}`}>

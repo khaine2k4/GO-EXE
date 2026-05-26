@@ -5,7 +5,7 @@ import { getStudioDetail } from '../services/studioApi'
 import type { StudioDetail } from '../services/catalogTypes'
 
 function formatVnd(value?: number) {
-  if (!value) return 'Liên hệ'
+  if (!value) return 'Contact'
   return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
 }
 
@@ -21,97 +21,115 @@ export default function PhotographerProfilePage() {
     setLoading(true)
     getStudioDetail(id)
       .then(setStudio)
-      .catch(() => setError('Không thể tải thông tin studio.'))
+      .catch(() => setError('Could not load studio profile.'))
       .finally(() => setLoading(false))
   }, [id])
 
-  if (loading) return <StateBox text="Đang tải studio..." />
-  if (error || !studio) return <StateBox text={error || 'Không tìm thấy studio.'} />
+  if (loading) return <StateBox text="Loading studio..." />
+  if (error || !studio) return <StateBox text={error || 'Studio not found.'} />
 
   return (
     <div className="space-y-8 pb-20">
-      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-black text-slate-500 hover:text-slate-950">
-        <ArrowLeft className="h-4 w-4" /> Quay lại
+      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-graphite)] hover:text-[var(--color-ink)]">
+        <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
-      <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-100">
-        <div className="relative h-72 bg-slate-100">
-          {studio.coverUrl && <img src={studio.coverUrl} alt={studio.name} className="h-full w-full object-cover" />}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
-          <div className="absolute bottom-6 left-6 flex items-end gap-5 text-white">
-            <img src={studio.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(studio.name)}`} alt={studio.name} className="h-24 w-24 rounded-3xl border-4 border-white bg-white object-cover" />
-            <div>
-              <h1 className="text-4xl font-black">{studio.name}</h1>
-              <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-white/85"><MapPin className="h-4 w-4" /> {[studio.addressLine, studio.district, studio.city].filter(Boolean).join(', ')}</p>
-              <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-sm font-black backdrop-blur"><Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {studio.rating} ({studio.reviewCount} reviews)</p>
+      <section className="relative">
+        <div className="relative h-80 overflow-hidden rounded-[28px] bg-slate-100 md:h-[420px]">
+          {studio.coverUrl ? <img src={studio.coverUrl} alt={studio.name} className="h-full w-full object-cover" /> : null}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+        </div>
+        <div className="mx-auto -mt-16 max-w-5xl px-4">
+          <div className="relative rounded-[28px] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-card)] md:flex md:items-end md:justify-between md:gap-6">
+            <div className="flex items-end gap-5">
+              <img src={studio.logoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(studio.name)}`} alt={studio.name} className="h-24 w-24 rounded-full border-4 border-white bg-white object-cover shadow-sm" />
+              <div>
+                <div className="mb-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Approved studio</div>
+                <h1 className="text-4xl font-bold">{studio.name}</h1>
+                <p className="mt-2 flex items-center gap-2 text-sm font-medium text-[var(--color-graphite)]">
+                  <MapPin className="h-4 w-4" /> {[studio.addressLine, studio.district, studio.city].filter(Boolean).join(', ')}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row md:mt-0 md:items-end">
+              <p className="inline-flex items-center justify-center gap-1 rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {studio.rating} ({studio.reviewCount} reviews)
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate(`/chat?studioId=${studio.id}`)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--color-azure)] px-5 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,113,227,0.16)] transition hover:bg-[var(--color-azure-dark)] active:scale-[0.98]"
+              >
+                <MessageCircle className="h-4 w-4" /> Nhắn tin
+              </button>
             </div>
           </div>
-          <div className="absolute bottom-6 right-6">
-            <button
-              onClick={() => navigate(`/chat?studioId=${studio.id}`)}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-6 text-xs font-black uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg cursor-pointer"
-            >
-              <MessageCircle className="h-4.5 w-4.5" /> NHẮN TIN VỚI STUDIO
-            </button>
-          </div>
         </div>
-        <div className="grid gap-8 p-6 lg:grid-cols-[1fr_360px]">
-          <main className="space-y-8">
-            <Section title="Giới thiệu">
-              <p className="leading-7 text-slate-600">{studio.description || 'Studio chưa cập nhật mô tả.'}</p>
-            </Section>
-            <Section title="Dịch vụ">
-              {studio.services.length === 0 ? <Empty text="Chưa có dịch vụ public." /> : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {studio.services.map((service) => (
-                    <Link key={service.id} to={`/photosets/${service.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-indigo-200">
-                      <h3 className="font-black text-slate-950">{service.name}</h3>
-                      <p className="mt-1 text-sm font-semibold text-slate-500">{service.categoryName}</p>
-                      <p className="mt-3 text-sm font-black text-indigo-600">Từ {formatVnd(service.minPrice)}</p>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </Section>
-            <Section title="Portfolio">
-              {studio.portfolio.length === 0 ? <Empty text="Chưa có portfolio." /> : (
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                  {studio.portfolio.map((item) => <img key={item.id} src={item.imageUrl} alt={item.caption || studio.name} className="aspect-square rounded-2xl object-cover" />)}
-                </div>
-              )}
-            </Section>
-          </main>
-          <aside>
-            <Section title="Reviews">
-              {studio.reviews.length === 0 ? <Empty text="Chưa có review." /> : (
-                <div className="space-y-3">
-                  {studio.reviews.map((review) => (
-                    <div key={review.id} className="rounded-2xl bg-slate-50 p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="font-black text-slate-950">{review.customerName}</span>
-                        <span className="inline-flex items-center gap-1 text-sm font-black text-amber-500"><Star className="h-4 w-4 fill-current" /> {review.rating}</span>
+      </section>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+        <main className="space-y-8">
+          <Section title="About">
+            <p className="leading-7 text-[var(--color-graphite)]">{studio.description || 'Studio has not updated a description yet.'}</p>
+          </Section>
+          <Section title="Services">
+            {studio.services.length === 0 ? <Empty text="No public service yet." /> : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {studio.services.map((service) => (
+                  <Link key={service.id} to={`/photosets/${service.id}`} className="rounded-[24px] border border-[var(--color-border)] bg-white p-5 transition hover:border-[var(--color-azure)] hover:shadow-[var(--shadow-card)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-[var(--color-ink)]">{service.name}</h3>
+                        <p className="mt-1 text-sm font-medium text-[var(--color-graphite)]">{service.categoryName}</p>
                       </div>
-                      <p className="mt-2 text-sm text-slate-600">{review.comment || 'Không có bình luận.'}</p>
+                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-600">
+                        <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {service.rating}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </Section>
-          </aside>
-        </div>
+                    <p className="mt-4 text-sm font-semibold text-[var(--color-azure)]">From {formatVnd(service.minPrice)}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </Section>
+          <Section title="Portfolio">
+            {studio.portfolio.length === 0 ? <Empty text="No portfolio images yet." /> : (
+              <div className="columns-2 gap-3 md:columns-3">
+                {studio.portfolio.map((item) => <img key={item.id} src={item.imageUrl} alt={item.caption || studio.name} className="mb-3 w-full rounded-[20px] object-cover" />)}
+              </div>
+            )}
+          </Section>
+        </main>
+        <aside className="lg:sticky lg:top-[88px] lg:self-start">
+          <Section title="Reviews">
+            {studio.reviews.length === 0 ? <Empty text="No reviews yet." /> : (
+              <div className="space-y-3">
+                {studio.reviews.map((review) => (
+                  <div key={review.id} className="rounded-[20px] bg-[var(--color-fog)] p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-[var(--color-ink)]">{review.customerName}</span>
+                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-500"><Star className="h-4 w-4 fill-current" /> {review.rating}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--color-graphite)]">{review.comment || 'No comment.'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+        </aside>
       </div>
     </div>
   )
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="rounded-2xl border border-slate-100 bg-white p-5"><h2 className="mb-4 text-xl font-black text-slate-950">{title}</h2>{children}</section>
+  return <section className="rounded-[24px] border border-[var(--color-border)] bg-white p-6"><h2 className="mb-4 text-2xl font-semibold">{title}</h2>{children}</section>
 }
 
 function Empty({ text }: { text: string }) {
-  return <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400">{text}</div>
+  return <div className="rounded-[20px] border border-dashed border-[var(--color-border)] p-6 text-center text-sm font-medium text-[var(--color-graphite)]">{text}</div>
 }
 
 function StateBox({ text }: { text: string }) {
-  return <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-sm font-bold text-slate-500">{text}</div>
+  return <div className="surface-card border-dashed p-12 text-center text-sm font-medium text-[var(--color-graphite)]">{text}</div>
 }

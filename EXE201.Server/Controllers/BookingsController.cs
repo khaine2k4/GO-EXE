@@ -68,7 +68,15 @@ namespace EXE201.Server.Controllers
         public async Task<IActionResult> Complete(long id)
         {
             var booking = await _bookingService.CompleteBookingAsync(GetCurrentUserId(), id);
-            return booking == null ? BadRequest("Booking cannot be completed.") : Ok(booking);
+            return booking == null ? BadRequest("Booking cannot be submitted for customer confirmation.") : Ok(booking);
+        }
+
+        [HttpPut("{id:long}/confirm-completion")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> ConfirmCompletion(long id)
+        {
+            var booking = await _bookingService.ConfirmCompletionAsync(GetCurrentUserId(), id);
+            return booking == null ? BadRequest("Booking completion cannot be confirmed.") : Ok(booking);
         }
 
         [HttpPut("{id:long}/cancel")]

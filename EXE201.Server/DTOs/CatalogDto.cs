@@ -159,6 +159,24 @@ namespace EXE201.Server.DTOs
         public List<ReviewResponse> Reviews { get; set; } = new();
     }
 
+    public class StudioSummaryResponse
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = null!;
+        public string? Description { get; set; }
+        public string? City { get; set; }
+        public string? District { get; set; }
+        public string? AddressLine { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? CoverUrl { get; set; }
+        public decimal Rating { get; set; }
+        public int ReviewCount { get; set; }
+        public int ServiceCount { get; set; }
+        public int PortfolioCount { get; set; }
+        public decimal? MinPrice { get; set; }
+        public List<string> Categories { get; set; } = new();
+    }
+
     public class StudioDashboardResponse
     {
         public long StudioId { get; set; }

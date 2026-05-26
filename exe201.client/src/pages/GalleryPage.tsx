@@ -1,180 +1,200 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAppStore } from '../store/AppStore'
-import PhotoCard from '../components/PhotoCard'
+import { Camera, MapPin, Search, SlidersHorizontal, Star, X } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { getCategories } from '../services/categoryApi'
+import { getStudios, type StudioSearchParams } from '../services/studioApi'
+import type { Category, StudioSummary } from '../services/catalogTypes'
 
-const ALL_TAGS = ['Wedding', 'Portrait', 'Lifestyle', 'Street', 'Couple', 'Editorial', 'Landscape', 'Travel', 'Nature', 'Commercial', 'Product', 'Fashion', 'Romantic', 'Film', 'Vintage', 'Architecture', 'Urban', 'Documentary']
-const LOCATIONS = ['Tất cả', 'TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Hội An']
+const FALLBACK_COVER = 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=80'
+
+function formatVnd(value?: number) {
+  if (!value) return 'Contact'
+  return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
+}
 
 export default function GalleryPage() {
-  const { state } = useAppStore()
   const nav = useNavigate()
-  const [q, setQ] = useState('')
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [location, setLocation] = useState('Tất cả')
+  const [studios, setStudios] = useState<StudioSummary[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [filters, setFilters] = useState<StudioSearchParams>({ keyword: '', city: '', categoryId: '' })
   const [showFilters, setShowFilters] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  function toggleTag(tag: string) {
-    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  async function load(nextFilters = filters) {
+    setLoading(true)
+    setError('')
+    try {
+      const [studioData, categoryData] = await Promise.all([
+        getStudios(cleanParams(nextFilters)),
+        getCategories(),
+      ])
+      setStudios(studioData)
+      setCategories(categoryData)
+    } catch {
+      setError('Could not load studios from API.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const hasFilter = useMemo(() => Boolean(filters.keyword || filters.city || filters.categoryId), [filters])
+
+  function applyFilters() {
+    load(filters)
   }
 
   function clearFilters() {
-    setQ('')
-    setSelectedTags([])
-    setLocation('Tất cả')
+    const next: StudioSearchParams = { keyword: '', city: '', categoryId: '' }
+    setFilters(next)
+    load(next)
   }
 
-  const results = useMemo(() => {
-    const norm = q.trim().toLowerCase()
-    return state.photographers.filter((p) => {
-      if (p.status !== 'APPROVED') return false
-      if (norm && !(p.name + ' ' + p.location + ' ' + p.tags.join(' ')).toLowerCase().includes(norm)) return false
-      if (selectedTags.length > 0 && !selectedTags.some((t) => p.tags.includes(t))) return false
-      if (location !== 'Tất cả' && p.location !== location) return false
-      return true
-    })
-  }, [q, selectedTags, location, state.photographers])
-
-  const hasFilter = q || selectedTags.length > 0 || location !== 'Tất cả'
-
-  // Build columns for masonry
-  const columns: (typeof results)[] = [[], [], []]
-  results.forEach((p, i) => columns[i % 3].push(p))
-
   return (
-    <div className="space-y-12 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Premium Header */}
-      <div className="relative overflow-hidden rounded-[40px] bg-slate-900 px-8 py-16 text-white shadow-2xl">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-        <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-400 mb-4">DISCOVER TALENT</div>
-          <h1 className="text-4xl font-black tracking-tight md:text-5xl">Thư viện Nghệ sĩ</h1>
-          <p className="mt-4 text-slate-400 font-medium max-w-lg">Tìm kiếm và kết nối với những nhiếp ảnh gia hàng đầu phù hợp với phong cách của bạn.</p>
+    <div className="space-y-10 pb-20">
+      <section className="surface-card p-8 text-center">
+        <div className="mx-auto max-w-2xl">
+          <div className="text-sm font-semibold uppercase text-[var(--color-azure)]">Studios</div>
+          <h1 className="mt-3 text-4xl font-bold text-[var(--color-ink)] md:text-5xl">Explore approved photography studios</h1>
+          <p className="mt-4 text-[var(--color-graphite)]">
+            Studio data is loaded from the database through the public studios API, including services, categories, portfolio count, rating, and price range.
+          </p>
         </div>
-      </div>
+      </section>
 
-      <div className="space-y-8">
-        {/* Controls Bar */}
-        <div className="sticky top-20 z-20 flex flex-col gap-4 sm:flex-row sm:items-center justify-between rounded-[28px] border border-slate-100 bg-white/80 p-3 shadow-xl shadow-slate-200/40 backdrop-blur-xl ring-1 ring-slate-200/50">
-          <div className="flex flex-1 items-center gap-3 px-4 py-2">
-            <Search className="h-4.5 w-4.5 text-slate-400" />
+      <section className="sticky top-20 z-20 rounded-[28px] border border-[var(--color-border)] bg-white/90 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <label className="flex h-12 flex-1 items-center gap-3 rounded-full bg-[var(--color-fog)] px-4">
+            <Search className="h-5 w-5 shrink-0 text-[var(--color-graphite)]" />
             <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Tìm theo tên, phong cách, thành phố..."
-              className="w-full bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400"
+              value={filters.keyword}
+              onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
+              onKeyDown={(event) => { if (event.key === 'Enter') applyFilters() }}
+              placeholder="Search studio, service, category..."
+              className="min-w-0 w-full bg-transparent text-sm font-medium text-[var(--color-ink)] outline-none placeholder:text-slate-400"
             />
-            {q && (
-              <button onClick={() => setQ('')} className="rounded-full bg-slate-100 p-1 text-slate-400 hover:text-slate-900 transition-colors">
-                <X className="h-3.5 w-3.5" />
+            {filters.keyword && (
+              <button type="button" onClick={() => setFilters((prev) => ({ ...prev, keyword: '' }))} className="rounded-full bg-white p-1 text-[var(--color-graphite)]">
+                <X className="h-4 w-4" />
               </button>
             )}
-          </div>
-
-          <div className="flex items-center gap-2 p-1">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex h-11 items-center gap-2.5 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest transition-all ${showFilters ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
-            >
-              <SlidersHorizontal className="h-4 w-4" /> BỘ LỌC {hasFilter && '(!)'}
+          </label>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setShowFilters((value) => !value)} className="secondary-pill h-12 gap-2 px-5 text-sm font-semibold">
+              <SlidersHorizontal className="h-4 w-4" /> Filters
             </button>
+            <button type="button" onClick={applyFilters} className="primary-pill h-12 px-6 text-sm font-semibold">Search</button>
           </div>
         </div>
 
-        {/* Expandable Filters */}
         <AnimatePresence>
           {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Tuỳ chỉnh tìm kiếm</h3>
-                  {hasFilter && (
-                    <button onClick={clearFilters} className="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 transition-colors">Xoá tất cả</button>
-                  )}
-                </div>
-
-                <div className="grid gap-10 md:grid-cols-2">
-                  <div>
-                    <label className="mb-4 block text-[10px] font-black uppercase tracking-widest text-slate-400">Khu vực</label>
-                    <div className="flex flex-wrap gap-2">
-                      {LOCATIONS.map((loc) => (
-                        <button
-                          key={loc}
-                          onClick={() => setLocation(loc)}
-                          className={`rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-all ${location === loc ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                        >
-                          {loc}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-4 block text-[10px] font-black uppercase tracking-widest text-slate-400">Phong cách</label>
-                    <div className="flex flex-wrap gap-2">
-                      {ALL_TAGS.map((tag) => (
-                        <button
-                          key={tag}
-                          onClick={() => toggleTag(tag)}
-                          className={`rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-widest transition-all ${selectedTags.includes(tag) ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+              <div className="mt-3 grid gap-3 border-t border-[var(--color-soft-border)] pt-3 md:grid-cols-[1fr_1fr_auto]">
+                <input
+                  value={filters.city}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, city: event.target.value }))}
+                  placeholder="City"
+                  className="h-11 rounded-full bg-[var(--color-fog)] px-4 text-sm font-medium outline-none"
+                />
+                <select
+                  value={filters.categoryId}
+                  onChange={(event) => setFilters((prev) => ({ ...prev, categoryId: event.target.value ? Number(event.target.value) : '' }))}
+                  className="h-11 rounded-full bg-[var(--color-fog)] px-4 text-sm font-medium outline-none"
+                >
+                  <option value="">All categories</option>
+                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+                {hasFilter && <button type="button" onClick={clearFilters} className="secondary-pill h-11 px-5 text-sm font-semibold">Clear</button>}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+      </section>
 
-        {/* Results */}
-        {results.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[24px] bg-slate-50 text-slate-200 ring-1 ring-inset ring-slate-100">
-              <Search className="h-8 w-8" />
-            </div>
-            <h3 className="text-[15px] font-black uppercase tracking-widest text-slate-900">Không tìm thấy nhiếp ảnh gia</h3>
-            <p className="mt-3 text-xs font-bold text-slate-400 leading-relaxed max-w-[240px]">Thử thay đổi bộ lọc hoặc từ khoá để tìm thấy mảnh ghép bạn cần.</p>
-            <button onClick={clearFilters} className="mt-8 rounded-2xl bg-slate-900 px-8 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all active:scale-95">Reset bộ lọc</button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-6 sm:flex-nowrap">
-            {columns.map((col, ci) => (
-              <div key={ci} className="flex flex-1 flex-col gap-6">
-                {col.map((p, i) => (
-                  <motion.div
-                    key={p.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: (ci + i * 3) * 0.05 }}
-                  >
-                    <PhotoCard
-                      imageUrl={p.portfolio[0]?.url ?? p.coverUrl}
-                      photographerName={p.name}
-                      location={p.location}
-                      startingPriceVnd={p.startingPrice}
-                      rating={p.rating}
-                      reviewCount={p.reviewCount}
-                      tags={p.tags}
-                      isTopRated={p.rating >= 4.9}
-                      onClick={() => nav(`/photographers/${p.id}`)}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <StateBox text="Loading studios..." />
+      ) : error ? (
+        <StateBox text={error} />
+      ) : studios.length === 0 ? (
+        <StateBox text="No approved studio matched your filters." />
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {studios.map((studio, index) => (
+            <motion.div key={studio.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
+              <StudioCard studio={studio} onClick={() => nav(`/photographers/${studio.id}`)} />
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   )
+}
+
+function StudioCard({ studio, onClick }: { studio: StudioSummary; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="group h-full overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+        <img
+          src={studio.coverUrl || FALLBACK_COVER}
+          alt={studio.name}
+          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          loading="lazy"
+          onError={(event) => { event.currentTarget.src = FALLBACK_COVER }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+        <div className="absolute bottom-4 left-4 right-4">
+          <h2 className="line-clamp-2 text-xl font-semibold text-white">{studio.name}</h2>
+          <p className="mt-2 flex items-center gap-2 text-sm font-medium text-white/85">
+            <MapPin className="h-4 w-4" />
+            {[studio.city, studio.district].filter(Boolean).join(', ') || 'Location updating'}
+          </p>
+        </div>
+      </div>
+      <div className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-xs font-semibold uppercase text-[var(--color-graphite)]">Starting from</div>
+            <div className="mt-1 text-lg font-semibold text-[var(--color-ink)]">{formatVnd(studio.minPrice)}</div>
+          </div>
+          <div className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">
+            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+            {Number(studio.rating ?? 0).toFixed(1)}
+            {studio.reviewCount > 0 ? <span className="text-slate-400">({studio.reviewCount})</span> : null}
+          </div>
+        </div>
+
+        <p className="line-clamp-2 text-sm text-[var(--color-graphite)]">{studio.description || 'View services, portfolio, packages, and reviews from this studio.'}</p>
+
+        <div className="flex flex-wrap gap-2">
+          {studio.categories.length > 0 ? studio.categories.slice(0, 3).map((category) => (
+            <span key={category} className="rounded-full bg-[var(--color-fog)] px-3 py-1 text-xs font-medium text-[var(--color-slate)]">{category}</span>
+          )) : (
+            <span className="rounded-full bg-[var(--color-fog)] px-3 py-1 text-xs font-medium text-[var(--color-slate)]">Services updating</span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-[var(--color-soft-border)] pt-4">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium uppercase text-[var(--color-graphite)]">
+            <Camera className="h-3.5 w-3.5" />
+            {studio.serviceCount} services · {studio.portfolioCount} portfolio
+          </span>
+          <span className="secondary-pill h-9 px-4 text-xs font-semibold">View studio</span>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+function cleanParams(params: StudioSearchParams) {
+  return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== '' && value !== undefined))
+}
+
+function StateBox({ text }: { text: string }) {
+  return <div className="surface-card border-dashed p-12 text-center text-sm font-medium text-[var(--color-graphite)]">{text}</div>
 }

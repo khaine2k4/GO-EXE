@@ -41,7 +41,7 @@ export type BookingDto = {
   endTime: string
   shootingLocation?: string
   note?: string
-  status: 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | string
+  status: 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | string
   totalPrice: number
   commissionAmount: number
   studioRevenue: number
@@ -83,6 +83,10 @@ export function vnpayCreatePaymentUrl(bookingId: number) {
   return api.post<{ paymentUrl: string }>('/payments/vnpay-create', { bookingId }).then((res) => res.data)
 }
 
+export function payosCreatePaymentUrl(bookingId: number) {
+  return api.post<{ paymentUrl: string }>('/payments/payos-create', { bookingId }).then((res) => res.data)
+}
+
 export function confirmBooking(id: string | number) {
   return api.put<BookingDto>(`/bookings/${id}/confirm`).then((res) => res.data)
 }
@@ -97,4 +101,8 @@ export function markInProgress(id: string | number) {
 
 export function completeBooking(id: string | number) {
   return api.put<BookingDto>(`/bookings/${id}/complete`).then((res) => res.data)
+}
+
+export function confirmCompletion(id: string | number) {
+  return api.put<BookingDto>(`/bookings/${id}/confirm-completion`).then((res) => res.data)
 }

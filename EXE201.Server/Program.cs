@@ -34,6 +34,7 @@ namespace EXE201.Server
                 {
                     // SignalR WebSocket cần AllowCredentials nên không dùng AllowAnyOrigin
                     policy.WithOrigins("http://localhost:5173", "https://localhost:5173",
+                                       "http://127.0.0.1:5173", "https://127.0.0.1:5173",
                                        "http://localhost:56076", "https://localhost:56076")
                           .AllowAnyMethod()
                           .AllowAnyHeader()
@@ -61,6 +62,14 @@ namespace EXE201.Server
             builder.Services.AddHostedService<EXE201.Server.Services.BookingExpiryWorker>();
             builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiModerationService, EXE201.Server.Services.GeminiModerationService>();
             builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiChatbotService, EXE201.Server.Services.GeminiChatbotService>();
+
+            // Register payOS
+            builder.Services.AddSingleton(new PayOS.PayOSClient(
+                builder.Configuration["PayOS:ClientId"]!,
+                builder.Configuration["PayOS:ApiKey"]!,
+                builder.Configuration["PayOS:ChecksumKey"]!
+            ));
+            builder.Services.AddScoped<EXE201.Server.Services.IPayOsService, EXE201.Server.Services.PayOsService>();
 
             var jwtSettings = builder.Configuration.GetSection("Jwt");
             builder.Services.AddAuthentication(options =>

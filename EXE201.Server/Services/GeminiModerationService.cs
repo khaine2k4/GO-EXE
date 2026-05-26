@@ -70,6 +70,7 @@ namespace EXE201.Server.Services
             _httpClient = httpClient;
             _apiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey is not configured.");
             _model = configuration["Gemini:Model"] ?? "gemini-3.1-flash-lite";
+
         }
 
         public async Task<(bool IsViolated, string Reason)> ModerateMessageAsync(string content, bool throwOnError = false)
@@ -89,6 +90,17 @@ namespace EXE201.Server.Services
             if (!ShouldUseGemini(content))
             {
                 Console.WriteLine($"[GeminiModeration] Allowed by local rules, skipped Gemini | Length={content.Length} | Time={DateTime.UtcNow:O}");
+                return (false, string.Empty);
+            }
+
+            if (string.IsNullOrWhiteSpace(_apiKey))
+            {
+                if (throwOnError)
+                {
+                    throw new InvalidOperationException("Gemini:ApiKey is not configured.");
+                }
+
+                Console.WriteLine($"[GeminiModeration] Gemini skipped because ApiKey is not configured | Length={content.Length} | Time={DateTime.UtcNow:O}");
                 return (false, string.Empty);
             }
 
