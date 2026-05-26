@@ -101,7 +101,7 @@ export default function ScheduleManager() {
       } else if (revenueResult.status === 'fulfilled') {
         retrievedStudioId = revenueResult.value.studioId
       } else if (dashboardResult.status === 'fulfilled') {
-        retrievedStudioId = (dashboardResult.value as any).studioId || dashboardResult.value.id || null
+        retrievedStudioId = (dashboardResult.value as any).studioId || (dashboardResult.value as any).id || null
       }
 
       setStudioId(retrievedStudioId)
