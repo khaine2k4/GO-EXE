@@ -1,19 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, SlidersHorizontal, Star, X } from 'lucide-react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { getCategories } from '../services/categoryApi'
 import { getServices, type ServiceSearchParams } from '../services/serviceApi'
 import type { Category, ServiceSummary } from '../services/catalogTypes'
 
-function formatVnd(value?: number) {
-  if (!value) return 'Liên hệ'
-  return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
-}
-
 export default function PhotosetsPage() {
+  const initialFilters = useMemo<ServiceSearchParams>(() => {
+    const params = new URLSearchParams(window.location.search)
+    return {
+      keyword: params.get('keyword') ?? '',
+      categoryId: params.get('categoryId') ? Number(params.get('categoryId')) : '',
+      city: params.get('city') ?? '',
+      minPrice: params.get('minPrice') ? Number(params.get('minPrice')) : '',
+      maxPrice: params.get('maxPrice') ? Number(params.get('maxPrice')) : '',
+    }
+  }, [])
   const [services, setServices] = useState<ServiceSummary[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [filters, setFilters] = useState<ServiceSearchParams>({ keyword: '', categoryId: '', city: '', minPrice: '', maxPrice: '' })
+  const [filters, setFilters] = useState<ServiceSearchParams>(initialFilters)
   const [showFilters, setShowFilters] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -26,14 +31,14 @@ export default function PhotosetsPage() {
       setCategories(categoryData)
       setServices(serviceData)
     } catch {
-      setError('Không thể tải danh sách dịch vụ.')
+      setError('Could not load services.')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadData()
+    loadData(initialFilters)
   }, [])
 
   const hasFilter = useMemo(
@@ -53,69 +58,48 @@ export default function PhotosetsPage() {
 
   return (
     <div className="space-y-8 pb-20">
-      <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
+      <div className="surface-card p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Dịch vụ chụp ảnh</p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">Tìm, lọc và so sánh studio</h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500">Dữ liệu lấy trực tiếp từ API services, categories và packages.</p>
+            <p className="text-sm font-semibold uppercase text-[var(--color-azure)]">Photography services</p>
+            <h1 className="mt-2 text-4xl font-bold">Search, filter, and compare studios</h1>
+            <p className="mt-3 max-w-2xl text-[var(--color-graphite)]">
+              Browse active public services from the marketplace API with real categories, prices, ratings, and studio profiles.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowFilters((value) => !value)}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-xs font-black uppercase tracking-widest text-white"
-          >
-            <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
+          <button type="button" onClick={() => setShowFilters((value) => !value)} className="secondary-pill h-11 gap-2 px-5 text-sm font-semibold">
+            <SlidersHorizontal className="h-4 w-4" /> Filters
           </button>
         </div>
       </div>
 
       {showFilters && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-[28px] border border-[var(--color-border)] bg-white p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)]">
           <div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
             <label className="relative">
-              <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-4 top-3.5 h-4 w-4 text-[var(--color-graphite)]" />
               <input
                 value={filters.keyword}
                 onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
-                placeholder="Tìm tên dịch vụ, studio, danh mục..."
-                className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-sm font-semibold outline-none focus:border-indigo-500"
+                placeholder="Search service, studio, or category"
+                className="h-11 w-full rounded-full border border-[var(--color-border)] pl-10 pr-4 text-sm font-medium outline-none focus:border-[var(--color-azure)]"
               />
             </label>
             <select
               value={filters.categoryId}
               onChange={(event) => setFilters((prev) => ({ ...prev, categoryId: event.target.value ? Number(event.target.value) : '' }))}
-              className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
+              className="h-11 rounded-full border border-[var(--color-border)] px-4 text-sm font-medium outline-none focus:border-[var(--color-azure)]"
             >
-              <option value="">Tất cả danh mục</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>{category.name}</option>
-              ))}
+              <option value="">All categories</option>
+              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
             </select>
-            <input
-              value={filters.city}
-              onChange={(event) => setFilters((prev) => ({ ...prev, city: event.target.value }))}
-              placeholder="Thành phố"
-              className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
-            />
-            <input
-              type="number"
-              value={filters.minPrice}
-              onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: event.target.value ? Number(event.target.value) : '' }))}
-              placeholder="Giá từ"
-              className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
-            />
-            <input
-              type="number"
-              value={filters.maxPrice}
-              onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: event.target.value ? Number(event.target.value) : '' }))}
-              placeholder="Giá đến"
-              className="h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-500"
-            />
+            <input value={filters.city} onChange={(event) => setFilters((prev) => ({ ...prev, city: event.target.value }))} placeholder="City" className="h-11 rounded-full border border-[var(--color-border)] px-4 text-sm font-medium outline-none focus:border-[var(--color-azure)]" />
+            <input type="number" value={filters.minPrice} onChange={(event) => setFilters((prev) => ({ ...prev, minPrice: event.target.value ? Number(event.target.value) : '' }))} placeholder="Min price" className="h-11 rounded-full border border-[var(--color-border)] px-4 text-sm font-medium outline-none focus:border-[var(--color-azure)]" />
+            <input type="number" value={filters.maxPrice} onChange={(event) => setFilters((prev) => ({ ...prev, maxPrice: event.target.value ? Number(event.target.value) : '' }))} placeholder="Max price" className="h-11 rounded-full border border-[var(--color-border)] px-4 text-sm font-medium outline-none focus:border-[var(--color-azure)]" />
             <div className="flex gap-2">
-              <button type="button" onClick={applyFilters} className="h-11 rounded-xl bg-indigo-600 px-4 text-xs font-black uppercase tracking-widest text-white">Lọc</button>
+              <button type="button" onClick={applyFilters} className="primary-pill h-11 px-5 text-sm font-semibold">Apply</button>
               {hasFilter && (
-                <button type="button" onClick={clearFilters} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500">
+                <button type="button" onClick={clearFilters} className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-graphite)]">
                   <X className="h-4 w-4" />
                 </button>
               )}
@@ -125,39 +109,62 @@ export default function PhotosetsPage() {
       )}
 
       {loading ? (
-        <StateBox text="Đang tải dịch vụ..." />
+        <StateBox text="Loading services..." />
       ) : error ? (
         <StateBox text={error} />
       ) : services.length === 0 ? (
-        <StateBox text="Không có dịch vụ phù hợp." />
+        <StateBox text="No matching service found." />
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="columns-1 gap-5 sm:columns-2 lg:columns-3 2xl:columns-4">
           {services.map((service) => (
-            <Link key={service.id} to={`/photosets/${service.id}`} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl">
-              <div className="aspect-[4/3] bg-slate-100">
-                {service.thumbnailUrl ? (
-                  <img src={service.thumbnailUrl} alt={service.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm font-bold text-slate-400">No image</div>
-                )}
-              </div>
-              <div className="space-y-3 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="line-clamp-2 text-lg font-black text-slate-950">{service.name}</h2>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">{service.studioName}</p>
+            <Link
+              key={service.id}
+              to={`/photosets/${service.id}`}
+              className="group mb-5 block break-inside-avoid"
+            >
+              <article className="overflow-hidden rounded-[20px] bg-white">
+                <div className="relative overflow-hidden rounded-[20px] bg-slate-100">
+                  {service.thumbnailUrl ? (
+                    <img
+                      src={service.thumbnailUrl}
+                      alt={service.name}
+                      className="w-full object-cover transition duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex aspect-[3/4] items-center justify-center text-sm font-medium text-slate-400">
+                      No image
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/25" />
+
+                  <div className="absolute left-3 top-3 opacity-0 transition duration-300 group-hover:opacity-100">
+                    <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-[var(--color-graphite)]">
+                      {service.categoryName}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-indigo-50 px-3 py-1 text-[10px] font-black uppercase text-indigo-700">{service.categoryName}</span>
+
+                  <div className="absolute right-3 top-3 opacity-0 transition duration-300 group-hover:opacity-100">
+                    <span className="rounded-full bg-[#e60023] px-4 py-2 text-sm font-semibold text-white">
+                      View
+                    </span>
+                  </div>
+
+                  <div className="absolute inset-x-0 bottom-0 translate-y-3 bg-gradient-to-t from-black/70 to-transparent p-4 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                    <h2 className="line-clamp-2 text-base font-semibold text-white">
+                      {service.name}
+                    </h2>
+                    <div className="mt-2 flex items-center justify-between gap-3 text-xs font-medium text-white/90">
+                      <span className="line-clamp-1">{service.studioName}</span>
+                      <span className="shrink-0">
+                        {service.rating ? `★ ${Number(service.rating).toFixed(1)}` : 'New'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p className="line-clamp-2 text-sm text-slate-500">{service.description || 'Chưa có mô tả.'}</p>
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-sm font-black text-indigo-600">Từ {formatVnd(service.minPrice)}</span>
-                  <span className="inline-flex items-center gap-1 text-sm font-bold text-slate-600">
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" /> {service.rating?.toFixed?.(1) ?? service.rating} ({service.reviewCount})
-                  </span>
-                </div>
-                <div className="text-xs font-bold uppercase tracking-widest text-slate-400">{service.city || 'Da Nang'}</div>
-              </div>
+
+              </article>
             </Link>
           ))}
         </div>
@@ -171,5 +178,5 @@ function cleanParams(params: ServiceSearchParams) {
 }
 
 function StateBox({ text }: { text: string }) {
-  return <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-sm font-bold text-slate-500">{text}</div>
+  return <div className="surface-card border-dashed p-12 text-center text-sm font-medium text-[var(--color-graphite)]">{text}</div>
 }

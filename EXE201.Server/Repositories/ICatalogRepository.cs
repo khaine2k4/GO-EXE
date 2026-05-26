@@ -31,6 +31,7 @@ namespace EXE201.Server.Repositories
         Task<List<PortfolioResponse>> GetOwnerPortfolioAsync(long ownerId);
         Task<PortfolioResponse?> AddPortfolioAsync(long ownerId, AddPortfolioRequest request);
         Task<bool> DeletePortfolioAsync(long ownerId, long id);
+        Task<List<StudioSummaryResponse>> SearchStudiosAsync(string? search, string? city, long? categoryId);
         Task<StudioPublicResponse?> GetStudioAsync(long id);
         Task<StudioDashboardResponse?> GetStudioDashboardAsync(long ownerId);
         Task<List<ReviewResponse>> GetStudioReviewsAsync(long studioId);

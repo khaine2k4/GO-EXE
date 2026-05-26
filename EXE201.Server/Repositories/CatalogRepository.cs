@@ -376,6 +376,48 @@ namespace EXE201.Server.Repositories
             return true;
         }
 
+        public async Task<List<StudioSummaryResponse>> SearchStudiosAsync(string? search, string? city, long? categoryId)
+        {
+            var query = _context.Studios
+                .Include(s => s.Services.Where(x => !x.IsHidden && x.IsActive))
+                    .ThenInclude(s => s.Category)
+                .Include(s => s.Services.Where(x => !x.IsHidden && x.IsActive))
+                    .ThenInclude(s => s.Packages.Where(p => p.DeletedAt == null && p.IsActive))
+                .Include(s => s.StudioPortfolios)
+                .Where(s => s.DeletedAt == null && s.Status == "APPROVED")
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim().ToLower();
+                query = query.Where(s =>
+                    s.StudioName.ToLower().Contains(q) ||
+                    (s.Description != null && s.Description.ToLower().Contains(q)) ||
+                    (s.City != null && s.City.ToLower().Contains(q)) ||
+                    s.Services.Any(service =>
+                        service.ServiceName.ToLower().Contains(q) ||
+                        service.Category.CategoryName.ToLower().Contains(q)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(city))
+            {
+                var q = city.Trim().ToLower();
+                query = query.Where(s => s.City != null && s.City.ToLower().Contains(q));
+            }
+
+            if (categoryId.HasValue)
+            {
+                query = query.Where(s => s.Services.Any(service => service.CategoryId == categoryId));
+            }
+
+            var studios = await query
+                .OrderByDescending(s => s.AvgRating)
+                .ThenBy(s => s.StudioName)
+                .ToListAsync();
+
+            return studios.Select(MapStudioSummary).ToList();
+        }
+
         public async Task<StudioPublicResponse?> GetStudioAsync(long id)
         {
             var studio = await _context.Studios
@@ -598,6 +640,30 @@ namespace EXE201.Server.Repositories
             SortOrder = p.SortOrder,
             UploadedAt = p.UploadedAt.ToString("O")
         };
+
+        private static StudioSummaryResponse MapStudioSummary(Studio studio)
+        {
+            var services = studio.Services.Where(s => !s.IsHidden && s.IsActive).ToList();
+            var packages = services.SelectMany(s => s.Packages).Where(p => p.DeletedAt == null && p.IsActive).ToList();
+
+            return new StudioSummaryResponse
+            {
+                Id = studio.StudioId,
+                Name = studio.StudioName,
+                Description = studio.Description,
+                City = studio.City,
+                District = studio.District,
+                AddressLine = studio.AddressLine,
+                LogoUrl = studio.LogoUrl,
+                CoverUrl = studio.CoverUrl,
+                Rating = studio.AvgRating,
+                ReviewCount = studio.TotalReviews,
+                ServiceCount = services.Count,
+                PortfolioCount = studio.StudioPortfolios.Count,
+                MinPrice = packages.Count == 0 ? null : packages.Min(p => p.Price),
+                Categories = services.Select(s => s.Category.CategoryName).Distinct().OrderBy(name => name).Take(4).ToList()
+            };
+        }
     }
 }
 

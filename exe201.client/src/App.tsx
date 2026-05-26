@@ -11,19 +11,7 @@ import AlbumDetailPage from './pages/AlbumDetailPage'
 import PhotographerProfilePage from './pages/PhotographerProfilePage'
 import CustomerBookingsPage from './pages/CustomerBookingsPage'
 import CustomerBookingDetailPage from './pages/CustomerBookingDetailPage'
-import PhotographerPortfolioPage from './pages/PhotographerPortfolioPage'
 import PhotographerDashboardPage from './pages/PhotographerDashboardPage'
-import PhotographerWalletPage from './pages/PhotographerWalletPage'
-import PhotographerRevenuePage from './pages/PhotographerRevenuePage'
-import PhotographerCommissionsPage from './pages/PhotographerCommissionsPage'
-import PhotographerFinancePage from './pages/PhotographerFinancePage'
-import PhotographerSchedulePage from './pages/PhotographerSchedulePage'
-import PhotographerBookingStatsPage from './pages/PhotographerBookingStatsPage'
-import PhotographerCommissionSettingPage from './pages/PhotographerCommissionSettingPage'
-import PhotographerBookingDetailPage from './pages/PhotographerBookingDetailPage'
-import PhotographerBookingsPage from './pages/PhotographerBookingsPage'
-import PhotographerServicesPage from './pages/PhotographerServicesPage'
-import PhotographerPackagesPage from './pages/PhotographerPackagesPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminOrdersPage from './pages/AdminOrdersPage'
@@ -127,43 +115,43 @@ export default function App() {
 
         {/* Photographer */}
         <Route path="/photographer/portfolio" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerPortfolioPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=content&section=portfolio" replace /></RequireAuth>
         } />
         <Route path="/photographer/services" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerServicesPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=manage&section=services" replace /></RequireAuth>
         } />
         <Route path="/photographer/packages" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerPackagesPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=manage&section=packages" replace /></RequireAuth>
         } />
         <Route path="/photographer/dashboard" element={
           <RequireAuth role="PHOTOGRAPHER"><PhotographerDashboardPage /></RequireAuth>
         } />
         <Route path="/photographer/revenue" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerRevenuePage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=finance" replace /></RequireAuth>
         } />
         <Route path="/photographer/commissions" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerCommissionsPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=finance" replace /></RequireAuth>
         } />
         <Route path="/photographer/finance" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerFinancePage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=finance" replace /></RequireAuth>
         } />
         <Route path="/photographer/schedule" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerSchedulePage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=manage&section=schedule" replace /></RequireAuth>
         } />
         <Route path="/photographer/booking-stats" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingStatsPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=bookings" replace /></RequireAuth>
         } />
         <Route path="/photographer/commission-setting" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerCommissionSettingPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=finance" replace /></RequireAuth>
         } />
         <Route path="/photographer/bookings" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingsPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=bookings" replace /></RequireAuth>
         } />
         <Route path="/photographer/bookings/:id" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingDetailPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=bookings" replace /></RequireAuth>
         } />
         <Route path="/photographer/wallet" element={
-          <RequireAuth role="PHOTOGRAPHER"><PhotographerWalletPage /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=finance" replace /></RequireAuth>
         } />
 
         {/* Redirect root based on role if logged in */}

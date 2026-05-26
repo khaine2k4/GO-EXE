@@ -1,115 +1,223 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Camera, Image, Package, Star, Wallet } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { BarChart3 } from 'lucide-react'
+import { getBookings, type BookingDto } from '../services/bookingApi'
+import type { PackageItem, PortfolioItem, ReviewItem, ServiceSummary, StudioDashboard } from '../services/catalogTypes'
+import { getStudioPackages } from '../services/packageApi'
+import { getStudioPortfolios } from '../services/portfolioApi'
+import { getStudioServices } from '../services/serviceApi'
 import { getStudioDashboard } from '../services/studioApi'
-import type { StudioDashboard } from '../services/catalogTypes'
+import { getStudioSettlements } from '../services/settlementApi'
+import { getStudioRevenue, type StudioRevenue } from '../services/studioRevenueApi'
+import { getStudioReviews } from '../services/reviewApi'
+import StudioOverviewCards from '../components/photographer/dashboard/StudioOverviewCards'
+import RecentServices from '../components/photographer/dashboard/RecentServices'
+import RecentPackages from '../components/photographer/dashboard/RecentPackages'
+import PortfolioPreview from '../components/photographer/dashboard/PortfolioPreview'
+import BookingSummary from '../components/photographer/dashboard/BookingSummary'
+import RevenueSummary from '../components/photographer/dashboard/RevenueSummary'
+import RatingSummary from '../components/photographer/dashboard/RatingSummary'
+import ServiceManager from '../components/photographer/management/ServiceManager'
+import PackageManager from '../components/photographer/management/PackageManager'
+import PortfolioManager from '../components/photographer/management/PortfolioManager'
+import BookingManager from '../components/photographer/management/BookingManager'
+import FinanceManager from '../components/photographer/management/FinanceManager'
+import PhotographerProfileManager from '../components/photographer/management/PhotographerProfileManager'
+import ScheduleManager from '../components/photographer/management/ScheduleManager'
+import ReviewManager from '../components/photographer/management/ReviewManager'
 
-function formatVnd(value: number) {
-  return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
-}
+type DashboardTab = 'overview' | 'manage' | 'content' | 'bookings' | 'finance'
 
 export default function PhotographerDashboardPage() {
-  const [dashboard, setDashboard] = useState<StudioDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [params, setParams] = useSearchParams()
+  const activeTab = normalizeTab(params.get('tab'))
+  const section = params.get('section') ?? ''
+  const intent = params.get('intent')
 
-  useEffect(() => {
-    getStudioDashboard()
-      .then(setDashboard)
-      .catch(() => setError('Không thể tải dashboard studio.'))
-      .finally(() => setLoading(false))
+  const [dashboard, setDashboard] = useState<StudioDashboard | null>(null)
+  const [services, setServices] = useState<ServiceSummary[]>([])
+  const [packages, setPackages] = useState<PackageItem[]>([])
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([])
+  const [bookings, setBookings] = useState<BookingDto[]>([])
+  const [revenue, setRevenue] = useState<StudioRevenue | null>(null)
+  const [reviews, setReviews] = useState<ReviewItem[]>([])
+  const [readySettlement, setReadySettlement] = useState(0)
+  const [selectedBooking, setSelectedBooking] = useState<BookingDto | null>(null)
+  const [selectedPackage, setSelectedPackage] = useState<PackageItem | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  const loadOverview = useCallback(async () => {
+    setLoading(true)
+    const [dashboardResult, serviceResult, packageResult, portfolioResult, bookingResult, revenueResult, settlementResult] = await Promise.allSettled([
+      getStudioDashboard(),
+      getStudioServices(),
+      getStudioPackages(),
+      getStudioPortfolios(),
+      getBookings(),
+      getStudioRevenue(),
+      getStudioSettlements({ status: 'READY' }),
+    ])
+    if (dashboardResult.status === 'fulfilled') setDashboard(dashboardResult.value)
+    if (serviceResult.status === 'fulfilled') setServices(serviceResult.value)
+    if (packageResult.status === 'fulfilled') setPackages(packageResult.value)
+    if (portfolioResult.status === 'fulfilled') setPortfolio(portfolioResult.value)
+    if (bookingResult.status === 'fulfilled') setBookings(bookingResult.value)
+    if (revenueResult.status === 'fulfilled') setRevenue(revenueResult.value)
+    if (settlementResult.status === 'fulfilled') setReadySettlement(settlementResult.value.reduce((sum, item) => sum + item.studioAmount, 0))
+    setLoading(false)
   }, [])
 
-  if (loading) return <StateBox text="Đang tải dashboard..." />
-  if (error || !dashboard) return <StateBox text={error || 'Không có dữ liệu dashboard.'} />
+  useEffect(() => {
+    if (!revenue?.studioId) return
+    getStudioReviews(revenue.studioId)
+      .then(setReviews)
+      .catch(() => setReviews([]))
+  }, [revenue?.studioId])
 
-  const totalPortfolios = dashboard.totalPortfolios ?? dashboard.portfolioImages ?? 0
-  const revenue = dashboard.totalRevenue ?? dashboard.grossRevenue ?? 0
-  const rating = dashboard.avgRating ?? dashboard.rating ?? 0
-  const reviews = dashboard.totalReviews ?? dashboard.reviewCount ?? 0
+  useEffect(() => { loadOverview() }, [loadOverview, refreshKey])
+
+  const reviewCount = reviews.length
+  const rating = reviewCount > 0
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount
+    : 0
+  const dashboardWithLiveReviews = useMemo(() => {
+    if (!dashboard) return null
+    return {
+      ...dashboard,
+      avgRating: rating,
+      rating,
+      totalReviews: reviewCount,
+      reviewCount,
+    }
+  }, [dashboard, rating, reviewCount])
+
+  function selectTab(tab: DashboardTab, nextIntent?: string, nextSection?: string) {
+    const next = new URLSearchParams()
+    if (tab !== 'overview') next.set('tab', tab)
+    if (nextSection) next.set('section', nextSection)
+    if (nextIntent) next.set('intent', nextIntent)
+    setParams(next)
+  }
+
+  function refreshAll() {
+    setRefreshKey((value) => value + 1)
+  }
+
+  function openBookingDetail(booking: BookingDto) {
+    setSelectedBooking(booking)
+    selectTab('bookings')
+  }
+
+  function openPackageEdit(item: PackageItem) {
+    setSelectedPackage(item)
+    selectTab('manage', undefined, 'packages')
+  }
+
+  const manageSection = section === 'packages' || section === 'schedule' ? section : 'services'
+  const contentSection = section === 'profile' || section === 'reviews' ? section : 'portfolio'
 
   return (
-    <div className="space-y-8 pb-20">
-      <div className="flex flex-col gap-4 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-100 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Studio dashboard</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-950">Tổng quan hoạt động</h1>
-          <p className="mt-2 text-sm font-medium text-slate-500">Số liệu lấy trực tiếp từ /api/studio/dashboard.</p>
+    <div className="space-y-6 pb-20">
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Studio dashboard</p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">Manage your studio from one place</h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
+              Overview first, then drill into services, packages, portfolio, bookings, finance, or profile without jumping across separate pages.
+            </p>
+          </div>
+          <Link to="/photosets" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-black uppercase text-slate-700">
+            <BarChart3 className="h-4 w-4" /> View marketplace
+          </Link>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/photographer/services" className="rounded-xl bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-widest text-white">Services</Link>
-          <Link to="/photographer/packages" className="rounded-xl bg-indigo-600 px-4 py-3 text-xs font-black uppercase tracking-widest text-white">Packages</Link>
-          <Link to="/photographer/portfolio" className="rounded-xl border border-slate-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-700">Portfolio</Link>
+      </section>
+
+      {loading && !dashboard ? <StateBox text="Loading studio dashboard..." /> : activeTab === 'overview' ? (
+        <>
+          {dashboardWithLiveReviews && <StudioOverviewCards dashboard={dashboardWithLiveReviews} onOpen={(key) => {
+            if (key === 'services') selectTab('manage', undefined, 'services')
+            else if (key === 'packages') selectTab('manage', undefined, 'packages')
+            else if (key === 'portfolio') selectTab('content', undefined, 'portfolio')
+            else if (key === 'reviews') selectTab('content', undefined, 'reviews')
+            else selectTab(key)
+          }} />}
+          <div className="grid gap-6 xl:grid-cols-2">
+            <RecentServices services={services} onCreate={() => selectTab('manage', 'create', 'services')} onManage={() => selectTab('manage', undefined, 'services')} onChanged={refreshAll} />
+            <RecentPackages packages={packages} onCreate={() => selectTab('manage', 'create', 'packages')} onManage={() => selectTab('manage', undefined, 'packages')} onEdit={openPackageEdit} onChanged={refreshAll} />
+            <PortfolioPreview items={portfolio} onAdd={() => selectTab('content', 'create', 'portfolio')} onManage={() => selectTab('content', undefined, 'portfolio')} />
+            <BookingSummary bookings={bookings} onManage={() => selectTab('bookings')} onDetail={openBookingDetail} />
+            <RevenueSummary revenue={revenue} pendingPayout={readySettlement} onManage={() => selectTab('finance')} />
+            <RatingSummary rating={rating} reviews={reviews} totalReviews={reviewCount} onManage={() => selectTab('content', undefined, 'reviews')} />
+          </div>
+        </>
+      ) : (
+        <div className="space-y-6">
+          {activeTab === 'manage' && (
+            <>
+              <SubTabs
+                items={[
+                  { key: 'services', label: 'Services' },
+                  { key: 'packages', label: 'Packages' },
+                  { key: 'schedule', label: 'Schedule' },
+                ]}
+                active={manageSection}
+                onChange={(value) => selectTab('manage', undefined, value)}
+              />
+              {manageSection === 'services' && <ServiceManager refreshKey={refreshKey} initialCreate={intent === 'create'} onChanged={refreshAll} />}
+              {manageSection === 'packages' && <PackageManager initialCreate={intent === 'create'} initialEdit={selectedPackage} onChanged={refreshAll} />}
+              {manageSection === 'schedule' && <ScheduleManager />}
+            </>
+          )}
+          {activeTab === 'bookings' && <BookingManager initialBooking={selectedBooking} onChanged={refreshAll} />}
+          {activeTab === 'finance' && <FinanceManager />}
+          {activeTab === 'content' && (
+            <>
+              <SubTabs
+                items={[
+                  { key: 'portfolio', label: 'Portfolio' },
+                  { key: 'profile', label: 'Profile' },
+                  { key: 'reviews', label: 'Reviews' },
+                ]}
+                active={contentSection}
+                onChange={(value) => selectTab('content', undefined, value)}
+              />
+              {contentSection === 'portfolio' && <PortfolioManager initialCreate={intent === 'create'} onChanged={refreshAll} />}
+              {contentSection === 'profile' && <PhotographerProfileManager />}
+              {contentSection === 'reviews' && <ReviewManager rating={rating} totalReviews={reviewCount} reviews={reviews} />}
+            </>
+          )}
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Tổng services" value={dashboard.totalServices} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Services đang hoạt động" value={dashboard.activeServices} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Packages" value={dashboard.totalPackages} icon={<Package className="h-5 w-5" />} />
-        <Metric label="Portfolio" value={totalPortfolios} icon={<Image className="h-5 w-5" />} />
-        <Metric label="Bookings" value={dashboard.totalBookings ?? 0} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Đang chờ" value={dashboard.pendingBookings} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Hoàn thành" value={dashboard.completedBookings} icon={<Camera className="h-5 w-5" />} />
-        <Metric label="Doanh thu" value={formatVnd(revenue)} icon={<Wallet className="h-5 w-5" />} />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-4 text-xl font-black text-slate-950">Services gần đây</h2>
-          {dashboard.recentServices?.length ? (
-            <div className="space-y-3">
-              {dashboard.recentServices.map((service) => (
-                <Link key={service.id} to={`/photosets/${service.id}`} className="flex items-center justify-between rounded-xl border border-slate-100 p-4 hover:bg-slate-50">
-                  <div>
-                    <div className="font-black text-slate-950">{service.name}</div>
-                    <div className="text-sm font-semibold text-slate-500">{service.categoryName}</div>
-                  </div>
-                  <span className={service.isActive ? 'text-emerald-600 font-black text-sm' : 'text-slate-400 font-black text-sm'}>{service.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}</span>
-                </Link>
-              ))}
-            </div>
-          ) : <StateBox text="Chưa có service." compact />}
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-4 text-xl font-black text-slate-950">Packages gần đây</h2>
-          {dashboard.recentPackages?.length ? (
-            <div className="space-y-3">
-              {dashboard.recentPackages.map((item) => (
-                <div key={item.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-4">
-                  <div>
-                    <div className="font-black text-slate-950">{item.name}</div>
-                    <div className="text-sm font-semibold text-slate-500">{item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}</div>
-                  </div>
-                  <span className="font-black text-indigo-600">{formatVnd(item.price)}</span>
-                </div>
-              ))}
-            </div>
-          ) : <StateBox text="Chưa có package." compact />}
-        </section>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-3">
-          <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
-          <span className="font-black text-slate-950">Rating {rating} / {reviews} reviews</span>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
 
-function Metric({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">{icon}</div>
-      <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-    </div>
-  )
+function normalizeTab(value: string | null): DashboardTab {
+  if (value === 'manage' || value === 'content' || value === 'bookings' || value === 'finance') return value
+  if (value === 'services' || value === 'packages' || value === 'schedule') return 'manage'
+  if (value === 'portfolio' || value === 'reviews' || value === 'profile') return 'content'
+  return 'overview'
 }
 
-function StateBox({ text, compact = false }: { text: string; compact?: boolean }) {
-  return <div className={`rounded-2xl border border-dashed border-slate-200 bg-white text-center text-sm font-bold text-slate-500 ${compact ? 'p-6' : 'p-12'}`}>{text}</div>
+function StateBox({ text }: { text: string }) {
+  return <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-sm font-bold text-slate-500">{text}</div>
+}
+
+function SubTabs({ items, active, onChange }: { items: { key: string; label: string }[]; active: string; onChange: (key: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+      {items.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          onClick={() => onChange(item.key)}
+          className={`h-10 rounded-xl px-4 text-xs font-black uppercase tracking-widest ${active === item.key ? 'bg-slate-950 text-white' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
 }

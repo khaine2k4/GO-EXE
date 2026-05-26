@@ -34,6 +34,7 @@ namespace EXE201.Server
                 {
                     // SignalR WebSocket cần AllowCredentials nên không dùng AllowAnyOrigin
                     policy.WithOrigins("http://localhost:5173", "https://localhost:5173",
+                                       "http://127.0.0.1:5173", "https://127.0.0.1:5173",
                                        "http://localhost:56076", "https://localhost:56076")
                           .AllowAnyMethod()
                           .AllowAnyHeader()

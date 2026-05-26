@@ -5,12 +5,12 @@ import { getAdminSettlements, markSettlementPaid, type SettlementItem, type Sett
 
 const statusOptions: SettlementStatus[] = ['ALL', 'READY', 'PENDING', 'PAID', 'FAILED', 'CANCELLED']
 const statusLabels: Record<string, string> = {
-  ALL: 'Tất cả trạng thái',
-  READY: 'Sẵn sàng payout',
-  PENDING: 'Đang chờ',
-  PAID: 'Đã payout',
-  FAILED: 'Thất bại',
-  CANCELLED: 'Đã hủy',
+  ALL: 'All',
+  READY: 'Ready settlement',
+  PENDING: 'Pending',
+  PAID: 'Paid by admin',
+  FAILED: 'Failed',
+  CANCELLED: 'Cancelled',
 }
 
 function formatVnd(value?: number) {
@@ -30,6 +30,8 @@ export default function AdminSettlementsPage() {
   const [loading, setLoading] = useState(false)
   const [payingId, setPayingId] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [payoutMethod, setPayoutMethod] = useState('BANK_TRANSFER')
+  const [confirmTarget, setConfirmTarget] = useState<SettlementItem | null>(null)
 
   const params = useMemo(() => ({
     status,
@@ -43,8 +45,8 @@ export default function AdminSettlementsPage() {
     try {
       setItems(await getAdminSettlements(params))
     } catch {
-      setError('Không tải được danh sách settlement.')
-      toast.push({ type: 'error', title: 'Tải settlement thất bại' })
+      setError('Khong tai duoc danh sach settlement.')
+      toast.push({ type: 'error', title: 'Tai settlement that bai' })
     } finally {
       setLoading(false)
     }
@@ -54,14 +56,17 @@ export default function AdminSettlementsPage() {
     fetchData()
   }, [fetchData])
 
-  async function handlePayout(item: SettlementItem, method: string) {
+  async function handlePayout(item: SettlementItem) {
+    if (item.status !== 'READY') return
+
     setPayingId(item.settlementId)
     try {
-      const response = await markSettlementPaid(item.settlementId, method)
+      const response = await markSettlementPaid(item.settlementId, payoutMethod || item.payoutMethod || 'MANUAL')
       setItems((current) => current.map((row) => row.settlementId === item.settlementId ? response.settlement : row))
-      toast.push({ type: 'success', title: 'Đã xác nhận payout', message: item.bookingCode })
+      setConfirmTarget(null)
+      toast.push({ type: 'success', title: 'Admin confirmed payout', message: item.bookingCode })
     } catch {
-      toast.push({ type: 'error', title: 'Payout thất bại' })
+      toast.push({ type: 'error', title: 'Confirm payout failed' })
     } finally {
       setPayingId(null)
     }
@@ -79,58 +84,63 @@ export default function AdminSettlementsPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Settlements</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-950">Hàng chờ payout studio</h1>
-            <p className="mt-1 text-sm font-medium text-slate-500">Theo dõi dòng tiền từ booking đã hoàn thành và xác nhận chuyển khoản thủ công.</p>
+            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Payout approvals</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-950">Confirm studio payouts</h1>
+            <p className="mt-1 text-sm font-medium text-slate-500">Booking chi vao day sau khi customer xac nhan hoan thanh. Admin confirm thi settlement moi thanh PAID.</p>
           </div>
           <button type="button" onClick={fetchData} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 hover:bg-slate-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
+            Refresh
           </button>
         </div>
         {error && <div className="mt-4 rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Bản ghi" value={totals.count} />
-        <Metric label="Sẵn sàng payout" value={totals.ready} tone="indigo" />
-        <Metric label="Tiền studio" value={formatVnd(totals.studioAmount)} tone="emerald" />
-        <Metric label="Phí nền tảng" value={formatVnd(totals.platformFee)} tone="rose" />
+        <Metric label="Records" value={totals.count} />
+        <Metric label="Ready settlement" value={totals.ready} tone="indigo" />
+        <Metric label="Studio amount" value={formatVnd(totals.studioAmount)} tone="emerald" />
+        <Metric label="Platform fee" value={formatVnd(totals.platformFee)} tone="rose" />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative max-w-md flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm booking, studio, khách hàng..." className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tim booking, studio, customer..." className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
           </div>
           <div className="flex flex-wrap gap-2">
             <select value={status} onChange={(event) => setStatus(event.target.value as SettlementStatus)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none">
               {statusOptions.map((item) => <option key={item} value={item}>{statusLabels[item] ?? item}</option>)}
             </select>
+            <select value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none">
+              <option value="BANK_TRANSFER">Bank transfer</option>
+              <option value="CASH">Cash</option>
+              <option value="MANUAL">Manual</option>
+            </select>
             <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none">
-              <option value="newest">Mới nhất</option>
-              <option value="oldest">Cũ nhất</option>
-              <option value="amount_desc">Tiền studio cao</option>
-              <option value="amount_asc">Tiền studio thấp</option>
-              <option value="status">Trạng thái</option>
+              <option value="newest">Moi nhat</option>
+              <option value="oldest">Cu nhat</option>
+              <option value="amount_desc">Tien studio cao</option>
+              <option value="amount_asc">Tien studio thap</option>
+              <option value="status">Trang thai</option>
             </select>
           </div>
         </div>
 
-        {loading ? <TableSkeleton /> : items.length === 0 ? <EmptyState text="Không có settlement phù hợp." /> : (
+        {loading ? <TableSkeleton /> : items.length === 0 ? <EmptyState text="Khong co settlement phu hop." /> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1120px]">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-xs font-semibold text-slate-500">
                   <th className="px-5 py-3">Booking</th>
                   <th className="px-5 py-3">Studio</th>
-                  <th className="px-5 py-3 text-right">Tổng tiền</th>
-                  <th className="px-5 py-3 text-right">Phí</th>
-                  <th className="px-5 py-3 text-right">Tiền studio</th>
-                  <th className="px-5 py-3">Trạng thái</th>
-                  <th className="px-5 py-3">Thời gian</th>
-                  <th className="px-5 py-3 text-right">Thao tác</th>
+                  <th className="px-5 py-3 text-right">Gross</th>
+                  <th className="px-5 py-3 text-right">Fee</th>
+                  <th className="px-5 py-3 text-right">Studio amount</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Dates</th>
+                  <th className="px-5 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,35 +156,14 @@ export default function AdminSettlementsPage() {
                     <td className="px-5 py-4 text-right text-sm font-bold text-emerald-700">{formatVnd(item.studioAmount)}</td>
                     <td className="px-5 py-4"><StatusBadge status={item.status} /></td>
                     <td className="px-5 py-4 text-xs text-slate-500">
-                      <div>Hoàn thành: {formatDate(item.completedAt)}</div>
-                      <div className="mt-1">Đã trả: {formatDate(item.paidAt)}</div>
+                      <div>Completed: {formatDate(item.completedAt)}</div>
+                      <div className="mt-1">Paid: {formatDate(item.paidAt)}</div>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        {item.status !== 'PAID' ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handlePayout(item, 'PAYOS_PAYOUT')}
-                              disabled={payingId === item.settlementId}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              payOS Payout
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePayout(item, 'MANUAL')}
-                              disabled={payingId === item.settlementId}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              Manual Payout
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-xs font-bold text-slate-400">Đã quyết toán ({item.payoutMethod})</span>
-                        )}
-                      </div>
+                      <button type="button" onClick={() => setConfirmTarget(item)} disabled={item.status !== 'READY' || payingId === item.settlementId} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-950 px-3 text-xs font-bold text-white hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
+                        <CheckCircle2 className="h-4 w-4" />
+                        {item.status === 'READY' ? 'Confirm payout' : 'Confirmed'}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -183,6 +172,48 @@ export default function AdminSettlementsPage() {
           </div>
         )}
       </section>
+
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Confirm payout</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">{confirmTarget.studioName}</h2>
+                <p className="mt-2 text-sm font-medium text-slate-500">This will mark the settlement as paid by admin.</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="font-semibold text-slate-500">Booking</span>
+                <span className="font-mono font-black text-slate-800">#{confirmTarget.bookingCode}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                <span className="font-semibold text-slate-500">Studio amount</span>
+                <span className="font-black text-emerald-700">{formatVnd(confirmTarget.studioAmount)}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4 text-sm">
+                <span className="font-semibold text-slate-500">Method</span>
+                <span className="font-black text-slate-800">{payoutMethod}</span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmTarget(null)} disabled={payingId === confirmTarget.settlementId} className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="button" onClick={() => handlePayout(confirmTarget)} disabled={payingId === confirmTarget.settlementId} className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-indigo-600 disabled:bg-slate-300">
+                <CheckCircle2 className="h-4 w-4" />
+                {payingId === confirmTarget.settlementId ? 'Confirming...' : 'Confirm payout'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

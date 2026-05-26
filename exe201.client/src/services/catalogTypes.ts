@@ -82,6 +82,23 @@ export type StudioDetail = {
   reviews: ReviewItem[]
 }
 
+export type StudioSummary = {
+  id: number
+  name: string
+  description?: string
+  city?: string
+  district?: string
+  addressLine?: string
+  logoUrl?: string
+  coverUrl?: string
+  rating: number
+  reviewCount: number
+  serviceCount: number
+  portfolioCount: number
+  minPrice?: number
+  categories: string[]
+}
+
 export type StudioDashboard = {
   totalServices: number
   activeServices: number
