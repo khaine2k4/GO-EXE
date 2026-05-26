@@ -3,6 +3,7 @@ using EXE201.Server.DTOs;
 using EXE201.Server.Repositories;
 using Microsoft.Extensions.Configuration;
 using EXE201.Server.Utils;
+using System.Text.Json;
 
 namespace EXE201.Server.Services
 {
@@ -12,7 +13,9 @@ namespace EXE201.Server.Services
         private const string BookingPendingConfirmation = "PENDING_CONFIRMATION";
         private const string BookingConfirmed = "CONFIRMED";
         private const string BookingInProgress = "IN_PROGRESS";
-        private const string BookingAwaitingCustomer = "AWAITING_CUSTOMER";
+        private const string BookingDemoUploaded = "DEMO_UPLOADED";
+        private const string BookingEditing = "EDITING";
+        private const string BookingFinalDelivered = "FINAL_DELIVERED";
         private const string BookingCompleted = "COMPLETED";
         private const string BookingCancelled = "CANCELLED";
         private const string BookingRejected = "REJECTED";
@@ -343,14 +346,109 @@ namespace EXE201.Server.Services
         public async Task<BookingResponse?> MarkInProgressAsync(long ownerId, long bookingId)
             => await StudioTransitionAsync(ownerId, bookingId, BookingConfirmed, BookingInProgress, _ => { }, "Studio started booking");
 
-        public async Task<BookingResponse?> CompleteBookingAsync(long ownerId, long bookingId)
-            => await StudioTransitionAsync(
+        public async Task<BookingResponse?> UploadDemoPhotosAsync(long ownerId, long bookingId, PhotoDeliveryRequest request)
+        {
+            var urls = CleanPhotoUrls(request.PhotoUrls);
+            if (urls.Count == 0) return null;
+
+            return await StudioTransitionAsync(
                 ownerId,
                 bookingId,
                 BookingInProgress,
-                BookingAwaitingCustomer,
+                BookingDemoUploaded,
                 _ => { },
-                "Studio submitted completion for customer confirmation");
+                SerializeDeliveryNote(urls, request.Note));
+        }
+
+        public async Task<BookingResponse?> SubmitPhotoFeedbackAsync(long customerId, long bookingId, CustomerPhotoFeedbackRequest request)
+        {
+            var feedback = request.Feedback?.Trim();
+            if (string.IsNullOrWhiteSpace(feedback)) return null;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingDemoUploaded) return null;
+
+            var editingId = await _repo.GetOrCreateBookingStatusIdAsync(BookingEditing);
+            booking.StatusId = editingId;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = customerId;
+
+            AddBookingLogEntry(booking.BookingId, BookingDemoUploaded, BookingEditing, customerId, feedback);
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
+        }
+
+        public async Task<BookingResponse?> UploadFinalPhotosAsync(long ownerId, long bookingId, PhotoDeliveryRequest request)
+        {
+            var urls = CleanPhotoUrls(request.PhotoUrls);
+            if (urls.Count == 0) return null;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var studio = await _repo.GetOwnedStudioAsync(ownerId);
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
+            if (booking.Status.StatusName is not (BookingDemoUploaded or BookingEditing)) return null;
+
+            var oldStatus = booking.Status.StatusName;
+            var finalDeliveredId = await _repo.GetOrCreateBookingStatusIdAsync(BookingFinalDelivered);
+            booking.StatusId = finalDeliveredId;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = ownerId;
+
+            AddBookingLogEntry(booking.BookingId, oldStatus, BookingFinalDelivered, ownerId, SerializeDeliveryNote(urls, request.Note));
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", booking.BookingId);
+        }
+
+        public async Task<BookingResponse?> CompleteBookingAsync(long ownerId, long bookingId)
+            => await Task.FromResult<BookingResponse?>(null);
+
+        public async Task<BookingReviewResponse?> CreateReviewAsync(long customerId, long bookingId, CreateBookingReviewRequest request)
+        {
+            if (request.Rating is < 1 or > 5) return null;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (booking.Status.StatusName != BookingCompleted) return null;
+            if (await _repo.ReviewExistsAsync(bookingId)) return null;
+
+            var now = DateTime.UtcNow;
+            var review = new Review
+            {
+                BookingId = booking.BookingId,
+                CustomerId = customerId,
+                StudioId = booking.StudioId,
+                Rating = request.Rating,
+                Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
+                IsHidden = false,
+                CreatedAt = now,
+                UpdatedAt = now,
+                UpdatedBy = customerId
+            };
+
+            _repo.AddReview(review);
+            AddBookingLogEntry(booking.BookingId, BookingCompleted, "REVIEWED", customerId, "Customer reviewed booking");
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return new BookingReviewResponse
+            {
+                Id = review.ReviewId,
+                Rating = review.Rating,
+                Comment = review.Comment,
+                CreatedAt = review.CreatedAt.ToString("O")
+            };
+        }
 
         public async Task<BookingResponse?> ConfirmCompletionAsync(long customerId, long bookingId)
         {
@@ -358,7 +456,7 @@ namespace EXE201.Server.Services
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
-            if (booking.Status.StatusName != BookingAwaitingCustomer) return null;
+            if (booking.Status.StatusName != BookingFinalDelivered) return null;
 
             var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
             if (completedId == null) return null;
@@ -368,24 +466,9 @@ namespace EXE201.Server.Services
             booking.UpdatedAt = DateTime.UtcNow;
             booking.UpdatedBy = customerId;
 
-            if (!await _repo.SettlementExistsAsync(booking.BookingId))
-            {
-                _repo.AddSettlement(new Settlement
-                {
-                    BookingId = booking.BookingId,
-                    StudioId = booking.StudioId,
-                    GrossAmount = booking.TotalPrice,
-                    PlatformFeePercent = booking.CommissionPercent,
-                    PlatformFeeAmount = booking.CommissionAmount,
-                    StudioAmount = booking.StudioRevenue,
-                    Status = "READY",
-                    PayoutMethod = "MANUAL",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                });
-            }
+            await CreateSettlementIfNeededAsync(booking);
 
-            AddBookingLogEntry(booking.BookingId, BookingAwaitingCustomer, BookingCompleted, customerId, "Customer confirmed booking completion");
+            AddBookingLogEntry(booking.BookingId, BookingFinalDelivered, BookingCompleted, customerId, "Customer confirmed final photos received");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
@@ -735,11 +818,10 @@ namespace EXE201.Server.Services
             if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
             if (booking.Status.StatusName != expectedStatus) return null;
 
-            var nextStatusId = await _repo.GetBookingStatusIdAsync(nextStatus);
-            if (nextStatusId == null) return null;
+            var nextStatusId = await _repo.GetOrCreateBookingStatusIdAsync(nextStatus);
 
             await mutate(booking);
-            booking.StatusId = nextStatusId.Value;
+            booking.StatusId = nextStatusId;
             booking.UpdatedAt = DateTime.UtcNow;
             booking.UpdatedBy = ownerId;
             AddBookingLogEntry(booking.BookingId, expectedStatus, nextStatus, ownerId, note);
@@ -771,6 +853,67 @@ namespace EXE201.Server.Services
                 ChangedBy = changedBy,
                 Note = note,
                 ChangedAt = DateTime.UtcNow
+            });
+        }
+
+        private static List<string> CleanPhotoUrls(IEnumerable<string>? urls)
+            => urls?
+                .Select(url => url.Trim())
+                .Where(url => !string.IsNullOrWhiteSpace(url))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(30)
+                .ToList() ?? new List<string>();
+
+        private static string SerializeDeliveryNote(List<string> photoUrls, string? note)
+            => JsonSerializer.Serialize(new PhotoDeliveryLog(photoUrls, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
+
+        private static List<string> ParseDeliveryUrls(IEnumerable<BookingLog> logs, string status)
+        {
+            var note = logs
+                .Where(log => log.NewStatus == status && !string.IsNullOrWhiteSpace(log.Note))
+                .OrderByDescending(log => log.ChangedAt)
+                .Select(log => log.Note)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(note)) return new List<string>();
+
+            try
+            {
+                return JsonSerializer.Deserialize<PhotoDeliveryLog>(note)?.PhotoUrls ?? new List<string>();
+            }
+            catch
+            {
+                return note
+                    .Split(new[] { '\r', '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(url => url.Trim())
+                    .Where(url => !string.IsNullOrWhiteSpace(url))
+                    .ToList();
+            }
+        }
+
+        private static string? ParseCustomerFeedback(IEnumerable<BookingLog> logs)
+            => logs
+                .Where(log => log.NewStatus == BookingEditing && !string.IsNullOrWhiteSpace(log.Note))
+                .OrderByDescending(log => log.ChangedAt)
+                .Select(log => log.Note)
+                .FirstOrDefault();
+
+        private async Task CreateSettlementIfNeededAsync(Booking booking)
+        {
+            if (await _repo.SettlementExistsAsync(booking.BookingId)) return;
+
+            _repo.AddSettlement(new Settlement
+            {
+                BookingId = booking.BookingId,
+                StudioId = booking.StudioId,
+                GrossAmount = booking.TotalPrice,
+                PlatformFeePercent = booking.CommissionPercent,
+                PlatformFeeAmount = booking.CommissionAmount,
+                StudioAmount = booking.StudioRevenue,
+                Status = "READY",
+                PayoutMethod = "MANUAL",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             });
         }
 
@@ -916,6 +1059,14 @@ namespace EXE201.Server.Services
         private static BookingResponse MapBooking(Booking b)
         {
             var status = IsDisputed(b) ? "DISPUTED" : b.Status.StatusName;
+            var review = b.Review == null ? null : new BookingReviewResponse
+            {
+                Id = b.Review.ReviewId,
+                Rating = b.Review.Rating,
+                Comment = b.Review.Comment,
+                CreatedAt = b.Review.CreatedAt.ToString("O")
+            };
+
             return new BookingResponse
             {
                 Id = b.BookingId,
@@ -938,10 +1089,17 @@ namespace EXE201.Server.Services
                 StudioRevenue = b.StudioRevenue,
                 PaymentExpiresAt = b.PaymentExpiresAt?.ToString("O"),
                 CanCancel = status is BookingPendingPayment or BookingPendingConfirmation,
+                DemoPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingDemoUploaded),
+                FinalPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingFinalDelivered),
+                CustomerFeedback = ParseCustomerFeedback(b.BookingLogs),
+                CanReview = status == BookingCompleted && review == null,
+                Review = review,
                 CreatedAt = b.CreatedAt.ToString("O"),
                 LatestPayment = b.Payments.OrderByDescending(p => p.CreatedAt).Select(MapPayment).FirstOrDefault()
             };
         }
+
+        private sealed record PhotoDeliveryLog(List<string> PhotoUrls, string? Note);
 
         private static PaymentResponse MapPayment(Payment p) => new()
         {

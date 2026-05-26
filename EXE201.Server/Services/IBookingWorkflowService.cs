@@ -19,8 +19,12 @@ namespace EXE201.Server.Services
         Task<BookingResponse?> ConfirmBookingAsync(long ownerId, long bookingId);
         Task<BookingResponse?> RejectBookingAsync(long ownerId, long bookingId, string? reason);
         Task<BookingResponse?> MarkInProgressAsync(long ownerId, long bookingId);
+        Task<BookingResponse?> UploadDemoPhotosAsync(long ownerId, long bookingId, PhotoDeliveryRequest request);
+        Task<BookingResponse?> SubmitPhotoFeedbackAsync(long customerId, long bookingId, CustomerPhotoFeedbackRequest request);
+        Task<BookingResponse?> UploadFinalPhotosAsync(long ownerId, long bookingId, PhotoDeliveryRequest request);
         Task<BookingResponse?> CompleteBookingAsync(long ownerId, long bookingId);
         Task<BookingResponse?> ConfirmCompletionAsync(long customerId, long bookingId);
+        Task<BookingReviewResponse?> CreateReviewAsync(long customerId, long bookingId, CreateBookingReviewRequest request);
         Task<BookingResponse?> CancelBookingAsync(long userId, string role, long bookingId, string? reason);
         Task<BookingResponse?> DisputeBookingAsync(long customerId, long bookingId, string reason);
 

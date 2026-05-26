@@ -63,12 +63,36 @@ namespace EXE201.Server.Controllers
             return booking == null ? BadRequest("Booking cannot move to in-progress.") : Ok(booking);
         }
 
+        [HttpPut("{id:long}/demo-photos")]
+        [Authorize(Roles = "STUDIO_OWNER")]
+        public async Task<IActionResult> UploadDemoPhotos(long id, [FromBody] PhotoDeliveryRequest request)
+        {
+            var booking = await _bookingService.UploadDemoPhotosAsync(GetCurrentUserId(), id, request);
+            return booking == null ? BadRequest("Demo photos cannot be uploaded for this booking.") : Ok(booking);
+        }
+
+        [HttpPut("{id:long}/photo-feedback")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> SubmitPhotoFeedback(long id, [FromBody] CustomerPhotoFeedbackRequest request)
+        {
+            var booking = await _bookingService.SubmitPhotoFeedbackAsync(GetCurrentUserId(), id, request);
+            return booking == null ? BadRequest("Photo feedback cannot be submitted for this booking.") : Ok(booking);
+        }
+
+        [HttpPut("{id:long}/final-photos")]
+        [Authorize(Roles = "STUDIO_OWNER")]
+        public async Task<IActionResult> UploadFinalPhotos(long id, [FromBody] PhotoDeliveryRequest request)
+        {
+            var booking = await _bookingService.UploadFinalPhotosAsync(GetCurrentUserId(), id, request);
+            return booking == null ? BadRequest("Final photos cannot be uploaded for this booking.") : Ok(booking);
+        }
+
         [HttpPut("{id:long}/complete")]
         [Authorize(Roles = "STUDIO_OWNER")]
         public async Task<IActionResult> Complete(long id)
         {
             var booking = await _bookingService.CompleteBookingAsync(GetCurrentUserId(), id);
-            return booking == null ? BadRequest("Booking cannot be submitted for customer confirmation.") : Ok(booking);
+            return booking == null ? BadRequest("Studio must upload final photos; customer completes the booking after receiving them.") : Ok(booking);
         }
 
         [HttpPut("{id:long}/confirm-completion")]
@@ -77,6 +101,14 @@ namespace EXE201.Server.Controllers
         {
             var booking = await _bookingService.ConfirmCompletionAsync(GetCurrentUserId(), id);
             return booking == null ? BadRequest("Booking completion cannot be confirmed.") : Ok(booking);
+        }
+
+        [HttpPost("{id:long}/review")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> CreateReview(long id, [FromBody] CreateBookingReviewRequest request)
+        {
+            var review = await _bookingService.CreateReviewAsync(GetCurrentUserId(), id, request);
+            return review == null ? BadRequest("Review can only be created once for a completed booking.") : Ok(review);
         }
 
         [HttpPut("{id:long}/cancel")]

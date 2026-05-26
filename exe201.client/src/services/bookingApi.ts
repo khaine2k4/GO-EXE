@@ -47,8 +47,20 @@ export type BookingDto = {
   studioRevenue: number
   paymentExpiresAt?: string
   canCancel: boolean
+  demoPhotoUrls?: string[]
+  finalPhotoUrls?: string[]
+  customerFeedback?: string
+  canReview?: boolean
+  review?: BookingReviewDto
   createdAt: string
   latestPayment?: PaymentDto
+}
+
+export type BookingReviewDto = {
+  id: number
+  rating: number
+  comment?: string
+  createdAt: string
 }
 
 export function getStudioSlots(studioId: number, date: string) {
@@ -99,10 +111,26 @@ export function markInProgress(id: string | number) {
   return api.put<BookingDto>(`/bookings/${id}/in-progress`).then((res) => res.data)
 }
 
+export function uploadDemoPhotos(id: string | number, payload: { photoUrls: string[]; note?: string }) {
+  return api.put<BookingDto>(`/bookings/${id}/demo-photos`, payload).then((res) => res.data)
+}
+
+export function submitPhotoFeedback(id: string | number, feedback: string) {
+  return api.put<BookingDto>(`/bookings/${id}/photo-feedback`, { feedback }).then((res) => res.data)
+}
+
+export function uploadFinalPhotos(id: string | number, payload: { photoUrls: string[]; note?: string }) {
+  return api.put<BookingDto>(`/bookings/${id}/final-photos`, payload).then((res) => res.data)
+}
+
 export function completeBooking(id: string | number) {
   return api.put<BookingDto>(`/bookings/${id}/complete`).then((res) => res.data)
 }
 
 export function confirmCompletion(id: string | number) {
   return api.put<BookingDto>(`/bookings/${id}/confirm-completion`).then((res) => res.data)
+}
+
+export function createBookingReview(id: string | number, payload: { rating: number; comment?: string }) {
+  return api.post<BookingReviewDto>(`/bookings/${id}/review`, payload).then((res) => res.data)
 }

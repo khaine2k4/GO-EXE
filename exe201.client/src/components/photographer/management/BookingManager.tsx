@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Eye, Search, XCircle } from 'lucide-react'
-import { completeBooking, confirmBooking, getBookings, markInProgress, rejectBooking, type BookingDto } from '../../../services/bookingApi'
+import { CheckCircle2, Eye, ImageUp, Search, XCircle } from 'lucide-react'
+import { confirmBooking, getBookings, markInProgress, rejectBooking, uploadDemoPhotos, uploadFinalPhotos, type BookingDto } from '../../../services/bookingApi'
 import { useToast } from '../../Toast'
 import { formatDate, formatDateTime, formatVnd } from '../format'
 import { Drawer, EmptyState, SectionPanel } from './Panel'
 
-const statuses = ['ALL', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS', 'AWAITING_CUSTOMER', 'COMPLETED', 'CANCELLED', 'REJECTED']
+const statuses = ['ALL', 'PENDING_PAYMENT', 'PENDING_CONFIRMATION', 'CONFIRMED', 'IN_PROGRESS', 'DEMO_UPLOADED', 'EDITING', 'FINAL_DELIVERED', 'COMPLETED', 'CANCELLED', 'REJECTED']
 
 const statusStyle: Record<string, string> = {
   PENDING_PAYMENT: 'bg-amber-50 text-amber-700',
   PENDING_CONFIRMATION: 'bg-blue-50 text-blue-700',
   CONFIRMED: 'bg-indigo-50 text-indigo-700',
   IN_PROGRESS: 'bg-yellow-50 text-yellow-700',
+  DEMO_UPLOADED: 'bg-blue-50 text-blue-700',
+  EDITING: 'bg-violet-50 text-violet-700',
+  FINAL_DELIVERED: 'bg-teal-50 text-teal-700',
   AWAITING_CUSTOMER: 'bg-cyan-50 text-cyan-700',
   COMPLETED: 'bg-emerald-50 text-emerald-700',
   CANCELLED: 'bg-slate-100 text-slate-500',
@@ -26,6 +29,7 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
   const [status, setStatus] = useState('ALL')
   const [selected, setSelected] = useState<BookingDto | null>(initialBooking ?? null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [deliveryForm, setDeliveryForm] = useState<{ type: 'demo' | 'final'; urls: string; note: string } | null>(null)
 
   async function load() {
     setLoading(true)
@@ -40,6 +44,7 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
 
   useEffect(() => { load() }, [])
   useEffect(() => { if (initialBooking) setSelected(initialBooking) }, [initialBooking])
+  useEffect(() => { setDeliveryForm(null) }, [selected?.id])
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -63,6 +68,36 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
     } finally {
       setActionLoading(false)
     }
+  }
+
+  function parsePhotoUrls(raw: string) {
+    return raw
+      .split(/\r?\n|,/)
+      .map((url) => url.trim())
+      .filter(Boolean)
+  }
+
+  async function submitDeliveryForm() {
+    if (!selected || !deliveryForm) return
+
+    const photoUrls = parsePhotoUrls(deliveryForm.urls)
+    if (photoUrls.length === 0) {
+      toast.push({ type: 'error', title: 'Photo links are required' })
+      return
+    }
+
+    const payload = {
+      photoUrls,
+      note: deliveryForm.note.trim() || undefined,
+    }
+
+    const action = deliveryForm.type === 'demo'
+      ? () => uploadDemoPhotos(selected.id, payload)
+      : () => uploadFinalPhotos(selected.id, payload)
+
+    const title = deliveryForm.type === 'demo' ? 'Demo photos uploaded' : 'Final photos delivered'
+    await runAction(action, title)
+    setDeliveryForm(null)
   }
 
   return (
@@ -122,9 +157,53 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                 </>
               )}
               {selected.status === 'CONFIRMED' && <button disabled={actionLoading} type="button" onClick={() => runAction(() => markInProgress(selected.id), 'Booking started')} className="h-10 rounded-xl bg-indigo-600 px-4 text-xs font-black uppercase text-white">Start shoot</button>}
-              {selected.status === 'IN_PROGRESS' && <button disabled={actionLoading} type="button" onClick={() => runAction(() => completeBooking(selected.id), 'Sent to customer confirmation')} className="h-10 rounded-xl bg-emerald-600 px-4 text-xs font-black uppercase text-white">Send completion</button>}
-              {selected.status === 'AWAITING_CUSTOMER' && <span className="rounded-xl bg-cyan-50 px-4 py-3 text-xs font-black uppercase text-cyan-700">Waiting for customer confirmation</span>}
+              {selected.status === 'IN_PROGRESS' && <button disabled={actionLoading} type="button" onClick={() => setDeliveryForm({ type: 'demo', urls: '', note: '' })} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-black uppercase text-white"><ImageUp className="h-4 w-4" />Upload demo photos</button>}
+              {(selected.status === 'DEMO_UPLOADED' || selected.status === 'EDITING') && <button disabled={actionLoading} type="button" onClick={() => setDeliveryForm({ type: 'final', urls: '', note: '' })} className="inline-flex h-10 items-center gap-2 rounded-xl bg-teal-600 px-4 text-xs font-black uppercase text-white"><ImageUp className="h-4 w-4" />Upload final photos</button>}
+              {selected.status === 'FINAL_DELIVERED' && <span className="rounded-xl bg-teal-50 px-4 py-3 text-xs font-black uppercase text-teal-700">Waiting for customer to confirm final photos</span>}
+              {selected.customerFeedback && <div className="w-full rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-800">Customer feedback: {selected.customerFeedback}</div>}
             </div>
+            {deliveryForm && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900">
+                      {deliveryForm.type === 'demo' ? 'Demo photo links' : 'Final photo links'}
+                    </h4>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">Paste one image URL per line. These links will be visible to the customer.</p>
+                  </div>
+                  <button type="button" onClick={() => setDeliveryForm(null)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black uppercase text-slate-500">Cancel</button>
+                </div>
+                <label className="mt-4 block">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-400">Photo URLs</span>
+                  <textarea
+                    value={deliveryForm.urls}
+                    onChange={(event) => setDeliveryForm({ ...deliveryForm, urls: event.target.value })}
+                    rows={6}
+                    placeholder="https://example.com/photo-01.jpg&#10;https://example.com/photo-02.jpg"
+                    className="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </label>
+                <label className="mt-3 block">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-400">Note</span>
+                  <input
+                    value={deliveryForm.note}
+                    onChange={(event) => setDeliveryForm({ ...deliveryForm, note: event.target.value })}
+                    placeholder="Optional delivery note"
+                    className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
+                  />
+                </label>
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    disabled={actionLoading || parsePhotoUrls(deliveryForm.urls).length === 0}
+                    onClick={submitDeliveryForm}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-black uppercase text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ImageUp className="h-4 w-4" />Submit photos
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Drawer>

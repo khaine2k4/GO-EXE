@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-05-26
+
+- Added photo delivery steps to the booking workflow: demo photo upload, customer feedback, final photo delivery, and customer confirmation after final photos.
+- Added customer review creation after completed bookings, enforcing one review per completed booking.
+- Updated customer booking detail and studio booking management screens for demo/final photo links, customer feedback, final delivery confirmation, and review submission.
+- Added booking statuses for `DEMO_UPLOADED`, `EDITING`, and `FINAL_DELIVERED` in the SQL setup script.
+
 ## 2026-05-24
 
 - Refactored Photographer studio management into `/photographer/dashboard` with tab-based detail views.

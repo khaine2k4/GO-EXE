@@ -48,6 +48,7 @@ namespace EXE201.Server.Repositories
 
         // ── Booking Status ───────────────────────────────────────────────────
         Task<long?> GetBookingStatusIdAsync(string statusName);
+        Task<long> GetOrCreateBookingStatusIdAsync(string statusName);
 
         // ── Booking Log ──────────────────────────────────────────────────────
         void AddBookingLog(BookingLog log);
@@ -62,5 +63,9 @@ namespace EXE201.Server.Repositories
         // Settlement
         Task<bool> SettlementExistsAsync(long bookingId);
         void AddSettlement(Settlement settlement);
+
+        // Review
+        void AddReview(Review review);
+        Task<bool> ReviewExistsAsync(long bookingId);
     }
 }

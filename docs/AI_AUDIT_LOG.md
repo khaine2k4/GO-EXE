@@ -1,5 +1,40 @@
 # AI Audit Log
 
+## 2026-05-26 - Booking Photo Delivery And Customer Review
+
+- Extended the booking workflow to support the MVP photographer delivery flow:
+  - Studio can move `CONFIRMED -> IN_PROGRESS`.
+  - Studio can upload demo photo links and move `IN_PROGRESS -> DEMO_UPLOADED`.
+  - Customer can submit demo feedback and move `DEMO_UPLOADED -> EDITING`.
+  - Studio can upload final photo links and move `DEMO_UPLOADED/EDITING -> FINAL_DELIVERED`.
+  - Customer confirms final receipt and moves `FINAL_DELIVERED -> COMPLETED`.
+- Added customer review creation:
+  - `POST /api/bookings/{id}/review`
+  - Role: `CUSTOMER`
+  - Request: `{ rating: number, comment?: string }`
+  - Response: `BookingReviewResponse`
+  - Business rule: only the booking customer can review, the booking must be `COMPLETED`, and each booking can only have one review.
+- Added booking photo delivery endpoints:
+  - `PUT /api/bookings/{id}/demo-photos`
+  - Role: `STUDIO_OWNER`
+  - Request: `{ photoUrls: string[], note?: string }`
+  - Response: `BookingResponse`
+  - `PUT /api/bookings/{id}/photo-feedback`
+  - Role: `CUSTOMER`
+  - Request: `{ feedback: string }`
+  - Response: `BookingResponse`
+  - `PUT /api/bookings/{id}/final-photos`
+  - Role: `STUDIO_OWNER`
+  - Request: `{ photoUrls: string[], note?: string }`
+  - Response: `BookingResponse`
+- Stored MVP photo delivery URLs and feedback in booking logs to avoid adding a new table before the team approves a dedicated delivery asset schema.
+- Updated frontend customer booking detail with demo/final photo viewing, feedback, final receipt confirmation, and review submission.
+- Updated photographer booking management with demo/final photo link upload actions and visible customer feedback.
+- Verification:
+  - `dotnet build EXE201.Server\exe201.Server.csproj -o C:\tmp\exe201-server-build-check` succeeded.
+  - `dotnet build EXE201.sln` was blocked by running process `exe201.Server (17388)` locking normal debug output files.
+  - `npm run build` inside `exe201.client` succeeded.
+
 ## 2026-05-24 - Photographer Studio Dashboard Consolidation
 
 - Refactored the Photographer studio management area into a single dashboard-centered flow:
