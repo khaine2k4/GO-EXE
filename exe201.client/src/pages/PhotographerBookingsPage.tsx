@@ -16,9 +16,9 @@ import {
   User,
   ArrowRight
 } from 'lucide-react'
-import { useToast } from '../../Toast'
-import CustomDialog from '../../CustomDialog'
-import { Drawer } from './Panel'
+import { useToast } from '../components/Toast'
+import CustomDialog from '../components/CustomDialog'
+import { Drawer } from '../components/photographer/management/Panel'
 import {
   completeBooking,
   confirmBooking,
@@ -26,7 +26,7 @@ import {
   markInProgress,
   rejectBooking,
   type BookingDto,
-} from '../../../services/bookingApi'
+} from '../services/bookingApi'
 
 function formatVnd(value?: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} VND`
@@ -68,7 +68,7 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: 'Từ chối',
 }
 
-export default function BookingManager({ initialBooking, onChanged }: { initialBooking?: BookingDto | null; onChanged?: () => void }) {
+export default function PhotographerBookingsPage({ initialBooking, onChanged }: { initialBooking?: BookingDto | null; onChanged?: () => void }) {
   const toast = useToast()
 
   const [activeTab, setActiveTab] = useState<'list' | 'calendar'>('list')
