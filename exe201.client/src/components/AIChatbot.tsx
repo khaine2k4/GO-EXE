@@ -9,6 +9,31 @@ interface ChatMessage {
   content: string
 }
 
+const formatMarkdown = (text: string): string => {
+  let formatted = text;
+  // 1. Dấu gạch ngang phân cách (horizontal rule)
+  formatted = formatted.replace(/---\s*(?:\r?\n|$)/g, '<hr class="my-3 border-slate-200/60" />');
+  
+  // 2. Tiêu đề headings
+  formatted = formatted.replace(/^###\s*(.*?)(?:\r?\n|$)/gm, '<h4 class="font-black text-xs text-indigo-700 mt-2.5 mb-1 uppercase tracking-wider">$1</h4>');
+  formatted = formatted.replace(/^##\s*(.*?)(?:\r?\n|$)/gm, '<h3 class="font-extrabold text-sm text-indigo-800 mt-3 mb-1.5">$1</h3>');
+  formatted = formatted.replace(/^#\s*(.*?)(?:\r?\n|$)/gm, '<h2 class="font-black text-base text-indigo-900 mt-4 mb-2 border-b pb-1">$1</h2>');
+  
+  // 3. Chữ in đậm
+  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong class="font-extrabold text-indigo-600">$1</strong>');
+  
+  // 4. Danh sách gạch đầu dòng (bullet points)
+  formatted = formatted.replace(/^\s*[\-\*]\s*(.*?)(?:\r?\n|$)/gm, '<span class="inline-block pl-1.5 py-0.5 text-slate-700">• $1</span><br />');
+  
+  // 5. Xuống dòng thông thường
+  formatted = formatted.replace(/\r?\n/g, '<br />');
+  
+  // 6. Dọn dẹp các thẻ br thừa sau các block tag
+  formatted = formatted.replace(/(<\/h2>|<\/h3>|<\/h4>|<hr class="my-3 border-slate-200\/60" \/>)<br \/>/g, '$1');
+  
+  return formatted;
+};
+
 export default function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
@@ -20,12 +45,17 @@ export default function AIChatbot() {
   ])
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
-  // Tự động cuộn xuống dưới cùng khi có tin nhắn mới
+  // Tự động cuộn xuống dưới cùng khi có tin nhắn mới (cuộn cục bộ, tránh trôi trang chính)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
   }, [messages, isLoading])
 
   // Hiện tooltip chào mừng sau 3 giây khi vào trang
@@ -80,7 +110,7 @@ export default function AIChatbot() {
 
   // Hàm chuyển đổi nội dung tin nhắn và tự động bóc tách Thẻ Tương Tác (Visual Card) kèm hình ảnh thực tế
   const renderMessageContent = (content: string) => {
-    const cardRegex = /\[CARD:\s*studioId=(\d+)\s*\|\s*name=(.*?)\s*\|\s*serviceName=(.*?)\s*\|\s*rating=(.*?)\s*\|\s*priceRange=(.*?)\s*\|\s*thumbnail=(.*?)\s*\]/g;
+    const cardRegex = /\[CARD:\s*studioId=(.*?)\s*\|\s*name=(.*?)\s*\|\s*serviceName=(.*?)\s*\|\s*rating=(.*?)\s*\|\s*priceRange=(.*?)\s*\|\s*thumbnail=(.*?)\s*\]/g;
     
     const parts: { type: 'text' | 'card'; content?: string; data?: any }[] = []
     let lastIndex = 0
@@ -118,17 +148,15 @@ export default function AIChatbot() {
     }
 
     if (parts.length === 0) {
-      let formatted = content.replace(/\*\*(.*?)\*\*/g, '<strong class="font-extrabold text-indigo-600">$1</strong>')
-      formatted = formatted.replace(/\n/g, '<br />')
-      return <span dangerouslySetInnerHTML={{ __html: formatted }} className="text-[14px] leading-relaxed" />
+      let formatted = formatMarkdown(content)
+      return <span dangerouslySetInnerHTML={{ __html: formatted }} className="text-[14px] leading-relaxed block w-full text-left" />
     }
 
     return (
-      <div className="space-y-3.5 w-full">
+      <div className="space-y-3.5 w-full text-left">
         {parts.map((part, pIdx) => {
           if (part.type === 'text') {
-            let formatted = part.content!.replace(/\*\*(.*?)\*\*/g, '<strong class="font-extrabold text-indigo-600">$1</strong>')
-            formatted = formatted.replace(/\n/g, '<br />')
+            let formatted = formatMarkdown(part.content!)
             return <p key={pIdx} dangerouslySetInnerHTML={{ __html: formatted }} className="text-[14px] leading-relaxed" />
           } else {
             const card = part.data
@@ -182,7 +210,7 @@ export default function AIChatbot() {
   return (
     <>
       {/* ── Nút kích hoạt Chatbot nổi ở góc màn hình ────────────────────────────────── */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3" style={{ zIndex: 9999 }}>
         {/* Tooltip chào mừng */}
         <AnimatePresence>
           {showTooltip && !isOpen && (
@@ -255,7 +283,8 @@ export default function AIChatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.92 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-24 right-6 z-50 flex h-[580px] w-[380px] flex-col overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 backdrop-blur-2xl text-slate-800 shadow-[0_20px_50px_rgba(99,102,241,0.15)]"
+            className="fixed bottom-24 right-6 flex h-[580px] w-[380px] flex-col overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 backdrop-blur-2xl text-slate-800 shadow-[0_20px_50px_rgba(99,102,241,0.15)]"
+            style={{ zIndex: 9999 }}
           >
             {/* Lớp nền khuếch tán ánh sáng dịu mắt */}
             <div className="absolute -top-24 -left-24 h-48 w-48 rounded-full bg-indigo-100/50 blur-[60px] pointer-events-none" />
@@ -282,7 +311,7 @@ export default function AIChatbot() {
             </div>
 
             {/* Danh sách tin nhắn - Readability & Contrast optimized */}
-            <div className="relative flex-1 overflow-y-auto p-5 space-y-5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent bg-slate-50/50 z-0">
+            <div ref={chatContainerRef} className="relative flex-1 min-h-0 overflow-y-auto p-5 space-y-5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent bg-slate-50/50 z-0">
               {messages.map((msg, index) => (
                 <div
                   key={index}
@@ -321,7 +350,7 @@ export default function AIChatbot() {
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
+              <div className="h-px w-full" />
             </div>
 
             {/* Input Bar - FIXED CUT-OFF & REMOVED DOUBLE BORDER */}

@@ -69,7 +69,7 @@ namespace EXE201.Server.Services
         {
             _httpClient = httpClient;
             _apiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey is not configured.");
-            _model = configuration["Gemini:Model"] ?? "gemini-2.5-flash";
+            _model = configuration["Gemini:Model"] ?? "gemini-3.1-flash-lite";
         }
 
         public async Task<(bool IsViolated, string Reason)> ModerateMessageAsync(string content, bool throwOnError = false)

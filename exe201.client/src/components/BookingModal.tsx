@@ -8,6 +8,7 @@ import { useToast } from './Toast'
 import type { Photographer, Photoset } from '../types'
 import type { ServiceDetail } from '../services/catalogTypes'
 import { createBooking, getStudioSlots, payBooking, vnpayCreatePaymentUrl, type TimeSlotDto } from '../services/bookingApi'
+import { getStudioDays } from '../services/scheduleApi'
 
 type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'VNPAY'
 
@@ -39,6 +40,7 @@ export default function BookingModal({
   const [submitting, setSubmitting] = useState(false)
   const [successCode, setSuccessCode] = useState('')
   const [error, setError] = useState('')
+  const [busyDates, setBusyDates] = useState<string[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -52,7 +54,35 @@ export default function BookingModal({
     setSubmitting(false)
     setSuccessCode('')
     setError('')
+    setBusyDates([])
   }, [open, service?.id])
+
+  useEffect(() => {
+    if (!open || !service?.studioId) {
+      setBusyDates([])
+      return
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0]
+    const futureDate = new Date()
+    futureDate.setDate(futureDate.getDate() + 90)
+    const futureStr = futureDate.toISOString().split('T')[0]
+
+    getStudioDays(service.studioId, { from: todayStr, to: futureStr, includeClosed: true })
+      .then((days) => {
+        const busy: string[] = []
+        days.forEach((day) => {
+          const hasOpenSlots = day.slots && day.slots.some((s) => s.status === 'OPEN')
+          if (!day.isAvailable || !hasOpenSlots) {
+            busy.push(day.date)
+          }
+        })
+        setBusyDates(busy)
+      })
+      .catch((err) => {
+        console.error('Lỗi khi tải lịch làm việc của Studio:', err)
+      })
+  }, [open, service?.studioId])
 
   useEffect(() => {
     if (!service || !date) return
@@ -204,7 +234,7 @@ export default function BookingModal({
                       )}
 
                       <Panel icon={<Calendar className="h-4 w-4" />} title="Chọn ngày chụp">
-                        <BookingCalendar value={date} onChange={setDate} busyDates={[]} />
+                        <BookingCalendar value={date} onChange={setDate} busyDates={busyDates} />
                       </Panel>
 
                       {service && date && (

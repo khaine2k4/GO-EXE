@@ -223,26 +223,6 @@ namespace EXE201.Server.Controllers
             return Ok(msgDto);
         }
 
-        // ── GET /api/chat/test-gemini ──────────────────────────────
-        // Endpoint test nhanh kết nối và hoạt động của Gemini API
-        [HttpGet("test-gemini")]
-        [AllowAnonymous]
-        public async Task<IActionResult> TestGemini([FromQuery] string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return BadRequest("Vui lòng cung cấp tham số 'text' để kiểm tra (ví dụ: ?text=hello)");
-            }
-
-            var (isViolated, reason) = await _moderationService.ModerateMessageAsync(text);
-            return Ok(new
-            {
-                InputText = text,
-                IsViolated = isViolated,
-                Reason = reason,
-                Status = "Success"
-            });
-        }
 
         // ── POST /api/chat/assistant ──────────────────────────────
         // Endpoint trò chuyện với trợ lý ảo AI
