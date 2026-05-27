@@ -1,5 +1,51 @@
 # AI Audit Log
 
+## 2026-05-27 - Wallet DTO Refactoring & Withdrawal Integration
+
+- **Resolved JSON Object Cycle Exception**:
+  - Fixed a `System.Text.Json.JsonException: A possible object cycle was detected` in `WalletsController.cs` by introducing a clean, flat data transfer model.
+  - Created [WalletDto.cs](file:///d:/PRN212/EXE201/EXE201.Server/DTOs/WalletDto.cs) defining `WalletDto`, `WalletTransactionDto`, and `WithdrawRequest`.
+  - Updated [WalletsController.cs](file:///d:/PRN212/EXE201/EXE201.Server/Controllers/WalletsController.cs) to project entities into `WalletDto` / `WalletTransactionDto` using LINQ `.Select()` projections before returning, strictly adhering to the `AGENTS.md` directive: *"Do not return EF entities directly from public API endpoints. Return DTOs."*
+- **Fully Integrated Wallet Withdrawal Flow**:
+  - **Backend Layer**: Added `WithdrawAsync` signature to `IWalletService` and implemented it in `WalletService.cs` using the repository's `DebitWalletAsync` method (records withdrawals as `DEBIT_WITHDRAW` ledger events). Exposed `POST /api/wallet/withdraw` inside `WalletsController.cs` mapping inputs to `WithdrawRequest` with robust validation (checks for positive amount, valid bank info, and sufficient balance).
+  - **Frontend Client**: Added `WithdrawRequestPayload` interface and `withdrawWallet` function to `walletApi.ts`.
+  - **Premium UI Addition**: Refactored the photographer's `FinanceManager.tsx` by replacing the plain "Wallet Balance" card with an extremely gorgeous, glassmorphic emerald gradient card containing a call-to-action button to trigger withdrawals.
+  - **Responsive Withdraw Modal**: Developed a highly polished, responsive interactive modal inside `FinanceManager.tsx` that facilitates withdrawal bank info inputs (Bank, Account Number, Holder Name, Amount), quick percentages (25%, 50%, 75%, 100%), and showcases success checkpoints.
+- **Verification**:
+  - Executed production validation via `npm run build` on the client side which successfully completed with **0 errors / 0 warnings**.
+  - Verified backend compilation is completely robust.
+
+## 2026-05-27 - Wallet System Implementation
+
+- **Database Layer**:
+  - Designed and created two new tables: `wallets` (to store Customer/Studio balances, total_in, total_out) and `wallet_transactions` (to store immutable ledger records for earnings, refunds, withdrawals).
+  - Created a database modification script: `add_wallet_tables.sql` for safe, idempotent migration.
+- **EF Core Models & Mappings**:
+  - Created C# model classes `Wallet.cs` and `WalletTransaction.cs` in `EXE201.Server/Models`.
+  - Configured navigation properties in `Booking.cs` and `Payment.cs`.
+  - Registered `DbSet<Wallet>` and `DbSet<WalletTransaction>` and set up fluent API mappings, constraints, and indexes in `PhotoStudioBookingContext.cs`.
+- **Repository & Service Pattern**:
+  - Implemented `IWalletRepository` / `WalletRepository` to support wallet retrieval, credit/debit operations, and transaction logs query.
+  - Implemented `IWalletService` / `WalletService` as the business layer.
+  - Registered repository and service inside `Program.cs`.
+- **Booking Flow Integration**:
+  - Modified `BookingWorkflowService.cs` to inject `IWalletService`.
+  - **Earning Crediting**: Automatically credits the photographer's studio wallet with 90% of the booking total (`StudioRevenue`) when a Customer confirms booking completion in `ConfirmCompletionAsync`.
+  - **Refund Crediting**: Automatically credits the customer's wallet with 100% of the booking price when a booking is cancelled or rejected by the photographer in `MarkLatestPaidPaymentForRefundAsync` (and marks the payment status as `REFUNDED` immediately).
+- **API Controllers**:
+  - Created `WalletsController.cs` providing:
+    - `GET /api/wallet/mine` for Studio Owners.
+    - `GET /api/customer/wallet` for Customers.
+    - `GET /api/admin/wallets` for Administrators.
+- **Frontend Refactoring**:
+  - Created Axios client service `walletApi.ts` in Vite React.
+  - Consolidated photographer wallet view: Refactored `FinanceManager.tsx` to display real-time **Wallet Balance** as a primary metric and added a **Wallet Transactions** section panel to show detailed transaction logs in the Studio Dashboard.
+  - Customer Wallet: Added a beautiful **Ví tiền của tôi** tab inside `ProfilePage.tsx` for Customers to view their current refund balance and logs.
+  - Resolved TypeScript comparison checks on the custom `Role` type inside `ProfilePage.tsx`.
+- **Verification**:
+  - Successfully verified backend compilation via `dotnet build EXE201.Server\exe201.Server.csproj -p:UseAppHost=false` (0 errors, 0 warnings).
+  - Successfully built Vite React application with production bundle verification via `npm run build` (0 errors).
+
 ## 2026-05-26 - Calendar Selected State & Dynamic Unavailable/Busy Date Disabling Fix
 
 - **Calendar Selection Style Bug Fix**:

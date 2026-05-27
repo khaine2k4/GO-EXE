@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { User, Lock, MapPin, Building, Save, Plus, Home, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
 import api from '../api/axios'
 import CustomDialog from '../components/CustomDialog'
+import { getCustomerWallet, type WalletDetail } from '../services/walletApi'
 
 interface UserAddressDto {
     addressId: number
@@ -21,11 +22,17 @@ export default function ProfilePage() {
     const { state, actions } = useAppStore()
     const navigate = useNavigate()
     const toast = useToast()
+    const [searchParams] = useSearchParams()
+    const tabParam = searchParams.get('tab')
 
     const currentUser = state.currentUser
 
     // Tabs state
-    const [activeTab, setActiveTab] = useState<'info' | 'addresses' | 'studio' | 'password'>('info')
+    const [activeTab, setActiveTab] = useState<'info' | 'addresses' | 'studio' | 'password' | 'wallet'>(
+        (tabParam === 'wallet' || tabParam === 'addresses' || tabParam === 'studio' || tabParam === 'password')
+            ? tabParam
+            : 'info'
+    )
 
     // Profile fields
     const [name, setName] = useState('')
@@ -64,6 +71,36 @@ export default function ProfilePage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [dialog, setDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null)
+
+    // Wallet state
+    const [wallet, setWallet] = useState<WalletDetail | null>(null)
+    const [walletLoading, setWalletLoading] = useState(false)
+
+    useEffect(() => {
+        if (activeTab === 'wallet') {
+            setWalletLoading(true)
+            getCustomerWallet()
+                .then(setWallet)
+                .catch((err) => {
+                    console.error("Lỗi khi tải ví tiền:", err)
+                    toast.push({
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: 'Không thể tải thông tin ví tiền của bạn.'
+                    })
+                })
+                .finally(() => setWalletLoading(false))
+        }
+    }, [activeTab])
+
+    useEffect(() => {
+        const tab = searchParams.get('tab')
+        if (tab === 'wallet' || tab === 'addresses' || tab === 'studio' || tab === 'password') {
+            setActiveTab(tab)
+        } else if (tab === 'info') {
+            setActiveTab('info')
+        }
+    }, [searchParams])
 
     // Load initial user details & addresses
     useEffect(() => {
@@ -376,6 +413,20 @@ export default function ProfilePage() {
                         >
                             <Building className="h-4 w-4" />
                             Hồ sơ Studio
+                        </button>
+                    )}
+
+                    {currentUser.role !== 'PHOTOGRAPHER' && (
+                        <button
+                            onClick={() => { setActiveTab('wallet'); setError('') }}
+                            className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all ${
+                                activeTab === 'wallet'
+                                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
+                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                        >
+                            <span className="text-base">💳</span>
+                            Ví tiền của tôi
                         </button>
                     )}
 
@@ -896,6 +947,89 @@ export default function ProfilePage() {
                                 {loading ? 'Đang lưu...' : 'Thay đổi mật khẩu'}
                             </button>
                         </motion.form>
+                    )}
+
+                    {/* WALLET TAB */}
+                    {activeTab === 'wallet' && (
+                        <motion.div
+                            key="wallet"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                        >
+                            <h2 className="text-lg font-black text-slate-900 tracking-tight border-b border-slate-50 pb-4">
+                                Ví Tiền Của Tôi
+                            </h2>
+
+                            {walletLoading ? (
+                                <div className="text-center py-12 text-slate-500 font-semibold">Đang tải ví tiền...</div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* Balance card */}
+                                    <div className="rounded-[24px] bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 text-white shadow-xl shadow-indigo-100">
+                                        <p className="text-xs font-black uppercase tracking-widest opacity-80">Số dư khả dụng</p>
+                                        <p className="mt-3 text-4xl font-black">{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.balance) + ' VND' : '0 VND'}</p>
+                                        <div className="mt-6 flex gap-6 text-xs font-bold opacity-90 border-t border-white/10 pt-4">
+                                            <div>
+                                                <span>Tổng tiền hoàn: </span>
+                                                <span className="font-black">+{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.totalIn) + ' VND' : '0 VND'}</span>
+                                            </div>
+                                            <div>
+                                                <span>Đã rút: </span>
+                                                <span className="font-black">-{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.totalOut) + ' VND' : '0 VND'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Transaction list */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">
+                                            Lịch sử giao dịch
+                                        </h3>
+
+                                        {!wallet || wallet.transactions.length === 0 ? (
+                                            <div className="text-center py-12 text-slate-400 font-semibold border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/40">
+                                                Chưa có giao dịch ví nào được thực hiện.
+                                            </div>
+                                        ) : (
+                                            <div className="overflow-hidden rounded-2xl border border-slate-100 divide-y divide-slate-100">
+                                                {wallet.transactions.map((tx) => (
+                                                    <div key={tx.txId} className="flex flex-col sm:flex-row justify-between sm:items-center p-4 gap-3 bg-white hover:bg-slate-50/50 transition">
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                                                    tx.txType === 'CREDIT_REFUND' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                                                                }`}>
+                                                                    {tx.txType === 'CREDIT_REFUND' ? 'HOÀN TIỀN' : 'RÚT TIỀN'}
+                                                                </span>
+                                                                <span className="text-xs font-black text-slate-900">Mã GD: #{tx.txId}</span>
+                                                            </div>
+                                                            <p className="text-xs font-semibold text-slate-600 leading-relaxed">
+                                                                {tx.description || 'Không có mô tả'}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-400">
+                                                                {new Date(tx.createdAt).toLocaleString('vi-VN')}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className={`text-base font-black ${
+                                                                tx.txType === 'CREDIT_REFUND' ? 'text-emerald-600' : 'text-rose-600'
+                                                            }`}>
+                                                                {tx.txType === 'CREDIT_REFUND' ? '+' : '-'}{new Intl.NumberFormat('vi-VN').format(tx.amount)} VND
+                                                            </p>
+                                                            <p className="text-[10px] font-semibold text-slate-400">
+                                                                Số dư: {new Intl.NumberFormat('vi-VN').format(tx.balanceAfter)} VND
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
                     )}
                 </AnimatePresence>
             </div>

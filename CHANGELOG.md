@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-05-27
+
+- Implemented Wallet System (Customer Wallet and Studio Wallet) with automated credit and refund integrations.
+- Resolved JSON object cycle exception (`JsonException`) by introducing flat DTO projections (`WalletDto` and `WalletTransactionDto`).
+- Fully implemented Wallet Withdrawal flow (bank info inputs, quick percents 25%-100%, secure validations, debit ledger records `DEBIT_WITHDRAW` in the backend).
+- Integrated a premium glassmorphic emerald gradient card in `FinanceManager.tsx` with a responsive modal to request withdrawals easily.
+- Created `wallets` and `wallet_transactions` tables in the database schema.
+- Added Wallet and WalletTransaction EF Core models, DB mappings, and context registrations.
+- Implemented `WalletRepository` and `WalletService` data access and business logic layers.
+- Integrated wallet credits automatically into `BookingWorkflowService` upon customer confirmation of booking completion (+90% Studio revenue credited to Studio wallet).
+- Integrated wallet refunds automatically into `BookingWorkflowService` upon booking cancellation or rejection by Studio (+100% price credited to Customer wallet, payment status updated to REFUNDED).
+- Created `WalletsController` exposing `/api/wallet/mine` for Studio, `/api/customer/wallet` for Customer, and `/api/admin/wallets` for Admin.
+- Restructured frontend `FinanceManager.tsx` to showcase real-time Studio Wallet Balance and detailed transaction logs within the unified photographer dashboard.
+- Integrated a premium `Ví tiền của tôi` (My Wallet) tab into `ProfilePage.tsx` for Customers to view their balance and refund transaction history.
+
 ## 2026-05-24
 
 - Refactored Photographer studio management into `/photographer/dashboard` with tab-based detail views.

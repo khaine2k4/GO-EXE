@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { getStudioSettlements, type SettlementItem, type SettlementStatus } from '../../../services/settlementApi'
 import { getStudioCommissionSetting, getStudioCommissions, getStudioRevenue, type StudioCommission, type StudioCommissionSetting, type StudioRevenue } from '../../../services/studioRevenueApi'
+import { getStudioWallet, type WalletDetail } from '../../../services/walletApi'
 import { formatDateTime, formatMonth, formatVnd } from '../format'
 import { EmptyState, SectionPanel } from './Panel'
 
@@ -10,21 +11,24 @@ export default function FinanceManager() {
   const [commissions, setCommissions] = useState<StudioCommission[]>([])
   const [settlements, setSettlements] = useState<SettlementItem[]>([])
   const [setting, setSetting] = useState<StudioCommissionSetting | null>(null)
+  const [wallet, setWallet] = useState<WalletDetail | null>(null)
   const [status, setStatus] = useState<SettlementStatus>('ALL')
   const [loading, setLoading] = useState(true)
 
   async function load() {
     setLoading(true)
-    const [revenueData, commissionData, settlementData, settingData] = await Promise.allSettled([
+    const [revenueData, commissionData, settlementData, settingData, walletData] = await Promise.allSettled([
       getStudioRevenue(),
       getStudioCommissions({ sortBy: 'newest' }),
       getStudioSettlements({ status }),
       getStudioCommissionSetting(),
+      getStudioWallet(),
     ])
     if (revenueData.status === 'fulfilled') setRevenue(revenueData.value)
     if (commissionData.status === 'fulfilled') setCommissions(commissionData.value)
     if (settlementData.status === 'fulfilled') setSettlements(settlementData.value)
     if (settingData.status === 'fulfilled') setSetting(settingData.value)
+    if (walletData.status === 'fulfilled') setWallet(walletData.value)
     setLoading(false)
   }
 
@@ -37,8 +41,9 @@ export default function FinanceManager() {
 
   return (
     <div className="space-y-6">
-      <SectionPanel title="Finance" subtitle="Revenue, admin settlement status, commission history, and platform fee settings from the backend API." actions={<button type="button" onClick={load} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-black uppercase text-slate-700"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh</button>}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <SectionPanel title="Finance" subtitle="Wallet balance, revenue, admin settlement status, commission history, and platform fee settings from the backend API." actions={<button type="button" onClick={load} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-black uppercase text-slate-700"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />Refresh</button>}>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          <Metric label="Wallet Balance" value={wallet ? formatVnd(wallet.balance) : 'No data'} tone="emerald" />
           <Metric label="Gross revenue" value={revenue ? formatVnd(revenue.grossRevenue) : 'No data'} />
           <Metric label="Commission" value={revenue ? formatVnd(revenue.commissionDeducted) : 'No data'} tone="rose" />
           <Metric label="Net revenue" value={revenue ? formatVnd(revenue.netRevenue) : 'No data'} tone="emerald" />
@@ -81,6 +86,49 @@ export default function FinanceManager() {
             <table className="w-full min-w-[860px] text-left">
               <thead><tr className="border-b border-slate-100 text-xs font-black uppercase tracking-widest text-slate-400"><th className="py-3">Booking</th><th>Customer</th><th className="text-right">Gross</th><th className="text-right">Fee</th><th className="text-right">Studio amount</th><th>Status</th></tr></thead>
               <tbody className="divide-y divide-slate-100">{settlements.map((item) => <tr key={item.settlementId}><td className="py-4 font-mono text-xs font-black">#{item.bookingCode}</td><td className="text-sm font-semibold">{item.customerName}</td><td className="text-right text-sm">{formatVnd(item.grossAmount)}</td><td className="text-right text-sm text-rose-700">{formatVnd(item.platformFeeAmount)}</td><td className="text-right text-sm font-black text-emerald-700">{formatVnd(item.studioAmount)}</td><td><Badge value={item.status} /></td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </SectionPanel>
+
+      <SectionPanel title="Wallet Transactions" subtitle="Detailed transaction logs of your digital wallet.">
+        {!wallet || wallet.transactions.length === 0 ? <EmptyState text="No wallet transactions." /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left">
+              <thead>
+                <tr className="border-b border-slate-100 text-xs font-black uppercase tracking-widest text-slate-400">
+                  <th className="py-3">Transaction</th>
+                  <th>Type</th>
+                  <th className="text-right">Amount</th>
+                  <th className="text-right">Balance After</th>
+                  <th>Booking</th>
+                  <th>Description</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {wallet.transactions.map((tx) => (
+                  <tr key={tx.txId}>
+                    <td className="py-4 font-mono text-xs font-black">#{tx.txId}</td>
+                    <td className="text-sm font-semibold">
+                      <span className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-black uppercase ${tx.txType === 'CREDIT_EARNING' ? 'bg-emerald-50 text-emerald-700' :
+                          tx.txType === 'CREDIT_REFUND' ? 'bg-indigo-50 text-indigo-700' :
+                            'bg-rose-50 text-rose-700'
+                        }`}>
+                        {tx.txType}
+                      </span>
+                    </td>
+                    <td className={`text-right text-sm font-black ${tx.txType.startsWith('CREDIT') ? 'text-emerald-700' : 'text-rose-700'
+                      }`}>
+                      {tx.txType.startsWith('CREDIT') ? '+' : '-'}{formatVnd(tx.amount)}
+                    </td>
+                    <td className="text-right text-sm font-semibold">{formatVnd(tx.balanceAfter)}</td>
+                    <td className="font-mono text-xs font-semibold">{tx.bookingId ? `#${tx.bookingId}` : '-'}</td>
+                    <td className="text-sm text-slate-600">{tx.description || '-'}</td>
+                    <td className="text-xs text-slate-500">{formatDateTime(tx.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         )}

@@ -30,12 +30,14 @@ namespace EXE201.Server.Services
         private readonly IBookingWorkflowRepository _repo;
         private readonly IConfiguration _configuration;
         private readonly IPayOsService _payOsService;
+        private readonly IWalletService _walletService;
 
-        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration, IPayOsService payOsService)
+        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration, IPayOsService payOsService, IWalletService walletService)
         {
             _repo = repo;
             _configuration = configuration;
             _payOsService = payOsService;
+            _walletService = walletService;
         }
 
         public async Task<List<WorkingScheduleResponse>> GetMySchedulesAsync(long ownerId)
@@ -331,12 +333,12 @@ namespace EXE201.Server.Services
                 bookingId,
                 BookingPendingConfirmation,
                 BookingRejected,
-                b =>
+                async b =>
                 {
                     b.RejectedAt = DateTime.UtcNow;
                     b.RejectReason = reason;
                     b.Slot.Status = SlotOpen;
-                    MarkLatestPaidPaymentForRefund(b, reason ?? "Studio rejected booking");
+                    await MarkLatestPaidPaymentForRefundAsync(b, reason ?? "Studio rejected booking");
                 },
                 reason ?? "Studio rejected");
 
@@ -385,6 +387,9 @@ namespace EXE201.Server.Services
                 });
             }
 
+            // Credit Studio's Wallet with the studio's revenue
+            await _walletService.CreditStudioEarningAsync(booking.StudioId, booking.StudioRevenue, booking.BookingId, $"Doanh thu từ Booking #{booking.BookingCode}");
+
             AddBookingLogEntry(booking.BookingId, BookingAwaitingCustomer, BookingCompleted, customerId, "Customer confirmed booking completion");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
@@ -428,7 +433,7 @@ namespace EXE201.Server.Services
             }
             else
             {
-                MarkLatestPaidPaymentForRefund(booking, reason ?? $"{role} cancelled booking");
+                await MarkLatestPaidPaymentForRefundAsync(booking, reason ?? $"{role} cancelled booking");
             }
 
             AddBookingLogEntry(booking.BookingId, oldEffectiveStatus, BookingCancelled, userId, reason ?? $"{role} cancelled booking");
@@ -814,21 +819,29 @@ namespace EXE201.Server.Services
             payment.UpdatedAt = DateTime.UtcNow;
         }
 
-        private void MarkLatestPaidPaymentForRefund(Booking booking, string reason)
+        private async Task MarkLatestPaidPaymentForRefundAsync(Booking booking, string reason)
         {
             var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
             if (payment == null || payment.PaymentStatus.StatusName != PaymentPaid) return;
             if (payment.Method.MethodName == "CASH") return;
 
-            var refundPending = _repo.GetPaymentStatusAsync(PaymentRefundPending).GetAwaiter().GetResult();
-            if (refundPending == null) return;
+            var refundedStatus = await _repo.GetPaymentStatusAsync("REFUNDED");
+            if (refundedStatus == null) return;
 
-            payment.PaymentStatusId = refundPending.PaymentStatusId;
-            payment.PaymentStatus = refundPending;
-            payment.RefundMethod = "MANUAL";
-            payment.RefundPendingReason = reason;
+            payment.PaymentStatusId = refundedStatus.PaymentStatusId;
+            payment.PaymentStatus = refundedStatus;
+            payment.RefundedAt = DateTime.UtcNow;
+            payment.RefundMethod = "WALLET";
             payment.RefundReason = reason;
             payment.UpdatedAt = DateTime.UtcNow;
+
+            // Credit the customer's wallet
+            await _walletService.CreditCustomerRefundAsync(
+                booking.CustomerId,
+                booking.TotalPrice,
+                booking.BookingId,
+                $"Hoàn tiền Booking #{booking.BookingCode} (lý do: {reason})"
+            );
         }
 
         private static void GenerateSlots(WorkingDay day, TimeOnly openTime, TimeOnly closeTime, int durationMinutes)
