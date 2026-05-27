@@ -72,9 +72,9 @@ namespace EXE201.Server.Services
         {
             try
             {
-                var clientId = _config["PayOS:ClientId"];
-                var apiKey = _config["PayOS:ApiKey"];
-                var checksumKey = _config["PayOS:ChecksumKey"];
+                var clientId = _config["PayOS:PayoutClientId"] ?? _config["PayOS:ClientId"];
+                var apiKey = _config["PayOS:PayoutApiKey"] ?? _config["PayOS:ApiKey"];
+                var checksumKey = _config["PayOS:PayoutChecksumKey"] ?? _config["PayOS:ChecksumKey"];
 
                 if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(checksumKey))
                 {

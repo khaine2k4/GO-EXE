@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { User, Lock, MapPin, Building, Save, Plus, Home, Check } from 'lucide-react'
+import { User, Lock, MapPin, Building, Save, Plus, Home, Check, Banknote, RefreshCw, AlertCircle, ArrowUpRight, DollarSign, XCircle, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
 import api from '../api/axios'
 import CustomDialog from '../components/CustomDialog'
-import { getCustomerWallet, type WalletDetail } from '../services/walletApi'
+import { getCustomerWallet, createWithdrawal, getMyWithdrawals, type WalletDetail, type PayoutRequestItem } from '../services/walletApi'
 
 interface UserAddressDto {
     addressId: number
@@ -75,21 +75,52 @@ export default function ProfilePage() {
     // Wallet state
     const [wallet, setWallet] = useState<WalletDetail | null>(null)
     const [walletLoading, setWalletLoading] = useState(false)
+    const [withdrawals, setWithdrawals] = useState<PayoutRequestItem[]>([])
+    const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
+
+    // Form withdrawal states
+    const [withdrawAmount, setWithdrawAmount] = useState('')
+    const [bankCode, setBankCode] = useState('VCB')
+    const [accountNumber, setAccountNumber] = useState('')
+    const [withdrawDesc, setWithdrawDesc] = useState('')
+    const [withdrawLoading, setWithdrawLoading] = useState(false)
+
+    // Helper to sanitize accent/diacritics to uppercase unaccented name
+    function removeSign4VietnameseString(str: string): string {
+        if (!str) return ''
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, (char) => (char === 'đ' ? 'd' : 'D'))
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toUpperCase()
+    }
+
+    const fetchWalletAndPayouts = () => {
+        setWalletLoading(true)
+        getCustomerWallet()
+            .then(setWallet)
+            .catch((err) => {
+                console.error("Lỗi khi tải ví tiền:", err)
+                toast.push({
+                    type: 'error',
+                    title: 'Lỗi',
+                    message: 'Không thể tải thông tin ví tiền của bạn.'
+                })
+            })
+            .finally(() => setWalletLoading(false))
+
+        setWithdrawalsLoading(true)
+        getMyWithdrawals()
+            .then(setWithdrawals)
+            .catch((err) => console.error("Lỗi khi tải lịch sử rút tiền:", err))
+            .finally(() => setWithdrawalsLoading(false))
+    }
 
     useEffect(() => {
         if (activeTab === 'wallet') {
-            setWalletLoading(true)
-            getCustomerWallet()
-                .then(setWallet)
-                .catch((err) => {
-                    console.error("Lỗi khi tải ví tiền:", err)
-                    toast.push({
-                        type: 'error',
-                        title: 'Lỗi',
-                        message: 'Không thể tải thông tin ví tiền của bạn.'
-                    })
-                })
-                .finally(() => setWalletLoading(false))
+            fetchWalletAndPayouts()
         }
     }, [activeTab])
 
@@ -216,6 +247,68 @@ export default function ProfilePage() {
             setError(err.response?.data || 'Cập nhật hồ sơ thất bại.')
         } finally {
             setLoading(false)
+        }
+    }
+
+    async function handleCreateWithdrawal(e: React.FormEvent) {
+        e.preventDefault()
+        if (!accountNumber || accountNumber.length < 8) {
+            toast.push({
+                type: 'error',
+                title: 'Lỗi nhập liệu',
+                message: 'Vui lòng nhập số tài khoản ngân hàng hợp lệ (từ 8 đến 16 số).'
+            })
+            return
+        }
+
+        const amt = Number(withdrawAmount)
+        if (isNaN(amt) || amt < 50000) {
+            toast.push({
+                type: 'error',
+                title: 'Số tiền không hợp lệ',
+                message: 'Số tiền rút tối thiểu là 50.000 VND.'
+            })
+            return
+        }
+
+        if (wallet && amt > wallet.balance) {
+            toast.push({
+                type: 'error',
+                title: 'Số dư không đủ',
+                message: 'Số dư khả dụng trong ví không đủ để thực hiện giao dịch này.'
+            })
+            return
+        }
+
+        setWithdrawLoading(true)
+        try {
+            const sanitizedName = removeSign4VietnameseString(name || currentUser?.name || '')
+            await createWithdrawal(
+                amt,
+                bankCode,
+                accountNumber,
+                withdrawDesc.trim() || `Rut tien ve tai khoan ${bankCode}`
+            )
+            toast.push({
+                type: 'success',
+                title: 'Gửi yêu cầu thành công',
+                message: `Yêu cầu rút tiền ${new Intl.NumberFormat('vi-VN').format(amt)} VND về tài khoản ${sanitizedName} đã được gửi thành công!`
+            })
+            setWithdrawAmount('')
+            setAccountNumber('')
+            setWithdrawDesc('')
+            // Refresh data
+            fetchWalletAndPayouts()
+        } catch (err: any) {
+            console.error("Lỗi rút tiền:", err)
+            const errMsg = err.response?.data || 'Đã có lỗi xảy ra khi tạo yêu cầu rút tiền.'
+            toast.push({
+                type: 'error',
+                title: 'Rút tiền thất bại',
+                message: typeof errMsg === 'string' ? errMsg : 'Rút tiền thất bại. Vui lòng thử lại.'
+            })
+        } finally {
+            setWithdrawLoading(false)
         }
     }
 
@@ -956,76 +1049,297 @@ export default function ProfilePage() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className="space-y-6"
+                            className="space-y-8"
                         >
-                            <h2 className="text-lg font-black text-slate-900 tracking-tight border-b border-slate-50 pb-4">
-                                Ví Tiền Của Tôi
-                            </h2>
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
+                                <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                                    <Banknote className="h-6 w-6 text-indigo-600" />
+                                    Ví Tiền & Rút Tiền
+                                </h2>
+                                <button
+                                    onClick={fetchWalletAndPayouts}
+                                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 transition active:scale-95"
+                                >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    Làm mới ví
+                                </button>
+                            </div>
 
                             {walletLoading ? (
-                                <div className="text-center py-12 text-slate-500 font-semibold">Đang tải ví tiền...</div>
+                                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                    <RefreshCw className="h-8 w-8 text-indigo-500 animate-spin" />
+                                    <div className="text-sm font-bold text-slate-500">Đang tải thông tin ví tiền...</div>
+                                </div>
                             ) : (
-                                <div className="space-y-6">
+                                <div className="space-y-8">
                                     {/* Balance card */}
-                                    <div className="rounded-[24px] bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 text-white shadow-xl shadow-indigo-100">
-                                        <p className="text-xs font-black uppercase tracking-widest opacity-80">Số dư khả dụng</p>
-                                        <p className="mt-3 text-4xl font-black">{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.balance) + ' VND' : '0 VND'}</p>
-                                        <div className="mt-6 flex gap-6 text-xs font-bold opacity-90 border-t border-white/10 pt-4">
-                                            <div>
-                                                <span>Tổng tiền hoàn: </span>
-                                                <span className="font-black">+{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.totalIn) + ' VND' : '0 VND'}</span>
+                                    <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-8 text-white shadow-xl shadow-indigo-950/10">
+                                        <div className="absolute right-0 top-0 -mr-16 -mt-16 h-60 w-60 rounded-full bg-indigo-500/10 blur-3xl" />
+                                        <div className="absolute left-10 bottom-0 -ml-16 -mb-16 h-40 w-40 rounded-full bg-pink-500/5 blur-2xl" />
+
+                                        <p className="text-xs font-black uppercase tracking-widest text-indigo-200/80 flex items-center gap-1.5">
+                                            <DollarSign className="h-4 w-4" />
+                                            SỐ DƯ KHẢ DỤNG
+                                        </p>
+                                        <p className="mt-3 text-4xl font-black tracking-tight">{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.balance) + ' VND' : '0 VND'}</p>
+                                        
+                                        <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-xs font-bold text-indigo-200/90 border-t border-white/10 pt-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <span>Tổng hoàn tiền: </span>
+                                                <span className="font-extrabold text-emerald-400">+{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.totalIn) + ' VND' : '0 VND'}</span>
                                             </div>
-                                            <div>
-                                                <span>Đã rút: </span>
-                                                <span className="font-black">-{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.totalOut) + ' VND' : '0 VND'}</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span>Đã rút thành công: </span>
+                                                <span className="font-extrabold text-rose-400">-{wallet ? new Intl.NumberFormat('vi-VN').format(wallet.totalOut) + ' VND' : '0 VND'}</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Transaction list */}
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                                            Lịch sử giao dịch
-                                        </h3>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Left Column: Withdrawal Form */}
+                                        <div className="rounded-3xl border border-slate-200/80 bg-white/50 p-6 shadow-sm backdrop-blur-sm space-y-6">
+                                            <div className="space-y-1.5">
+                                                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                                                    <ArrowUpRight className="h-5 w-5 text-indigo-600" />
+                                                    Tạo lệnh rút tiền về tài khoản
+                                                </h3>
+                                                <p className="text-xs text-slate-500 leading-relaxed">
+                                                    Hỗ trợ chuyển khoản nhanh 24/7 qua NAPAS liên kết PayOS.
+                                                </p>
+                                            </div>
 
-                                        {!wallet || wallet.transactions.length === 0 ? (
-                                            <div className="text-center py-12 text-slate-400 font-semibold border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/40">
-                                                Chưa có giao dịch ví nào được thực hiện.
+                                            <div className="rounded-2xl bg-amber-50/70 border border-amber-200/60 p-4 text-[11px] font-medium text-amber-800 leading-relaxed space-y-1">
+                                                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-amber-900">
+                                                    <AlertCircle className="h-4 w-4" />
+                                                    LƯU Ý BẢO MẬT (Strict Security Mode)
+                                                </div>
+                                                <p>
+                                                    Họ tên chủ tài khoản ngân hàng thụ hưởng bắt buộc phải trùng khớp 100% với **Tên thật trên hồ sơ cá nhân** của bạn. Hệ thống đã khóa cố định ô này để đảm bảo an toàn tuyệt đối, tránh rủi ro rút tiền về tài khoản giả mạo.
+                                                </p>
                                             </div>
-                                        ) : (
-                                            <div className="overflow-hidden rounded-2xl border border-slate-100 divide-y divide-slate-100">
-                                                {wallet.transactions.map((tx) => (
-                                                    <div key={tx.txId} className="flex flex-col sm:flex-row justify-between sm:items-center p-4 gap-3 bg-white hover:bg-slate-50/50 transition">
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                                                    tx.txType === 'CREDIT_REFUND' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                                                                }`}>
-                                                                    {tx.txType === 'CREDIT_REFUND' ? 'HOÀN TIỀN' : 'RÚT TIỀN'}
-                                                                </span>
-                                                                <span className="text-xs font-black text-slate-900">Mã GD: #{tx.txId}</span>
-                                                            </div>
-                                                            <p className="text-xs font-semibold text-slate-600 leading-relaxed">
-                                                                {tx.description || 'Không có mô tả'}
-                                                            </p>
-                                                            <p className="text-[10px] text-slate-400">
-                                                                {new Date(tx.createdAt).toLocaleString('vi-VN')}
-                                                            </p>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className={`text-base font-black ${
-                                                                tx.txType === 'CREDIT_REFUND' ? 'text-emerald-600' : 'text-rose-600'
-                                                            }`}>
-                                                                {tx.txType === 'CREDIT_REFUND' ? '+' : '-'}{new Intl.NumberFormat('vi-VN').format(tx.amount)} VND
-                                                            </p>
-                                                            <p className="text-[10px] font-semibold text-slate-400">
-                                                                Số dư: {new Intl.NumberFormat('vi-VN').format(tx.balanceAfter)} VND
-                                                            </p>
-                                                        </div>
+
+                                            <form onSubmit={handleCreateWithdrawal} className="space-y-4">
+                                                <div className="space-y-1">
+                                                    <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Ngân hàng liên kết</label>
+                                                    <select
+                                                        value={bankCode}
+                                                        onChange={(e) => setBankCode(e.target.value)}
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                    >
+                                                        <option value="VCB">Vietcombank (VCB)</option>
+                                                        <option value="CTG">VietinBank (CTG)</option>
+                                                        <option value="BID">BIDV (BID)</option>
+                                                        <option value="TCB">Techcombank (TCB)</option>
+                                                        <option value="MB">MBBank (MB)</option>
+                                                        <option value="ACB">ACB (ACB)</option>
+                                                        <option value="VPB">VPBank (VPB)</option>
+                                                        <option value="VIB">VIB (VIB)</option>
+                                                        <option value="TPB">TPBank (TPB)</option>
+                                                        <option value="STB">Sacombank (STB)</option>
+                                                        <option value="HDB">HDBank (HDB)</option>
+                                                        <option value="ICB">Industrial & Commercial Bank (ICB)</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Số tài khoản ngân hàng</label>
+                                                    <input
+                                                        type="text"
+                                                        value={accountNumber}
+                                                        onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                                                        placeholder="Nhập số tài khoản ngân hàng nhận tiền"
+                                                        required
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Tên chủ tài khoản (ĐÃ KHÓA)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={removeSign4VietnameseString(name || currentUser?.name || '')}
+                                                        disabled
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500 outline-none cursor-not-allowed select-none"
+                                                    />
+                                                    <p className="px-1 text-[9px] font-bold text-indigo-600">
+                                                        * Tên tự động chuyển hóa: Viết hoa không dấu chuẩn ngân hàng.
+                                                    </p>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Số tiền rút (VND)</label>
+                                                    <input
+                                                        type="number"
+                                                        value={withdrawAmount}
+                                                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                                                        placeholder="Tối thiểu 50.000 VND"
+                                                        min="50000"
+                                                        max={wallet?.balance || 0}
+                                                        required
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                    />
+                                                    <div className="flex justify-between items-center px-1">
+                                                        <span className="text-[10px] text-slate-400 font-semibold">
+                                                            Rút tối thiểu: 50.000đ
+                                                        </span>
+                                                        {wallet && wallet.balance >= 50000 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setWithdrawAmount(String(wallet.balance))}
+                                                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition"
+                                                            >
+                                                                Rút tối đa số dư
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                ))}
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Ghi chú (tùy chọn)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={withdrawDesc}
+                                                        onChange={(e) => setWithdrawDesc(e.target.value)}
+                                                        placeholder="Nội dung chuyển tiền"
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                    />
+                                                </div>
+
+                                                <button
+                                                    type="submit"
+                                                    disabled={withdrawLoading || !wallet || wallet.balance < 50000}
+                                                    className="w-full flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition hover:bg-indigo-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {withdrawLoading ? (
+                                                        <>
+                                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                                            Đang gửi yêu cầu...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Banknote className="h-4 w-4" />
+                                                            Gửi yêu cầu rút tiền qua PayOS
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </form>
+                                        </div>
+
+                                        {/* Right Column: Withdrawal and Wallet History */}
+                                        <div className="space-y-8">
+                                            {/* PayOS Payout Request list */}
+                                            <div className="space-y-4">
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                                                    Lịch sử rút tiền (PayOS)
+                                                </h3>
+
+                                                {withdrawalsLoading ? (
+                                                    <div className="text-center py-8 text-slate-400 font-semibold">
+                                                        Đang tải lịch sử rút tiền...
+                                                    </div>
+                                                ) : withdrawals.length === 0 ? (
+                                                    <div className="text-center py-10 text-slate-400 font-semibold border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/40 text-xs">
+                                                        Chưa có yêu cầu rút tiền nào.
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                                                        {withdrawals.map((item) => (
+                                                            <div key={item.payoutId} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm space-y-2.5">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div className="space-y-0.5">
+                                                                        <div className="text-xs font-black text-slate-900 flex items-center gap-2">
+                                                                            <span>Ngân hàng: {item.bankCode}</span>
+                                                                            <span className="text-[10px] text-slate-400">#{item.payoutId}</span>
+                                                                        </div>
+                                                                        <p className="text-[10px] font-semibold text-slate-500">
+                                                                            STK: {item.accountNumber} - {item.accountName}
+                                                                        </p>
+                                                                    </div>
+                                                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[9px] font-bold ${
+                                                                        item.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                                                        item.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                                                        item.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                                                        'bg-red-50 text-red-700 border border-red-200'
+                                                                    }`}>
+                                                                        {item.status === 'PENDING' ? 'Chờ duyệt' :
+                                                                         item.status === 'APPROVED' ? 'Thành công' :
+                                                                         item.status === 'REJECTED' ? 'Từ chối' :
+                                                                         'Thất bại'}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="flex justify-between items-end border-t border-slate-50 pt-2.5 text-xs">
+                                                                    <div>
+                                                                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed font-sans">
+                                                                            {item.description || 'Rút tiền ví'}
+                                                                        </p>
+                                                                        {item.failureReason && (
+                                                                            <p className="text-[9px] font-bold text-rose-600 mt-0.5 leading-relaxed">
+                                                                                Lý do: {item.failureReason}
+                                                                            </p>
+                                                                        )}
+                                                                        <p className="text-[9px] text-slate-400">
+                                                                            {new Date(item.createdAt).toLocaleString('vi-VN')}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <p className="text-sm font-black text-rose-600">
+                                                                            -{new Intl.NumberFormat('vi-VN').format(item.amount)}đ
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+
+                                            {/* Transaction history list */}
+                                            <div className="space-y-4">
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                                                    Lịch sử biến động ví
+                                                </h3>
+
+                                                {!wallet || wallet.transactions.length === 0 ? (
+                                                    <div className="text-center py-10 text-slate-400 font-semibold border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/40 text-xs">
+                                                        Chưa có biến động số dư.
+                                                    </div>
+                                                ) : (
+                                                    <div className="overflow-hidden rounded-2xl border border-slate-100 divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
+                                                        {wallet.transactions.map((tx) => (
+                                                            <div key={tx.txId} className="flex flex-col sm:flex-row justify-between sm:items-center p-3.5 gap-3 bg-white hover:bg-slate-50/50 transition">
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${
+                                                                            tx.txType === 'CREDIT_REFUND' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                                                                        }`}>
+                                                                            {tx.txType === 'CREDIT_REFUND' ? 'Nhận hoàn' : 'Trừ ví'}
+                                                                        </span>
+                                                                        <span className="text-[10px] font-black text-slate-900">GD #{tx.txId}</span>
+                                                                    </div>
+                                                                    <p className="text-xs font-semibold text-slate-600">
+                                                                        {tx.description || 'Không có mô tả'}
+                                                                    </p>
+                                                                    <p className="text-[9px] text-slate-400">
+                                                                        {new Date(tx.createdAt).toLocaleString('vi-VN')}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <p className={`text-xs font-black ${
+                                                                        tx.txType === 'CREDIT_REFUND' ? 'text-emerald-600' : 'text-rose-600'
+                                                                    }`}>
+                                                                        {tx.txType === 'CREDIT_REFUND' ? '+' : '-'}{new Intl.NumberFormat('vi-VN').format(tx.amount)}đ
+                                                                    </p>
+                                                                    <p className="text-[9px] font-semibold text-slate-400">
+                                                                        Số dư: {new Intl.NumberFormat('vi-VN').format(tx.balanceAfter)}đ
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )}

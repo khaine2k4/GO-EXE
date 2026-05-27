@@ -31,6 +31,7 @@ export default function AdminLayout() {
       { to: '/admin/revenue', label: 'Revenue', icon: Banknote },
       { to: '/admin/commissions', label: 'Commissions', icon: Percent },
       { to: '/admin/settlements', label: 'Payout approvals', icon: HandCoins },
+      { to: '/admin/payouts', label: 'Duyệt rút tiền (PayOS)', icon: Banknote },
       { to: '/admin/support', label: 'Reports', icon: LifeBuoy },
       { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
       { to: '/admin/categories', label: 'Categories', icon: FolderTree },
@@ -46,6 +47,7 @@ export default function AdminLayout() {
     if (location.pathname.includes('/admin/revenue')) return 'Revenue'
     if (location.pathname.includes('/admin/commissions')) return 'Commissions'
     if (location.pathname.includes('/admin/settlements')) return 'Payout approvals'
+    if (location.pathname.includes('/admin/payouts')) return 'Duyệt rút tiền (PayOS)'
     if (location.pathname.includes('/admin/support')) return 'Reports'
     if (location.pathname.includes('/admin/reviews')) return 'Quản lý Reviews'
     if (location.pathname.includes('/admin/categories')) return 'Categories'

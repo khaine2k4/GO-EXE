@@ -21,6 +21,7 @@ import AdminPaymentsPage from './pages/AdminPaymentsPage'
 import AdminRevenuePage from './pages/AdminRevenuePage'
 import AdminCommissionsPage from './pages/AdminCommissionsPage'
 import AdminSettlementsPage from './pages/AdminSettlementsPage'
+import AdminPayoutsPage from './pages/AdminPayoutsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/admin/revenue" element={<AdminRevenuePage />} />
         <Route path="/admin/commissions" element={<AdminCommissionsPage />} />
         <Route path="/admin/settlements" element={<AdminSettlementsPage />} />
+        <Route path="/admin/payouts" element={<AdminPayoutsPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
         <Route path="/admin/reviews" element={<AdminReviewsPage />} />
         <Route path="/admin/categories" element={<AdminCategoriesPage />} />

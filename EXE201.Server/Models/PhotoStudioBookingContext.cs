@@ -69,6 +69,8 @@ public partial class PhotoStudioBookingContext : DbContext
 
     public virtual DbSet<WalletTransaction> WalletTransactions { get; set; }
 
+    public virtual DbSet<PayoutRequest> PayoutRequests { get; set; }
+
     public virtual DbSet<VMonthlyPlatformRevenue> VMonthlyPlatformRevenues { get; set; }
 
     public virtual DbSet<VStudioRevenue> VStudioRevenues { get; set; }
@@ -1360,6 +1362,63 @@ public partial class PhotoStudioBookingContext : DbContext
             entity.HasOne(d => d.Payment).WithMany(p => p.WalletTransactions)
                 .HasForeignKey(d => d.PaymentId)
                 .HasConstraintName("FK_wallet_transactions_payments");
+        });
+
+        modelBuilder.Entity<PayoutRequest>(entity =>
+        {
+            entity.HasKey(e => e.PayoutId);
+            entity.ToTable("payout_requests");
+
+            entity.HasIndex(e => e.WalletId, "IX_payout_requests_wallet");
+            entity.HasIndex(e => e.Status, "IX_payout_requests_status");
+            entity.HasIndex(e => e.ReferenceId).IsUnique();
+
+            entity.Property(e => e.PayoutId).HasColumnName("payout_id");
+            entity.Property(e => e.WalletId).HasColumnName("wallet_id");
+            entity.Property(e => e.Amount)
+                .HasColumnType("decimal(18, 0)")
+                .HasColumnName("amount");
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasDefaultValue("PENDING")
+                .HasColumnName("status");
+            entity.Property(e => e.BankCode)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("bank_code");
+            entity.Property(e => e.AccountNumber)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("account_number");
+            entity.Property(e => e.AccountName)
+                .HasMaxLength(100)
+                .HasColumnName("account_name");
+            entity.Property(e => e.Description)
+                .HasMaxLength(255)
+                .HasColumnName("description");
+            entity.Property(e => e.ReferenceId)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .HasColumnName("reference_id");
+            entity.Property(e => e.TransactionCode)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .HasColumnName("transaction_code");
+            entity.Property(e => e.FailureReason)
+                .HasMaxLength(500)
+                .HasColumnName("failure_reason");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Wallet).WithMany(p => p.PayoutRequests)
+                .HasForeignKey(d => d.WalletId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_payout_requests_wallets");
         });
 
         modelBuilder.HasSequence("seq_booking_code");
