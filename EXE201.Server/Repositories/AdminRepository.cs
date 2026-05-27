@@ -9,11 +9,13 @@ namespace EXE201.Server.Repositories
     {
         private readonly PhotoStudioBookingContext _context;
         private readonly IPayOsService _payOsService;
+        private readonly IWalletService _walletService;
 
-        public AdminRepository(PhotoStudioBookingContext context, IPayOsService payOsService)
+        public AdminRepository(PhotoStudioBookingContext context, IPayOsService payOsService, IWalletService walletService)
         {
             _context = context;
             _payOsService = payOsService;
+            _walletService = walletService;
         }
 
         public async Task<List<AdminBookingDto>> GetBookingsAsync(string? search = null, string? status = null, string? paymentStatus = null, string? sortBy = null)
@@ -690,6 +692,14 @@ namespace EXE201.Server.Repositories
             settlement.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            // Cộng tiền vào wallet studio sau khi admin duyệt settlement
+            await _walletService.CreditStudioEarningAsync(
+                settlement.StudioId,
+                settlement.StudioAmount,
+                settlement.BookingId,
+                $"[Admin duyệt] Thu nhập từ Booking #{settlement.Booking.BookingCode}");
+
             return MapSettlement(settlement);
         }
 

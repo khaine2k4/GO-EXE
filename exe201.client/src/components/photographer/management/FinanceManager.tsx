@@ -20,6 +20,7 @@ export default function FinanceManager() {
   const [wallet, setWallet] = useState<WalletDetail | null>(null)
   const [status, setStatus] = useState<SettlementStatus>('ALL')
   const [loading, setLoading] = useState(true)
+  const [walletError, setWalletError] = useState(false)
 
   // Withdraw requests state
   const [withdrawals, setWithdrawals] = useState<PayoutRequestItem[]>([])
@@ -47,6 +48,7 @@ export default function FinanceManager() {
   async function load() {
     setLoading(true)
     setWithdrawalsLoading(true)
+    setWalletError(false)
     const [revenueData, commissionData, settlementData, settingData, walletData, withdrawalsData] = await Promise.allSettled([
       getStudioRevenue(),
       getStudioCommissions({ sortBy: 'newest' }),
@@ -60,6 +62,7 @@ export default function FinanceManager() {
     if (settlementData.status === 'fulfilled') setSettlements(settlementData.value)
     if (settingData.status === 'fulfilled') setSetting(settingData.value)
     if (walletData.status === 'fulfilled') setWallet(walletData.value)
+    else setWalletError(true)
     if (withdrawalsData.status === 'fulfilled') setWithdrawals(withdrawalsData.value)
     setLoading(false)
     setWithdrawalsLoading(false)
@@ -72,18 +75,18 @@ export default function FinanceManager() {
     if (!accountNumber || accountNumber.length < 8) {
       toast.push({
         type: 'error',
-        title: 'Input Error',
-        message: 'Please enter a valid bank account number (8-16 digits).'
+        title: 'Lỗi nhập liệu',
+        message: 'Vui lòng nhập số tài khoản ngân hàng hợp lệ (8-16 chữ số).'
       })
       return
     }
 
     const amt = Number(withdrawAmount)
-    if (isNaN(amt) || amt < 50000) {
+    if (isNaN(amt) || amt < 10000) {
       toast.push({
         type: 'error',
-        title: 'Invalid Amount',
-        message: 'Minimum withdrawal amount is 50,000 VND.'
+        title: 'Số tiền không hợp lệ',
+        message: 'Số tiền rút tối thiểu là 10,000 VND.'
       })
       return
     }
@@ -91,8 +94,8 @@ export default function FinanceManager() {
     if (wallet && amt > wallet.balance) {
       toast.push({
         type: 'error',
-        title: 'Insufficient Balance',
-        message: 'You do not have enough funds in your wallet.'
+        title: 'Số dư không đủ',
+        message: 'Số dư trong ví của bạn không đủ để thực hiện giao dịch này.'
       })
       return
     }
@@ -108,24 +111,25 @@ export default function FinanceManager() {
       )
       toast.push({
         type: 'success',
-        title: 'Request Submitted',
-        message: `Withdrawal request of ${formatVnd(amt)} to ${sanitizedName} has been submitted successfully!`
+        title: 'Yêu cầu đã gửi',
+        message: `Yêu cầu rút ${formatVnd(amt)} đến ${sanitizedName} đã được gửi thành công!`
       })
       setWithdrawAmount('')
       setAccountNumber('')
       setWithdrawDesc('')
-      // Refresh wallet & history
+      // Delay nhỏ để toast hiển thị trước, sau đó mới refresh
+      await new Promise(r => setTimeout(r, 600))
       const walletData = await getStudioWallet()
       setWallet(walletData)
       const withdrawalsData = await getMyWithdrawals()
       setWithdrawals(withdrawalsData)
     } catch (err: any) {
       console.error("Lỗi rút tiền:", err)
-      const errMsg = err.response?.data || 'An error occurred while creating withdrawal request.'
+      const errMsg = err.response?.data || 'Đã xảy ra lỗi khi tạo yêu cầu rút tiền.'
       toast.push({
         type: 'error',
-        title: 'Withdrawal Failed',
-        message: typeof errMsg === 'string' ? errMsg : 'Withdrawal failed. Please try again.'
+        title: 'Rút tiền thất bại',
+        message: typeof errMsg === 'string' ? errMsg : 'Rút tiền thất bại. Vui lòng thử lại.'
       })
     } finally {
       setWithdrawLoading(false)
@@ -151,21 +155,28 @@ export default function FinanceManager() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         {/* Payout/Withdrawal Form */}
-        <SectionPanel title="Withdraw Funds (PayOS)" subtitle="Submit a direct bank payout request. Beneficiary name is strictly locked to your legal profile name.">
+        <SectionPanel title="Rút Tiền (PayOS)" subtitle="Gửi yêu cầu chuyển tiền trực tiếp vào tài khoản ngân hàng. Tên thụ hưởng bị khóa theo tên hồ sơ pháp lý của bạn.">
           <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-[11px] font-semibold text-amber-800 leading-relaxed space-y-1 mb-4">
             <div className="flex items-center gap-1 font-bold uppercase tracking-wider text-amber-900">
               <AlertCircle className="h-4 w-4" />
-              Strict Security Mode
+              Chế Độ Bảo Mật Cao
             </div>
             <p>
-              Beneficiary name must match 100% with your legal profile name. It has been locked to prevent fraud.
+              Tên thụ hưởng phải khớp 100% với tên hồ sơ pháp lý của bạn. Tên đã bị khóa để phòng chống gian lận.
             </p>
           </div>
+
+          {walletError && (
+            <div className="rounded-2xl bg-rose-50 border border-rose-200 p-3 text-[11px] font-semibold text-rose-700 mb-4 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              Không thể tải thông tin ví. Vui lòng làm mới trang hoặc kiểm tra kết nối tới server.
+            </div>
+          )}
 
           <form onSubmit={handleCreateWithdrawal} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1">
-                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Select Bank</span>
+                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Chọn Ngân Hàng</span>
                 <select
                   value={bankCode}
                   onChange={(e) => setBankCode(e.target.value)}
@@ -187,12 +198,12 @@ export default function FinanceManager() {
               </label>
 
               <label className="block space-y-1">
-                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Account Number</span>
+                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Số Tài Khoản</span>
                 <input
                   type="text"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Bank account number"
+                  placeholder="Số tài khoản ngân hàng"
                   required
                   className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-600 transition"
                 />
@@ -201,7 +212,7 @@ export default function FinanceManager() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1">
-                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Account Name (LOCKED)</span>
+                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Tên Tài Khoản (Đã Khóa)</span>
                 <input
                   type="text"
                   value={removeSign4VietnameseString(currentUser?.name || '')}
@@ -211,13 +222,13 @@ export default function FinanceManager() {
               </label>
 
               <label className="block space-y-1">
-                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Amount to withdraw (VND)</span>
+                <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Số Tiền Rút (VND)</span>
                 <input
                   type="number"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
-                  placeholder="Min 50,000 VND"
-                  min="50000"
+                  placeholder="Tối thiểu 10,000 VND"
+                  min="10000"
                   max={wallet?.balance || 0}
                   required
                   className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-600 transition"
@@ -226,23 +237,23 @@ export default function FinanceManager() {
             </div>
 
             <label className="block space-y-1">
-              <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Description (optional)</span>
+              <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Nội Dung (Tùy Chọn)</span>
               <input
                 type="text"
                 value={withdrawDesc}
                 onChange={(e) => setWithdrawDesc(e.target.value)}
-                placeholder="Disbursement description"
+                placeholder="Nội dung chuyển tiền"
                 className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-600 transition"
               />
             </label>
 
             <button
               type="submit"
-              disabled={withdrawLoading || !wallet || wallet.balance < 50000}
+              disabled={withdrawLoading || !wallet || wallet.balance < 10000}
               className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-black uppercase text-white hover:bg-indigo-700 transition active:scale-95 disabled:opacity-50"
             >
               <Banknote className="h-4 w-4" />
-              {withdrawLoading ? 'Submitting request...' : 'Withdraw Funds via PayOS'}
+              {withdrawLoading ? 'Đang gửi yêu cầu...' : 'Rút Tiền Qua PayOS'}
             </button>
           </form>
         </SectionPanel>

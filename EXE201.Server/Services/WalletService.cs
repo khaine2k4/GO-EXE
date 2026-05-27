@@ -97,8 +97,8 @@ namespace EXE201.Server.Services
             // 2. Validate Amount
             if (amount <= 0)
                 throw new ArgumentException("Số tiền rút phải lớn hơn 0.");
-            if (amount < 50000)
-                throw new ArgumentException("Số tiền rút tối thiểu là 50,000 VND.");
+            if (amount < 10000)
+                throw new ArgumentException("Số tiền rút tối thiểu là 10,000 VND.");
             if (wallet.Balance < amount)
                 throw new InvalidOperationException("Số dư ví không đủ để thực hiện giao dịch rút tiền.");
 

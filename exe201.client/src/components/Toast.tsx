@@ -37,7 +37,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const push = useCallback((t: Omit<ToastItem, 'id'>) => {
     const id = toId()
     setItems((prev) => [{ id, ...t }, ...prev].slice(0, 4))
-    setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== id)), 3500)
+    setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== id)), 5000)
   }, [])
 
   const dismiss = useCallback((id: string) => {
@@ -49,7 +49,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex w-[92vw] max-w-sm flex-col-reverse gap-2">
+      <div className="fixed bottom-6 right-6 z-[9999] flex w-[92vw] max-w-sm flex-col-reverse gap-2">
         <AnimatePresence>
           {items.map((t) => (
             <motion.div
