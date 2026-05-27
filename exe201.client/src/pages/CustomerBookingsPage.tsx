@@ -4,7 +4,7 @@ import { CalendarDays, CircleDollarSign, Clock, ImageIcon } from 'lucide-react'
 import { getBookings, type BookingDto } from '../services/bookingApi'
 
 function formatVnd(value: number) {
-  return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
+  return new Intl.NumberFormat('vi-VN').format(value) + ' đ'
 }
 
 function formatDate(value: string) {
@@ -16,10 +16,14 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING_CONFIRMATION: 'Chờ Studio xác nhận',
   CONFIRMED: 'Đã xác nhận',
   IN_PROGRESS: 'Đang chụp',
+  DEMO_UPLOADED: 'Đã gửi ảnh demo',
+  EDITING: 'Đang chỉnh sửa ảnh',
+  FINAL_DELIVERED: 'Đã giao ảnh final',
   AWAITING_CUSTOMER: 'Chờ bạn xác nhận',
   COMPLETED: 'Hoàn thành',
   CANCELLED: 'Đã hủy',
   REJECTED: 'Bị từ chối',
+  DISPUTED: 'Đang báo cáo',
 }
 
 const TABS = [
@@ -27,7 +31,7 @@ const TABS = [
   { label: 'Chờ thanh toán', value: 'PENDING_PAYMENT' },
   { label: 'Chờ xác nhận', value: 'PENDING_CONFIRMATION' },
   { label: 'Đã xác nhận', value: 'CONFIRMED' },
-  { label: 'Chờ bạn xác nhận', value: 'AWAITING_CUSTOMER' },
+  { label: 'Chờ nhận ảnh', value: 'FINAL_DELIVERED' },
   { label: 'Hoàn thành', value: 'COMPLETED' },
   { label: 'Đã hủy', value: 'CANCELLED' },
 ]
@@ -60,7 +64,7 @@ export default function CustomerBookingsPage() {
             key={tab.value}
             type="button"
             onClick={() => setActiveTab(tab.value)}
-            className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${activeTab === tab.value ? 'bg-slate-950 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+            className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest transition ${activeTab === tab.value ? 'bg-[var(--color-azure)] text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50'}`}
           >
             {tab.label}
           </button>
@@ -75,7 +79,7 @@ export default function CustomerBookingsPage() {
         <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-100 bg-slate-50/40 py-24 text-center">
           <ImageIcon className="h-12 w-12 text-slate-300" />
           <h3 className="mt-4 text-lg font-black text-slate-950">Chưa có booking</h3>
-          <Link to="/photosets" className="mt-6 rounded-2xl bg-slate-950 px-6 py-3 text-xs font-black uppercase tracking-widest text-white">
+          <Link to="/photosets" className="primary-pill mt-6 h-12 px-6 text-xs font-black uppercase tracking-widest">
             Khám phá dịch vụ
           </Link>
         </div>
@@ -103,7 +107,7 @@ export default function CustomerBookingsPage() {
 
               <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
                 <span className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tiền</span>
-                <span className="text-lg font-black text-indigo-600">{formatVnd(booking.totalPrice)}</span>
+                <span className="text-2xl font-black text-[var(--color-azure)]">{formatVnd(booking.totalPrice)}</span>
               </div>
             </Link>
           ))}
@@ -118,11 +122,11 @@ function StatusBadge({ status }: { status: string }) {
     ? 'bg-slate-100 text-slate-500'
     : status === 'COMPLETED'
       ? 'bg-emerald-50 text-emerald-700'
-      : status === 'AWAITING_CUSTOMER'
-        ? 'bg-cyan-50 text-cyan-700'
-      : status === 'PENDING_PAYMENT'
-        ? 'bg-amber-50 text-amber-700'
-        : 'bg-indigo-50 text-indigo-700'
+      : status === 'DISPUTED'
+        ? 'bg-orange-50 text-[var(--color-orange)]'
+        : status === 'PENDING_PAYMENT'
+          ? 'bg-amber-50 text-amber-700'
+          : 'bg-blue-50 text-[var(--color-azure)]'
 
   return (
     <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${color}`}>

@@ -41,7 +41,7 @@ export type BookingDto = {
   endTime: string
   shootingLocation?: string
   note?: string
-  status: 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | string
+  status: 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'DEMO_UPLOADED' | 'EDITING' | 'FINAL_DELIVERED' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'DISPUTED' | string
   totalPrice: number
   commissionAmount: number
   studioRevenue: number

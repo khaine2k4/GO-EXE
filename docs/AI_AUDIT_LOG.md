@@ -1,5 +1,23 @@
 # AI Audit Log
 
+## 2026-05-27 - Vietnamese Marketplace UI Refresh
+
+- Applied the requested 60/30/10 visual direction using white surfaces, primary blue `#004aad`, and orange `#ff751f` accents in `src/index.css`.
+- Updated shared customer layout/navigation/footer branding from PhotoMarket toward GO!, with Vietnamese menu labels and a fuller marketplace footer.
+- Refactored customer discovery pages:
+  - `HomePage.tsx`: merged city into keyword search, switched search CTA to an icon button, compacted rule cards, increased studio registration CTA prominence, and localized hero/content text.
+  - `PhotosetsPage.tsx`: removed separate city input, replaced min/max fields with a price-range dropdown, changed image-card hover CTA from red View to blue GO, and added client-side "Xem thêm".
+  - `GalleryPage.tsx`: removed separate city filtering UI, hardened studio cards for incomplete studio data, removed location display from cards, increased price emphasis, and added "Xem thêm".
+  - `PhotographerProfilePage.tsx`: changed content/review layout to 6/4, removed the approved badge, limited initial services to four with an expandable full list, and rebuilt portfolio display as a larger grid.
+  - `PhotosetDetailPage.tsx`: localized key labels and increased package/sidebar price prominence.
+- Refactored customer booking pages:
+  - `CustomerBookingsPage.tsx`: fixed Vietnamese labels, increased total price display, and aligned status colors with the new palette.
+  - `CustomerBookingDetailPage.tsx`: refreshed Vietnamese copy, reloads booking state after completion/review, added report/dispute UI for problematic bookings, and clarified one-review-per-completed-booking messaging.
+- Verification:
+  - `npm run build` inside `exe201.client` succeeded.
+  - `dotnet build EXE201.sln` was blocked by a running `EXE201.Server (2560)` process locking `bin\Debug\net8.0\exe201.Server.exe`.
+  - `dotnet build EXE201.Server\exe201.Server.csproj --no-restore -p:UseAppHost=false -o C:\tmp\exe201-server-build-check` succeeded with 0 errors and 0 warnings.
+
 ## 2026-05-27 - Merge Main With Booking Detail Delivery Flow
 
 - Merged the latest `origin/main` wallet/chatbot/calendar work into `hoang_gd2_UI`.

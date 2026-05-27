@@ -2,6 +2,11 @@
 
 ## 2026-05-27
 
+- Refreshed the customer marketplace UI around a white/blue/orange palette (`#004aad`, `#ff751f`), including shared theme tokens, GO! navigation, and a fuller marketplace footer.
+- Localized the main customer discovery flow to Vietnamese across Home, Services, Studios, Studio detail, Service detail, Customer bookings, and Customer booking detail.
+- Simplified search UX by merging city into keyword search, replacing text search buttons with search icons, adding price-range filters, and adding "Xem thêm" loading on service/studio lists.
+- Improved cards and detail pages for incomplete studio data, larger price display, compact homepage rule cards, service expansion, portfolio grid display, and booking/report/review visibility.
+- Added customer booking report UI using the existing dispute endpoint and refreshed review handling after completion so the booking detail reloads current review eligibility.
 - Implemented Wallet System (Customer Wallet and Studio Wallet) with automated credit and refund integrations.
 - Resolved JSON object cycle exception (`JsonException`) by introducing flat DTO projections (`WalletDto` and `WalletTransactionDto`).
 - Fully implemented Wallet Withdrawal flow (bank info inputs, quick percents 25%-100%, secure validations, debit ledger records `DEBIT_WITHDRAW` in the backend).
