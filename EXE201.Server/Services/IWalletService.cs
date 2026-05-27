@@ -13,5 +13,12 @@ namespace EXE201.Server.Services
         Task<WalletTransaction> CreditCustomerRefundAsync(long userId, decimal amount, long bookingId, string description = "");
         Task<List<WalletTransaction>> GetWalletTransactionsAsync(long walletId, int limit = 50);
         Task<List<Wallet>> GetAllWalletsAsync();
+
+        // Payout / Withdrawal Approval Workflow
+        Task<PayoutRequest> CreatePayoutRequestAsync(long userId, string ownerType, decimal amount, string bankCode, string accountNumber, string description = "");
+        Task<List<PayoutRequest>> GetPayoutRequestsAsync(string? status = null);
+        Task<List<PayoutRequest>> GetMyPayoutRequestsAsync(long userId, string ownerType);
+        Task<PayoutRequest> ApprovePayoutRequestAsync(long payoutId, long adminUserId);
+        Task<PayoutRequest> RejectPayoutRequestAsync(long payoutId, long adminUserId, string reason);
     }
 }

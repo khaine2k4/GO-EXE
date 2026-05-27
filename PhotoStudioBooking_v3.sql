@@ -527,6 +527,33 @@ CREATE UNIQUE INDEX UX_settlements_booking ON settlements(booking_id);
 GO
 
 -- ================================================================
+-- 18c. PAYOUT REQUESTS
+-- ================================================================
+CREATE TABLE payout_requests (
+    payout_id        BIGINT         PRIMARY KEY IDENTITY(1,1),
+    wallet_id        BIGINT         NOT NULL,
+    amount           DECIMAL(18,0)  NOT NULL,
+    -- 'PENDING' | 'APPROVED' | 'REJECTED' | 'FAILED'
+    status           VARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    bank_code        VARCHAR(50)    NOT NULL,
+    account_number   VARCHAR(50)    NOT NULL,
+    account_name     VARCHAR(100)   NOT NULL,
+    description      NVARCHAR(255)  NULL,
+    reference_id     VARCHAR(100)   NOT NULL UNIQUE,
+    transaction_code VARCHAR(100)   NULL,
+    failure_reason   NVARCHAR(500)  NULL,
+    created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT FK_payout_requests_wallets FOREIGN KEY (wallet_id) REFERENCES wallets(wallet_id),
+    CONSTRAINT CK_payout_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'FAILED'))
+);
+GO
+CREATE INDEX IX_payout_requests_wallet ON payout_requests(wallet_id);
+CREATE INDEX IX_payout_requests_status ON payout_requests(status);
+GO
+
+-- ================================================================
 -- 19. REVIEWS                                        [FIX-09,11]
 --     Only allowed when booking.status = COMPLETED
 --     Enforced by trigger trg_reviews_check_completed (see below)
@@ -1035,6 +1062,74 @@ END;
 GO
 
 -- ================================================================
+-- 18a. WALLETS
+-- ================================================================
+CREATE TABLE wallets (
+    wallet_id    BIGINT        PRIMARY KEY IDENTITY(1,1),
+    owner_type   VARCHAR(10)   NOT NULL, -- 'CUSTOMER' | 'STUDIO'
+    owner_id     BIGINT        NOT NULL, -- user_id if CUSTOMER, studio_id if STUDIO
+    balance      DECIMAL(18,0) NOT NULL DEFAULT 0, -- current balance (VND)
+    total_in     DECIMAL(18,0) NOT NULL DEFAULT 0, -- total cash credited
+    total_out    DECIMAL(18,0) NOT NULL DEFAULT 0, -- total cash debited/withdrawn
+    created_at   DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at   DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT UQ_wallet_owner UNIQUE (owner_type, owner_id),
+    CONSTRAINT CK_wallet_owner_type CHECK (owner_type IN ('CUSTOMER', 'STUDIO'))
+);
+GO
+
+-- ================================================================
+-- 18b. WALLET TRANSACTIONS
+-- ================================================================
+CREATE TABLE wallet_transactions (
+    tx_id         BIGINT        PRIMARY KEY IDENTITY(1,1),
+    wallet_id     BIGINT        NOT NULL,
+    tx_type       VARCHAR(20)   NOT NULL, -- 'CREDIT_REFUND' | 'CREDIT_EARNING' | 'DEBIT_WITHDRAW'
+    amount        DECIMAL(18,0) NOT NULL,
+    balance_after DECIMAL(18,0) NOT NULL,
+    booking_id    BIGINT        NULL,
+    payment_id    BIGINT        NULL,
+    description   NVARCHAR(500) NULL,
+    created_at    DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT FK_wallet_transactions_wallets FOREIGN KEY (wallet_id) REFERENCES wallets(wallet_id),
+    CONSTRAINT FK_wallet_transactions_bookings FOREIGN KEY (booking_id) REFERENCES bookings(booking_id),
+    CONSTRAINT FK_wallet_transactions_payments FOREIGN KEY (payment_id) REFERENCES payments(payment_id),
+    CONSTRAINT CK_wallet_tx_type CHECK (tx_type IN ('CREDIT_REFUND', 'CREDIT_EARNING', 'DEBIT_WITHDRAW'))
+);
+GO
+
+CREATE INDEX IX_wallet_transactions_wallet ON wallet_transactions(wallet_id);
+GO
+
+-- ================================================================
+-- 18c. PAYOUT REQUESTS
+-- ================================================================
+CREATE TABLE payout_requests (
+    payout_id        BIGINT         PRIMARY KEY IDENTITY(1,1),
+    wallet_id        BIGINT         NOT NULL,
+    amount           DECIMAL(18,0)  NOT NULL,
+    status           VARCHAR(20)    NOT NULL DEFAULT 'PENDING', -- 'PENDING' | 'APPROVED' | 'REJECTED' | 'FAILED'
+    bank_code        VARCHAR(50)    NOT NULL, -- ví dụ: 'ICB', 'VCB', 'ACB'...
+    account_number   VARCHAR(50)    NOT NULL,
+    account_name     VARCHAR(100)   NOT NULL, -- Sẽ luôn là Tên của User được chuẩn hóa viết hoa không dấu
+    description      NVARCHAR(255)  NULL,
+    reference_id     VARCHAR(100)   NOT NULL UNIQUE, -- Mã tham chiếu duy nhất gửi lên PayOS
+    transaction_code VARCHAR(100)   NULL, -- Mã giao dịch PayOS trả về
+    failure_reason   NVARCHAR(500)  NULL,
+    created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+
+    CONSTRAINT FK_payout_requests_wallets FOREIGN KEY (wallet_id) REFERENCES wallets(wallet_id),
+    CONSTRAINT CK_payout_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'FAILED'))
+);
+GO
+
+CREATE INDEX IX_payout_requests_wallet ON payout_requests(wallet_id);
+CREATE INDEX IX_payout_requests_status ON payout_requests(status);
+GO
+
+-- ================================================================
 -- SEED DATA
 -- ================================================================
 
@@ -1083,8 +1178,8 @@ INSERT INTO categories (category_name, description, sort_order) VALUES
 GO
 PRINT N'================================================================';
 PRINT N'PhotoStudioBooking v3.0 — created successfully';
-PRINT N'25 tables | 4 views | 4 stored procedures | 4 triggers';
+PRINT N'28 tables | 4 views | 4 stored procedures | 4 triggers';
 PRINT N'SEQUENCE seq_booking_code registered';
-PRINT N'All 12 production fixes applied';
+PRINT N'All 12 production fixes + Wallet & Payout systems applied';
 PRINT N'================================================================';
 GO

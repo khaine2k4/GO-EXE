@@ -36,3 +36,36 @@ export async function getAllWalletsAdmin(): Promise<WalletDetail[]> {
   const response = await api.get<WalletDetail[]>('/admin/wallets')
   return response.data
 }
+
+export interface PayoutRequestItem {
+  payoutId: number
+  walletId: number
+  ownerName: string
+  ownerType: 'CUSTOMER' | 'STUDIO'
+  amount: number
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'FAILED'
+  bankCode: string
+  accountNumber: string
+  accountName: string
+  description?: string
+  referenceId: string
+  transactionCode?: string
+  failureReason?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export async function createWithdrawal(amount: number, bankCode: string, accountNumber: string, description?: string): Promise<{ message: string; payoutId: number }> {
+  const response = await api.post<{ message: string; payoutId: number }>('/wallet/withdraw', {
+    amount,
+    bankCode,
+    accountNumber,
+    description
+  })
+  return response.data
+}
+
+export async function getMyWithdrawals(): Promise<PayoutRequestItem[]> {
+  const response = await api.get<PayoutRequestItem[]>('/wallet/withdrawals')
+  return response.data
+}
