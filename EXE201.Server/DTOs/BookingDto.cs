@@ -92,6 +92,11 @@ namespace EXE201.Server.DTOs
         public decimal StudioRevenue { get; set; }
         public string? PaymentExpiresAt { get; set; }
         public bool CanCancel { get; set; }
+        public List<string> DemoPhotoUrls { get; set; } = new();
+        public List<string> FinalPhotoUrls { get; set; } = new();
+        public string? CustomerFeedback { get; set; }
+        public bool CanReview { get; set; }
+        public BookingReviewResponse? Review { get; set; }
         public string CreatedAt { get; set; } = null!;
         public PaymentResponse? LatestPayment { get; set; }
     }
@@ -100,6 +105,31 @@ namespace EXE201.Server.DTOs
     {
         public string? Reason { get; set; }
         public string? Note { get; set; }
+    }
+
+    public class PhotoDeliveryRequest
+    {
+        public List<string> PhotoUrls { get; set; } = new();
+        public string? Note { get; set; }
+    }
+
+    public class CustomerPhotoFeedbackRequest
+    {
+        public string Feedback { get; set; } = null!;
+    }
+
+    public class CreateBookingReviewRequest
+    {
+        public byte Rating { get; set; }
+        public string? Comment { get; set; }
+    }
+
+    public class BookingReviewResponse
+    {
+        public long Id { get; set; }
+        public byte Rating { get; set; }
+        public string? Comment { get; set; }
+        public string CreatedAt { get; set; } = null!;
     }
 
     public class PaymentResponse

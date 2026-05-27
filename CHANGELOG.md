@@ -15,6 +15,13 @@
 - Restructured frontend `FinanceManager.tsx` to showcase real-time Studio Wallet Balance and detailed transaction logs within the unified photographer dashboard.
 - Integrated a premium `Ví tiền của tôi` (My Wallet) tab into `ProfilePage.tsx` for Customers to view their balance and refund transaction history.
 
+## 2026-05-26
+
+- Added photo delivery steps to the booking workflow: demo photo upload, customer feedback, final photo delivery, and customer confirmation after final photos.
+- Added customer review creation after completed bookings, enforcing one review per completed booking.
+- Added a dedicated photographer booking detail page for demo/final photo links, customer feedback, customer messaging, final delivery confirmation, and review submission while keeping the main booking schedule view unchanged.
+- Added booking statuses for `DEMO_UPLOADED`, `EDITING`, and `FINAL_DELIVERED` in the SQL setup script.
+
 ## 2026-05-24
 
 - Refactored Photographer studio management into `/photographer/dashboard` with tab-based detail views.

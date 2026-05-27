@@ -1,5 +1,16 @@
 # AI Audit Log
 
+## 2026-05-27 - Merge Main With Booking Detail Delivery Flow
+
+- Merged the latest `origin/main` wallet/chatbot/calendar work into `hoang_gd2_UI`.
+- Kept the main branch booking schedule/calendar UI as the source of truth in `BookingManager.tsx`.
+- Added a dedicated photographer booking detail route:
+  - `GET /photographer/bookings/:id`
+  - Opens detail outside the main booking schedule view.
+  - Supports customer messaging through `/chat?studioId={studioId}&customerId={customerId}&bookingId={bookingId}`.
+  - Supports confirm/reject/start, demo photo upload, final photo upload, and customer feedback visibility.
+- Resolved `ConfirmCompletionAsync` so customer confirmation still requires `FINAL_DELIVERED -> COMPLETED` and also credits Studio Wallet via the wallet service from `main`.
+
 ## 2026-05-27 - Wallet DTO Refactoring & Withdrawal Integration
 
 - **Resolved JSON Object Cycle Exception**:

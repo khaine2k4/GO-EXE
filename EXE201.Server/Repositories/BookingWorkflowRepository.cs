@@ -120,6 +120,8 @@ namespace EXE201.Server.Repositories
                 .Include(b => b.Package)
                 .Include(b => b.Status)
                 .Include(b => b.Slot).ThenInclude(s => s.WorkingDay)
+                .Include(b => b.BookingLogs)
+                .Include(b => b.Review)
                 .Include(b => b.Payments).ThenInclude(p => p.Method)
                 .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
                 .FirstOrDefaultAsync();
@@ -179,6 +181,17 @@ namespace EXE201.Server.Repositories
                 .Select(s => (long?)s.StatusId)
                 .FirstOrDefaultAsync();
 
+        public async Task<long> GetOrCreateBookingStatusIdAsync(string statusName)
+        {
+            var status = await _context.BookingStatuses.FirstOrDefaultAsync(s => s.StatusName == statusName);
+            if (status != null) return status.StatusId;
+
+            status = new BookingStatus { StatusName = statusName };
+            _context.BookingStatuses.Add(status);
+            await _context.SaveChangesAsync();
+            return status.StatusId;
+        }
+
         // ── Booking Log ──────────────────────────────────────────────────────
 
         public void AddBookingLog(BookingLog log)
@@ -215,6 +228,12 @@ namespace EXE201.Server.Repositories
         public void AddSettlement(Settlement settlement)
             => _context.Settlements.Add(settlement);
 
+        public void AddReview(Review review)
+            => _context.Reviews.Add(review);
+
+        public async Task<bool> ReviewExistsAsync(long bookingId)
+            => await _context.Reviews.AnyAsync(r => r.BookingId == bookingId);
+
         // ── Private helpers ──────────────────────────────────────────────────
 
         private IQueryable<Booking> BookingQuery()
@@ -224,6 +243,8 @@ namespace EXE201.Server.Repositories
                 .Include(b => b.Package)
                 .Include(b => b.Status)
                 .Include(b => b.Slot).ThenInclude(s => s.WorkingDay)
+                .Include(b => b.BookingLogs)
+                .Include(b => b.Review)
                 .Include(b => b.Payments).ThenInclude(p => p.Method)
                 .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus);
 

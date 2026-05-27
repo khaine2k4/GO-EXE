@@ -86,7 +86,11 @@ INSERT INTO [booking_statuses] ([status_id], [status_name]) VALUES
 (4, 'IN_PROGRESS'),
 (5, 'COMPLETED'),
 (6, 'CANCELLED'),
-(7, 'REJECTED');
+(7, 'REJECTED'),
+(8, 'AWAITING_CUSTOMER'),
+(9, 'DEMO_UPLOADED'),
+(10, 'EDITING'),
+(11, 'FINAL_DELIVERED');
 SET IDENTITY_INSERT [booking_statuses] OFF;
 GO
 
@@ -428,3 +432,6 @@ PRINT ' ĐÃ INSERT THÀNH CÔNG 10 DÒNG DỮ LIỆU MẪU CAO CẤP VÀO TẤT
 PRINT ' MẬT KHẨU ĐĂNG NHẬP MẶC ĐỊNH CHO MỌI ACCOUNT LÀ: 123456'
 PRINT '========================================================================'
 GO
+
+
+

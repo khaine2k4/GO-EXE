@@ -16,6 +16,7 @@
 --     [FIX-09] created_by / updated_by on key tables
 --     [FIX-10] messages table (customer ↔ studio)
 --     [FIX-11] reviews: CHECK only when booking = COMPLETED
+--     [FIX-12] booking flow includes DEMO_UPLOADED, EDITING, FINAL_DELIVERED before COMPLETED
 --              (enforced via trigger)
 --     [FIX-12] Note: media_files table skipped per scope decision
 -- ================================================================
@@ -345,7 +346,7 @@ CREATE TABLE booking_statuses (
     status_id   BIGINT      PRIMARY KEY IDENTITY(1,1),
     status_name VARCHAR(20) NOT NULL UNIQUE
     -- PENDING_PAYMENT | PENDING_CONFIRMATION | CONFIRMED | IN_PROGRESS
-    -- AWAITING_CUSTOMER | COMPLETED | CANCELLED | REJECTED
+    -- DEMO_UPLOADED | EDITING | FINAL_DELIVERED | COMPLETED | CANCELLED | REJECTED
 );
 GO
 
@@ -418,12 +419,12 @@ CREATE INDEX IX_bookings_date     ON bookings(shooting_date);
 CREATE INDEX IX_bookings_code     ON bookings(booking_code);
 
 -- [FIX-07] Filtered unique index: chỉ enforce 1 booking/slot với trạng thái ACTIVE
--- CANCELLED(6) và REJECTED(7) không bị đếm → slot có thể được đặt lại
--- (status_id: PENDING_PAYMENT=1, PENDING_CONFIRMATION=2, CONFIRMED=3, IN_PROGRESS=4, COMPLETED=5, CANCELLED=6, REJECTED=7, AWAITING_CUSTOMER=8)
+-- CANCELLED(6) and REJECTED(7) are not counted, so the slot can be booked again.
+-- (status_id: PENDING_PAYMENT=1, PENDING_CONFIRMATION=2, CONFIRMED=3, IN_PROGRESS=4, COMPLETED=5, CANCELLED=6, REJECTED=7, AWAITING_CUSTOMER=8, DEMO_UPLOADED=9, EDITING=10, FINAL_DELIVERED=11)
 -- Note: SQL Server filtered index KHÔNG hỗ trợ NOT IN → dùng <> AND <>
 CREATE UNIQUE INDEX UX_bookings_slot_active
     ON bookings(slot_id)
-    WHERE status_id <> 6 AND status_id <> 7;   -- bỏ qua CANCELLED(6) và REJECTED(7)
+    WHERE status_id <> 6 AND status_id <> 7;  -- ignore CANCELLED(6) and REJECTED(7)
 GO
 
 -- ================================================================
@@ -1138,15 +1139,20 @@ INSERT INTO roles (role_name, description) VALUES
 ('CUSTOMER',     N'Khách hàng đặt lịch chụp ảnh'),
 ('STUDIO_OWNER', N'Chủ studio cung cấp dịch vụ');
 
-INSERT INTO booking_statuses (status_name) VALUES
-('PENDING_PAYMENT'),
-('PENDING_CONFIRMATION'),
-('CONFIRMED'),
-('IN_PROGRESS'),
-('COMPLETED'),
-('CANCELLED'),
-('REJECTED'),
-('AWAITING_CUSTOMER');
+SET IDENTITY_INSERT booking_statuses ON;
+INSERT INTO booking_statuses (status_id, status_name) VALUES
+(1, 'PENDING_PAYMENT'),
+(2, 'PENDING_CONFIRMATION'),
+(3, 'CONFIRMED'),
+(4, 'IN_PROGRESS'),
+(5, 'COMPLETED'),
+(6, 'CANCELLED'),
+(7, 'REJECTED'),
+(8, 'AWAITING_CUSTOMER'),
+(9, 'DEMO_UPLOADED'),
+(10, 'EDITING'),
+(11, 'FINAL_DELIVERED');
+SET IDENTITY_INSERT booking_statuses OFF;
 
 INSERT INTO payment_methods (method_name) VALUES
 ('VNPAY'), ('MOMO'), ('CASH'), ('BANK_TRANSFER'), ('PAYPAL');
