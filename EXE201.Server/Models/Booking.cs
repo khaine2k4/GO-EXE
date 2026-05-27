@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace exe201.Server.Models;
@@ -88,4 +88,6 @@ public partial class Booking
     public virtual BookingStatus Status { get; set; } = null!;
 
     public virtual Studio Studio { get; set; } = null!;
+
+    public virtual ICollection<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
 }

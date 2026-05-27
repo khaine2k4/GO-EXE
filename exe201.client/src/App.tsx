@@ -12,6 +12,7 @@ import PhotographerProfilePage from './pages/PhotographerProfilePage'
 import CustomerBookingsPage from './pages/CustomerBookingsPage'
 import CustomerBookingDetailPage from './pages/CustomerBookingDetailPage'
 import PhotographerDashboardPage from './pages/PhotographerDashboardPage'
+import PhotographerBookingDetailPage from './pages/PhotographerBookingDetailPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminOrdersPage from './pages/AdminOrdersPage'
@@ -148,7 +149,7 @@ export default function App() {
           <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=bookings" replace /></RequireAuth>
         } />
         <Route path="/photographer/bookings/:id" element={
-          <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=bookings" replace /></RequireAuth>
+          <RequireAuth role="PHOTOGRAPHER"><PhotographerBookingDetailPage /></RequireAuth>
         } />
         <Route path="/photographer/wallet" element={
           <RequireAuth role="PHOTOGRAPHER"><Navigate to="/photographer/dashboard?tab=finance" replace /></RequireAuth>

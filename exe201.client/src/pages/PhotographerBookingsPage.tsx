@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Activity,
   Calendar,
@@ -17,16 +16,17 @@ import {
   User,
   ArrowRight
 } from 'lucide-react'
-import { useToast } from '../../Toast'
-import CustomDialog from '../../CustomDialog'
-import { Drawer } from './Panel'
+import { useToast } from '../components/Toast'
+import CustomDialog from '../components/CustomDialog'
+import { Drawer } from '../components/photographer/management/Panel'
 import {
+  completeBooking,
   confirmBooking,
   getBookings,
   markInProgress,
   rejectBooking,
   type BookingDto,
-} from '../../../services/bookingApi'
+} from '../services/bookingApi'
 
 function formatVnd(value?: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value ?? 0)} VND`
@@ -68,9 +68,8 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: 'Từ chối',
 }
 
-export default function BookingManager({ initialBooking, onChanged }: { initialBooking?: BookingDto | null; onChanged?: () => void }) {
+export default function PhotographerBookingsPage({ initialBooking, onChanged }: { initialBooking?: BookingDto | null; onChanged?: () => void }) {
   const toast = useToast()
-  const navigate = useNavigate()
 
   const [activeTab, setActiveTab] = useState<'list' | 'calendar'>('list')
   const [bookings, setBookings] = useState<BookingDto[]>([])
@@ -194,7 +193,26 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
   }
 
   const handleComplete = async (id: number) => {
-    navigate(`/photographer/bookings/${id}`)
+    setActionLoadingId(id)
+    try {
+      const updated = await completeBooking(id)
+      toast.push({
+        type: 'success',
+        title: 'Hoàn thành!',
+        message: 'Job chụp ảnh đã được xác nhận hoàn thành.',
+      })
+      if (selected?.id === id) setSelected(updated)
+      await fetchBookings()
+      onChanged?.()
+    } catch {
+      toast.push({
+        type: 'error',
+        title: 'Thất bại',
+        message: 'Không thể đánh dấu hoàn thành job.',
+      })
+    } finally {
+      setActionLoadingId(null)
+    }
   }
 
   // Filter & Search Logic
@@ -450,7 +468,7 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() => navigate(`/photographer/bookings/${item.id}`)}
+                            onClick={() => setSelected(item)}
                             className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
                             title="Xem chi tiết"
                           >
@@ -631,7 +649,7 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                       <button
                         type="button"
-                         onClick={() => navigate(`/photographer/bookings/${item.id}`)}
+                        onClick={() => setSelected(item)}
                         className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition"
                       >
                         Chi tiết <ArrowRight className="h-3 w-3" />

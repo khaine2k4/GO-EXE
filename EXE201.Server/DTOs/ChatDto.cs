@@ -43,4 +43,17 @@ namespace EXE201.Server.DTOs
         public long? CustomerId { get; set; }
         public long? BookingId { get; set; }
     }
+
+    // ── AI Assistant Chatbot ──────────────────────────────
+    public class AssistantChatMessageDto
+    {
+        public string Sender { get; set; } = null!; // "user" hoặc "bot"
+        public string Content { get; set; } = null!;
+    }
+
+    public class AssistantChatRequestDto
+    {
+        public string Message { get; set; } = null!;
+        public List<AssistantChatMessageDto>? History { get; set; }
+    }
 }

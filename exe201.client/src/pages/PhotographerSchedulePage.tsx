@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarDays, RefreshCw, Save, Clock, HelpCircle, ToggleLeft, ToggleRight, Play } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { getStudioRevenue } from '../services/studioRevenueApi'
+import { getStudioDashboard } from '../services/studioApi'
 import {
   getMySchedules,
   getStudioSlots,
@@ -34,7 +35,11 @@ const durations = [
 ]
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 export default function PhotographerSchedulePage() {
@@ -72,9 +77,38 @@ export default function PhotographerSchedulePage() {
     setLoading(true)
     setError('')
     try {
-      const [scheduleData, revenue] = await Promise.all([getMySchedules(), getStudioRevenue({})])
-      setSchedules(scheduleData)
-      setStudioId(scheduleData[0]?.studioId ?? revenue.studioId)
+      const results = await Promise.allSettled([
+        getMySchedules(),
+        getStudioRevenue({}),
+        getStudioDashboard(),
+      ])
+
+      const scheduleResult = results[0]
+      const revenueResult = results[1]
+      const dashboardResult = results[2]
+
+      let scheduleData: WorkingSchedule[] = []
+      if (scheduleResult.status === 'fulfilled') {
+        scheduleData = scheduleResult.value
+        setSchedules(scheduleData)
+      } else {
+        console.error('Failed to load schedules:', scheduleResult.reason)
+      }
+
+      let retrievedStudioId: number | null = null
+      if (scheduleData[0]?.studioId) {
+        retrievedStudioId = scheduleData[0].studioId
+      } else if (revenueResult.status === 'fulfilled') {
+        retrievedStudioId = revenueResult.value.studioId
+      } else if (dashboardResult.status === 'fulfilled') {
+        retrievedStudioId = (dashboardResult.value as any).studioId || (dashboardResult.value as any).id || null
+      }
+
+      setStudioId(retrievedStudioId)
+
+      if (scheduleResult.status === 'rejected' && !retrievedStudioId) {
+        throw new Error('Schedules load failed and no studio ID found.')
+      }
     } catch {
       setError('Không thể tải lịch làm việc của Studio.')
       toast.push({ type: 'error', title: 'Tải lịch thất bại', message: 'Vui lòng kiểm tra kết nối mạng.' })
@@ -192,7 +226,7 @@ export default function PhotographerSchedulePage() {
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
         <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-indigo-300">
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50/20 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-indigo-300">
               ⚡ QUẢN LÝ CA CHỤP & LỊCH LÀM VIỆC
             </div>
             <h1 className="mt-3 text-3xl font-black tracking-tight">Thiết lập Lịch biểu Studio</h1>

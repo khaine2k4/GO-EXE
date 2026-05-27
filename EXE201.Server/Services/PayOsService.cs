@@ -48,6 +48,11 @@ namespace EXE201.Server.Services
             return await _payOS.PaymentRequests.CreateAsync(paymentRequest);
         }
 
+        public async Task<PaymentLink> GetPaymentLinkInformationAsync(long orderCode)
+        {
+            return await _payOS.PaymentRequests.GetAsync(orderCode);
+        }
+
         public async Task<WebhookData> VerifyWebhookDataAsync(string webhookBodyJson)
         {
             var webhook = JsonSerializer.Deserialize<Webhook>(webhookBodyJson, new JsonSerializerOptions

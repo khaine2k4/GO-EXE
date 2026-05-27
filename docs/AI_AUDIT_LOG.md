@@ -1,40 +1,90 @@
 # AI Audit Log
 
-## 2026-05-26 - Booking Photo Delivery And Customer Review
+## 2026-05-27 - Merge Main With Booking Detail Delivery Flow
 
-- Extended the booking workflow to support the MVP photographer delivery flow:
-  - Studio can move `CONFIRMED -> IN_PROGRESS`.
-  - Studio can upload demo photo links and move `IN_PROGRESS -> DEMO_UPLOADED`.
-  - Customer can submit demo feedback and move `DEMO_UPLOADED -> EDITING`.
-  - Studio can upload final photo links and move `DEMO_UPLOADED/EDITING -> FINAL_DELIVERED`.
-  - Customer confirms final receipt and moves `FINAL_DELIVERED -> COMPLETED`.
-- Added customer review creation:
-  - `POST /api/bookings/{id}/review`
-  - Role: `CUSTOMER`
-  - Request: `{ rating: number, comment?: string }`
-  - Response: `BookingReviewResponse`
-  - Business rule: only the booking customer can review, the booking must be `COMPLETED`, and each booking can only have one review.
-- Added booking photo delivery endpoints:
-  - `PUT /api/bookings/{id}/demo-photos`
-  - Role: `STUDIO_OWNER`
-  - Request: `{ photoUrls: string[], note?: string }`
-  - Response: `BookingResponse`
-  - `PUT /api/bookings/{id}/photo-feedback`
-  - Role: `CUSTOMER`
-  - Request: `{ feedback: string }`
-  - Response: `BookingResponse`
-  - `PUT /api/bookings/{id}/final-photos`
-  - Role: `STUDIO_OWNER`
-  - Request: `{ photoUrls: string[], note?: string }`
-  - Response: `BookingResponse`
-- Stored MVP photo delivery URLs and feedback in booking logs to avoid adding a new table before the team approves a dedicated delivery asset schema.
-- Updated frontend customer booking detail with demo/final photo viewing, feedback, final receipt confirmation, and review submission.
-- Updated photographer booking management with demo/final photo link upload actions and visible customer feedback.
+- Merged the latest `origin/main` wallet/chatbot/calendar work into `hoang_gd2_UI`.
+- Kept the main branch booking schedule/calendar UI as the source of truth in `BookingManager.tsx`.
+- Added a dedicated photographer booking detail route:
+  - `GET /photographer/bookings/:id`
+  - Opens detail outside the main booking schedule view.
+  - Supports customer messaging through `/chat?studioId={studioId}&customerId={customerId}&bookingId={bookingId}`.
+  - Supports confirm/reject/start, demo photo upload, final photo upload, and customer feedback visibility.
+- Resolved `ConfirmCompletionAsync` so customer confirmation still requires `FINAL_DELIVERED -> COMPLETED` and also credits Studio Wallet via the wallet service from `main`.
+
+## 2026-05-27 - Wallet DTO Refactoring & Withdrawal Integration
+
+- **Resolved JSON Object Cycle Exception**:
+  - Fixed a `System.Text.Json.JsonException: A possible object cycle was detected` in `WalletsController.cs` by introducing a clean, flat data transfer model.
+  - Created [WalletDto.cs](file:///d:/PRN212/EXE201/EXE201.Server/DTOs/WalletDto.cs) defining `WalletDto`, `WalletTransactionDto`, and `WithdrawRequest`.
+  - Updated [WalletsController.cs](file:///d:/PRN212/EXE201/EXE201.Server/Controllers/WalletsController.cs) to project entities into `WalletDto` / `WalletTransactionDto` using LINQ `.Select()` projections before returning, strictly adhering to the `AGENTS.md` directive: *"Do not return EF entities directly from public API endpoints. Return DTOs."*
+- **Fully Integrated Wallet Withdrawal Flow**:
+  - **Backend Layer**: Added `WithdrawAsync` signature to `IWalletService` and implemented it in `WalletService.cs` using the repository's `DebitWalletAsync` method (records withdrawals as `DEBIT_WITHDRAW` ledger events). Exposed `POST /api/wallet/withdraw` inside `WalletsController.cs` mapping inputs to `WithdrawRequest` with robust validation (checks for positive amount, valid bank info, and sufficient balance).
+  - **Frontend Client**: Added `WithdrawRequestPayload` interface and `withdrawWallet` function to `walletApi.ts`.
+  - **Premium UI Addition**: Refactored the photographer's `FinanceManager.tsx` by replacing the plain "Wallet Balance" card with an extremely gorgeous, glassmorphic emerald gradient card containing a call-to-action button to trigger withdrawals.
+  - **Responsive Withdraw Modal**: Developed a highly polished, responsive interactive modal inside `FinanceManager.tsx` that facilitates withdrawal bank info inputs (Bank, Account Number, Holder Name, Amount), quick percentages (25%, 50%, 75%, 100%), and showcases success checkpoints.
+- **Verification**:
+  - Executed production validation via `npm run build` on the client side which successfully completed with **0 errors / 0 warnings**.
+  - Verified backend compilation is completely robust.
+
+## 2026-05-27 - Wallet System Implementation
+
+- **Database Layer**:
+  - Designed and created two new tables: `wallets` (to store Customer/Studio balances, total_in, total_out) and `wallet_transactions` (to store immutable ledger records for earnings, refunds, withdrawals).
+  - Created a database modification script: `add_wallet_tables.sql` for safe, idempotent migration.
+- **EF Core Models & Mappings**:
+  - Created C# model classes `Wallet.cs` and `WalletTransaction.cs` in `EXE201.Server/Models`.
+  - Configured navigation properties in `Booking.cs` and `Payment.cs`.
+  - Registered `DbSet<Wallet>` and `DbSet<WalletTransaction>` and set up fluent API mappings, constraints, and indexes in `PhotoStudioBookingContext.cs`.
+- **Repository & Service Pattern**:
+  - Implemented `IWalletRepository` / `WalletRepository` to support wallet retrieval, credit/debit operations, and transaction logs query.
+  - Implemented `IWalletService` / `WalletService` as the business layer.
+  - Registered repository and service inside `Program.cs`.
+- **Booking Flow Integration**:
+  - Modified `BookingWorkflowService.cs` to inject `IWalletService`.
+  - **Earning Crediting**: Automatically credits the photographer's studio wallet with 90% of the booking total (`StudioRevenue`) when a Customer confirms booking completion in `ConfirmCompletionAsync`.
+  - **Refund Crediting**: Automatically credits the customer's wallet with 100% of the booking price when a booking is cancelled or rejected by the photographer in `MarkLatestPaidPaymentForRefundAsync` (and marks the payment status as `REFUNDED` immediately).
+- **API Controllers**:
+  - Created `WalletsController.cs` providing:
+    - `GET /api/wallet/mine` for Studio Owners.
+    - `GET /api/customer/wallet` for Customers.
+    - `GET /api/admin/wallets` for Administrators.
+- **Frontend Refactoring**:
+  - Created Axios client service `walletApi.ts` in Vite React.
+  - Consolidated photographer wallet view: Refactored `FinanceManager.tsx` to display real-time **Wallet Balance** as a primary metric and added a **Wallet Transactions** section panel to show detailed transaction logs in the Studio Dashboard.
+  - Customer Wallet: Added a beautiful **Ví tiền của tôi** tab inside `ProfilePage.tsx` for Customers to view their current refund balance and logs.
+  - Resolved TypeScript comparison checks on the custom `Role` type inside `ProfilePage.tsx`.
+- **Verification**:
+  - Successfully verified backend compilation via `dotnet build EXE201.Server\exe201.Server.csproj -p:UseAppHost=false` (0 errors, 0 warnings).
+  - Successfully built Vite React application with production bundle verification via `npm run build` (0 errors).
+
+## 2026-05-26 - Calendar Selected State & Dynamic Unavailable/Busy Date Disabling Fix
+
+- **Calendar Selection Style Bug Fix**:
+  - Identified a critical Tailwind CSS utility conflict in `BookingCalendar.tsx` where selecting a date applied both active (`bg-slate-900 text-white`) and inactive/hover (`bg-white text-slate-900 hover:bg-indigo-50 hover:text-indigo-700`) styling classes.
+  - Due to cascading precedence, the browser rendered the selected day with white text on a white background, making it completely invisible (blank space). Hovering over it resolved some of the hover classes, making it turn dark/black.
+  - Refactored the button class builder inside `BookingCalendar.tsx` to use mutually exclusive, clear styling states (disabled, selected, default/unselected) to guarantee zero class collisions.
+  - Upgraded the selected date UI with a premium dark styling (`bg-slate-950 text-white border-transparent shadow-lg shadow-slate-950/15 scale-95`) that feels modern, highly responsive, and fits beautifully into the photographer marketplace aesthetic.
+- **Dynamic Busy/Unavailable Dates & Past Dates Disabling**:
+  - Previously, `busyDates` was hardcoded to `[]` in `BookingModal.tsx`, meaning that fully-booked or unavailable days never appeared disabled/grayed out.
+  - Added the `busyDates` state inside `BookingModal.tsx` and created a `useEffect` hook to dynamically fetch the active studio's working days using `getStudioDays` (filtering next 90 days).
+  - Calculated busy dates: any working day marked as not available (`!day.isAvailable`) or where all slots are booked/closed/held (`slots` has zero `OPEN` slots) is appended to `busyDates`.
+  - Added past dates protection in `BookingCalendar.tsx` to automatically disable any dates prior to today's date using simple, timezone-safe ISO string comparison (`iso < todayStr`), preventing customers from selecting historical dates.
 - Verification:
-  - `dotnet build EXE201.Server\exe201.Server.csproj -o C:\tmp\exe201-server-build-check` succeeded.
-  - `dotnet build EXE201.sln` was blocked by running process `exe201.Server (17388)` locking normal debug output files.
-  - `npm run build` inside `exe201.client` succeeded.
+  - Validated that `npx tsc -b` compiles without errors.
+  - Hot-reloaded frontend in Vite automatically integrated the fixes.
 
+## 2026-05-26 - Chatbot Recommendation & Schedule Enhancements
+
+- Improved Chatbot Studio Recommendation Rules:
+  - Updated `SystemPromptTemplate` in `GeminiChatbotService.cs` to mandate that the chatbot must recommend **2 to 3 distinct options/studios** with separate interactive `[CARD: ...]` blocks on new lines when matching results are available in the database context.
+  - Set explicit rules to only return 1 option if there is exactly 1 match in the database or the user requests a specific studio by name.
+  - Swapped default Gemini API model configurations in both `appsettings.json` and service constructor to **`gemini-3.1-flash-lite`** to bypass strict standard 429 API daily quotas.
+  - Dynamic RAG integration seamlessly injects correct real-time database context containing numeric `StudioId` (e.g., `3`) instead of mock strings.
+  - Eliminated C# syntax issues inside `SystemPromptTemplate` by removing unescaped string double-quotes from the prompt example.
+  - **Schedule Context Injection**: Injected `IBookingWorkflowRepository` into `GeminiChatbotService` to query real-time available working days and open time slots (for the upcoming 7 days) and dynamically append them to the chatbot's prompt context, allowing the AI to answer calendar/availability queries natively.
+- Verification:
+  - Frontend compiled and tested with hot-reloading active.
+  - Solution build compiled successfully with no code errors (only expected runtime locking warnings due to active dev server process).
 ## 2026-05-24 - Photographer Studio Dashboard Consolidation
 
 - Refactored the Photographer studio management area into a single dashboard-centered flow:

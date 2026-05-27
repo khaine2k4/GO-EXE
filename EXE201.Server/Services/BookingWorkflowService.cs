@@ -33,12 +33,14 @@ namespace EXE201.Server.Services
         private readonly IBookingWorkflowRepository _repo;
         private readonly IConfiguration _configuration;
         private readonly IPayOsService _payOsService;
+        private readonly IWalletService _walletService;
 
-        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration, IPayOsService payOsService)
+        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration, IPayOsService payOsService, IWalletService walletService)
         {
             _repo = repo;
             _configuration = configuration;
             _payOsService = payOsService;
+            _walletService = walletService;
         }
 
         public async Task<List<WorkingScheduleResponse>> GetMySchedulesAsync(long ownerId)
@@ -334,12 +336,12 @@ namespace EXE201.Server.Services
                 bookingId,
                 BookingPendingConfirmation,
                 BookingRejected,
-                b =>
+                async b =>
                 {
                     b.RejectedAt = DateTime.UtcNow;
                     b.RejectReason = reason;
                     b.Slot.Status = SlotOpen;
-                    MarkLatestPaidPaymentForRefund(b, reason ?? "Studio rejected booking");
+                    await MarkLatestPaidPaymentForRefundAsync(b, reason ?? "Studio rejected booking");
                 },
                 reason ?? "Studio rejected");
 
@@ -468,6 +470,12 @@ namespace EXE201.Server.Services
 
             await CreateSettlementIfNeededAsync(booking);
 
+            await _walletService.CreditStudioEarningAsync(
+                booking.StudioId,
+                booking.StudioRevenue,
+                booking.BookingId,
+                $"Studio revenue from Booking #{booking.BookingCode}");
+
             AddBookingLogEntry(booking.BookingId, BookingFinalDelivered, BookingCompleted, customerId, "Customer confirmed final photos received");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
@@ -511,7 +519,7 @@ namespace EXE201.Server.Services
             }
             else
             {
-                MarkLatestPaidPaymentForRefund(booking, reason ?? $"{role} cancelled booking");
+                await MarkLatestPaidPaymentForRefundAsync(booking, reason ?? $"{role} cancelled booking");
             }
 
             AddBookingLogEntry(booking.BookingId, oldEffectiveStatus, BookingCancelled, userId, reason ?? $"{role} cancelled booking");
@@ -957,21 +965,29 @@ namespace EXE201.Server.Services
             payment.UpdatedAt = DateTime.UtcNow;
         }
 
-        private void MarkLatestPaidPaymentForRefund(Booking booking, string reason)
+        private async Task MarkLatestPaidPaymentForRefundAsync(Booking booking, string reason)
         {
             var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
             if (payment == null || payment.PaymentStatus.StatusName != PaymentPaid) return;
             if (payment.Method.MethodName == "CASH") return;
 
-            var refundPending = _repo.GetPaymentStatusAsync(PaymentRefundPending).GetAwaiter().GetResult();
-            if (refundPending == null) return;
+            var refundedStatus = await _repo.GetPaymentStatusAsync("REFUNDED");
+            if (refundedStatus == null) return;
 
-            payment.PaymentStatusId = refundPending.PaymentStatusId;
-            payment.PaymentStatus = refundPending;
-            payment.RefundMethod = "MANUAL";
-            payment.RefundPendingReason = reason;
+            payment.PaymentStatusId = refundedStatus.PaymentStatusId;
+            payment.PaymentStatus = refundedStatus;
+            payment.RefundedAt = DateTime.UtcNow;
+            payment.RefundMethod = "WALLET";
             payment.RefundReason = reason;
             payment.UpdatedAt = DateTime.UtcNow;
+
+            // Credit the customer's wallet
+            await _walletService.CreditCustomerRefundAsync(
+                booking.CustomerId,
+                booking.TotalPrice,
+                booking.BookingId,
+                $"Hoàn tiền Booking #{booking.BookingCode} (lý do: {reason})"
+            );
         }
 
         private static void GenerateSlots(WorkingDay day, TimeOnly openTime, TimeOnly closeTime, int durationMinutes)
@@ -1147,7 +1163,7 @@ namespace EXE201.Server.Services
             var description = $"Thanh toan BK{booking.BookingId}";
             if (description.Length > 25) description = description.Substring(0, 25);
             var returnUrl = _configuration["PayOS:ReturnUrl"] ?? "http://localhost:5289/api/payments/payos-return";
-            var cancelUrl = _configuration["PayOS:CancelUrl"] ?? "http://localhost:5173/customer/bookings";
+            var cancelUrl = _configuration["PayOS:CancelUrl"] ?? returnUrl;
 
             try
             {
@@ -1169,41 +1185,7 @@ namespace EXE201.Server.Services
                 if (verifiedData == null) return false;
 
                 var bookingId = verifiedData.OrderCode;
-                await using var tx = await _repo.BeginTransactionAsync();
-
-                var booking = await _repo.GetBookingForUpdateAsync(bookingId);
-                if (booking == null) return false;
-
-                var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
-                if (payment == null) return false;
-
-                // Idempotency check: only process if payment is PENDING
-                if (payment.PaymentStatus.StatusName != PaymentPending)
-                {
-                    await tx.CommitAsync();
-                    return true;
-                }
-
-                var paidStatus = await _repo.GetPaymentStatusAsync(PaymentPaid);
-                var pendingConfirmationId = await _repo.GetBookingStatusIdAsync(BookingPendingConfirmation);
-                if (paidStatus == null || pendingConfirmationId == null) return false;
-
-                payment.PaymentStatusId = paidStatus.PaymentStatusId;
-                payment.PaymentStatus = paidStatus;
-                payment.TransactionCode = verifiedData.Reference ?? $"PAYOS-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
-                payment.PaidAt = DateTime.UtcNow;
-                payment.UpdatedAt = DateTime.UtcNow;
-
-                booking.StatusId = pendingConfirmationId.Value;
-                booking.PaymentExpiresAt = null;
-                booking.UpdatedAt = DateTime.UtcNow;
-                booking.Slot.Status = SlotBooked;
-
-                AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingPendingConfirmation, booking.CustomerId, "Paid successfully via payOS (VietQR)");
-
-                await _repo.SaveChangesAsync();
-                await tx.CommitAsync();
-                return true;
+                return await MarkBookingPaidAsync(bookingId, verifiedData.Reference);
             }
             catch (Exception ex)
             {
@@ -1211,5 +1193,134 @@ namespace EXE201.Server.Services
                 return false;
             }
         }
+
+        public async Task<bool> ProcessPayOsReturnAsync(long bookingId, string status)
+        {
+            try
+            {
+                // Retrieve actual status directly from payOS API using the order code (bookingId)
+                var paymentInfo = await _payOsService.GetPaymentLinkInformationAsync(bookingId);
+                if (paymentInfo == null) return false;
+
+                var payOsStatus = paymentInfo.Status.ToString();
+                if (IsPayOsPaidStatus(payOsStatus) || IsPayOsPaidStatus(status))
+                {
+                    // Find the latest transaction reference if available
+                    string? transactionRef = null;
+                    if (paymentInfo.Transactions != null && paymentInfo.Transactions.Count > 0)
+                    {
+                        var latestTx = paymentInfo.Transactions.LastOrDefault();
+                        transactionRef = latestTx?.Reference;
+                    }
+
+                    return await MarkBookingPaidAsync(bookingId, transactionRef);
+                }
+
+                if (IsPayOsFailedStatus(payOsStatus) || IsPayOsFailedStatus(status))
+                {
+                    return await MarkBookingPaymentFailedAsync(bookingId, $"Payment {payOsStatus} via payOS");
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing PayOS Return for booking {bookingId}: {ex.Message}");
+                return false;
+            }
+        }
+
+        private async Task<bool> MarkBookingPaidAsync(long bookingId, string? transactionCode)
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null) return false;
+
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+            if (payment == null) return false;
+
+            // Idempotency check: only process if payment is PENDING
+            if (payment.PaymentStatus.StatusName != PaymentPending)
+            {
+                await tx.CommitAsync();
+                return true;
+            }
+
+            var paidStatus = await _repo.GetPaymentStatusAsync(PaymentPaid);
+            var pendingConfirmationId = await _repo.GetBookingStatusIdAsync(BookingPendingConfirmation);
+            if (paidStatus == null || pendingConfirmationId == null) return false;
+
+            payment.PaymentStatusId = paidStatus.PaymentStatusId;
+            payment.PaymentStatus = paidStatus;
+            payment.TransactionCode = transactionCode ?? $"PAYOS-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+            payment.PaidAt = DateTime.UtcNow;
+            payment.UpdatedAt = DateTime.UtcNow;
+
+            booking.StatusId = pendingConfirmationId.Value;
+            booking.PaymentExpiresAt = null;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.Slot.Status = SlotBooked;
+
+            AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingPendingConfirmation, booking.CustomerId, "Paid successfully via payOS (VietQR)");
+
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+            return true;
+        }
+
+        private async Task<bool> MarkBookingPaymentFailedAsync(long bookingId, string reason)
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null) return false;
+
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+            if (payment == null) return false;
+
+            if (payment.PaymentStatus.StatusName != PaymentPending)
+            {
+                await tx.CommitAsync();
+                return true;
+            }
+
+            var failedStatus = await _repo.GetPaymentStatusAsync(PaymentFailed);
+            var cancelledId = await _repo.GetBookingStatusIdAsync(BookingCancelled);
+            if (failedStatus == null || cancelledId == null) return false;
+
+            payment.PaymentStatusId = failedStatus.PaymentStatusId;
+            payment.PaymentStatus = failedStatus;
+            payment.FailureReason = reason;
+            payment.UpdatedAt = DateTime.UtcNow;
+
+            booking.StatusId = cancelledId.Value;
+            booking.CancelledAt = DateTime.UtcNow;
+            booking.CancelReason = reason;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.Slot.Status = SlotOpen;
+
+            AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingCancelled, booking.CustomerId, reason);
+
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+            return true;
+        }
+
+        private static bool IsPayOsPaidStatus(string? status)
+            => string.Equals(status, "PAID", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "PAID_SUCCESS", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "SUCCESS", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "SUCCEEDED", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsPayOsFailedStatus(string? status)
+            => string.Equals(status, "CANCELLED", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "CANCELED", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "EXPIRED", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "FAILED", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "Expired", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, "Failed", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -37,10 +37,12 @@ export default function BookingCalendar({
   for (let i = 0; i < startWeekday; i++) {
     grid.push({ iso: `blank-${i}`, day: 0, disabled: true })
   }
+  const todayStr = toIsoDate(new Date())
   for (let day = 1; day <= totalDays; day++) {
     const d = new Date(cursor.getFullYear(), cursor.getMonth(), day)
     const iso = toIsoDate(d)
-    const disabled = busyDates.includes(iso)
+    const isPast = iso < todayStr
+    const disabled = isPast || busyDates.includes(iso)
     grid.push({ iso, day, disabled })
   }
 
@@ -78,7 +80,7 @@ export default function BookingCalendar({
 
       <div className="mt-2 grid grid-cols-7 gap-2">
         {grid.map((cell) => {
-          if (cell.day === 0) return <div key={cell.iso} />
+          if (cell.day === 0) return <div key={cell.iso} className="h-10" />
           const isSelected = value === cell.iso
           const disabled = cell.disabled
           return (
@@ -88,11 +90,12 @@ export default function BookingCalendar({
               disabled={disabled}
               onClick={() => onChange(cell.iso)}
               className={[
-                'h-10 rounded-xl text-sm font-semibold transition',
+                'h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center',
                 disabled
-                  ? 'cursor-not-allowed bg-slate-50 text-slate-300'
-                  : 'bg-white text-slate-900 hover:bg-indigo-50 hover:text-indigo-700',
-                isSelected ? 'bg-slate-900 text-white hover:bg-slate-900 hover:text-white' : 'border border-slate-200',
+                  ? 'cursor-not-allowed bg-slate-50 text-slate-300 border border-slate-100'
+                  : isSelected
+                    ? 'bg-slate-950 text-white border-transparent shadow-lg shadow-slate-950/15 scale-95 hover:bg-slate-900 hover:text-white'
+                    : 'bg-white text-slate-900 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-600',
               ].join(' ')}
               aria-label={cell.iso}
             >

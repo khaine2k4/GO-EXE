@@ -37,5 +37,6 @@ namespace EXE201.Server.Services
         // payOS
         Task<string?> CreatePayOsPaymentUrlAsync(long customerId, long bookingId);
         Task<bool> ProcessPayOsWebhookAsync(string webhookBodyJson);
+        Task<bool> ProcessPayOsReturnAsync(long bookingId, string status);
     }
 }

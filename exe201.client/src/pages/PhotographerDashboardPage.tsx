@@ -122,19 +122,19 @@ export default function PhotographerDashboardPage() {
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Studio dashboard</p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">Manage your studio from one place</h1>
+            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Bảng điều khiển Studio</p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">Quản lý Studio ở một nơi duy nhất</h1>
             <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
-              Overview first, then drill into services, packages, portfolio, bookings, finance, or profile without jumping across separate pages.
+              Xem tổng quan trước, sau đó đi sâu vào quản lý dịch vụ, gói chụp, lịch làm việc, đơn đặt lịch, tài chính hoặc hồ sơ cá nhân nhanh chóng.
             </p>
           </div>
           <Link to="/photosets" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-black uppercase text-slate-700">
-            <BarChart3 className="h-4 w-4" /> View marketplace
+            <BarChart3 className="h-4 w-4" /> Xem thị trường
           </Link>
         </div>
       </section>
 
-      {loading && !dashboard ? <StateBox text="Loading studio dashboard..." /> : activeTab === 'overview' ? (
+      {loading && !dashboard ? <StateBox text="Đang tải dữ liệu bảng điều khiển..." /> : activeTab === 'overview' ? (
         <>
           {dashboardWithLiveReviews && <StudioOverviewCards dashboard={dashboardWithLiveReviews} onOpen={(key) => {
             if (key === 'services') selectTab('manage', undefined, 'services')
@@ -158,9 +158,9 @@ export default function PhotographerDashboardPage() {
             <>
               <SubTabs
                 items={[
-                  { key: 'services', label: 'Services' },
-                  { key: 'packages', label: 'Packages' },
-                  { key: 'schedule', label: 'Schedule' },
+                  { key: 'services', label: 'Dịch vụ' },
+                  { key: 'packages', label: 'Gói chụp' },
+                  { key: 'schedule', label: 'Lịch biểu' },
                 ]}
                 active={manageSection}
                 onChange={(value) => selectTab('manage', undefined, value)}
@@ -176,9 +176,9 @@ export default function PhotographerDashboardPage() {
             <>
               <SubTabs
                 items={[
-                  { key: 'portfolio', label: 'Portfolio' },
-                  { key: 'profile', label: 'Profile' },
-                  { key: 'reviews', label: 'Reviews' },
+                  { key: 'portfolio', label: 'Hồ sơ năng lực' },
+                  { key: 'profile', label: 'Hồ sơ cá nhân' },
+                  { key: 'reviews', label: 'Đánh giá' },
                 ]}
                 active={contentSection}
                 onChange={(value) => selectTab('content', undefined, value)}
