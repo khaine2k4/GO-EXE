@@ -161,6 +161,15 @@ export default function Layout() {
                             {item.label}
                           </Link>
                         ))}
+                        {role !== 'ADMIN' && (
+                          <Link
+                            to={isPhotographer ? "/photographer/dashboard?tab=finance" : "/profile?tab=wallet"}
+                            onClick={() => setProfileOpen(false)}
+                            className="block rounded-xl px-3 py-2.5 text-sm font-semibold text-emerald-600 hover:bg-emerald-50"
+                          >
+                            💳 Ví tiền của tôi
+                          </Link>
+                        )}
                         <Link
                           to="/profile"
                           onClick={() => setProfileOpen(false)}

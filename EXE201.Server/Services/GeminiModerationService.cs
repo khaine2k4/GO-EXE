@@ -68,7 +68,7 @@ namespace EXE201.Server.Services
         public GeminiModerationService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey is not configured.");
+            _apiKey = configuration["Gemini:ApiKey"] ?? string.Empty;
             _model = configuration["Gemini:Model"] ?? "gemini-3.1-flash-lite";
 
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace exe201.Server.Models;
@@ -46,4 +46,6 @@ public partial class Payment
     public virtual PaymentMethod Method { get; set; } = null!;
 
     public virtual PaymentStatus PaymentStatus { get; set; } = null!;
+
+    public virtual ICollection<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
 }

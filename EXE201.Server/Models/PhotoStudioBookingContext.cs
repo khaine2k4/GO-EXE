@@ -65,6 +65,10 @@ public partial class PhotoStudioBookingContext : DbContext
 
     public virtual DbSet<UserAddress> UserAddresses { get; set; }
 
+    public virtual DbSet<Wallet> Wallets { get; set; }
+
+    public virtual DbSet<WalletTransaction> WalletTransactions { get; set; }
+
     public virtual DbSet<VMonthlyPlatformRevenue> VMonthlyPlatformRevenues { get; set; }
 
     public virtual DbSet<VStudioRevenue> VStudioRevenues { get; set; }
@@ -1285,6 +1289,79 @@ public partial class PhotoStudioBookingContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_schedules_studios");
         });
+
+        modelBuilder.Entity<Wallet>(entity =>
+        {
+            entity.HasKey(e => e.WalletId);
+            entity.ToTable("wallets");
+
+            entity.HasIndex(e => new { e.OwnerType, e.OwnerId }, "UQ_wallet_owner").IsUnique();
+
+            entity.Property(e => e.WalletId).HasColumnName("wallet_id");
+            entity.Property(e => e.OwnerType)
+                .HasMaxLength(10)
+                .IsUnicode(false)
+                .HasColumnName("owner_type");
+            entity.Property(e => e.OwnerId).HasColumnName("owner_id");
+            entity.Property(e => e.Balance)
+                .HasColumnType("decimal(18, 0)")
+                .HasColumnName("balance");
+            entity.Property(e => e.TotalIn)
+                .HasColumnType("decimal(18, 0)")
+                .HasColumnName("total_in");
+            entity.Property(e => e.TotalOut)
+                .HasColumnType("decimal(18, 0)")
+                .HasColumnName("total_out");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<WalletTransaction>(entity =>
+        {
+            entity.HasKey(e => e.TxId);
+            entity.ToTable("wallet_transactions");
+
+            entity.HasIndex(e => e.WalletId, "IX_wallet_transactions_wallet");
+
+            entity.Property(e => e.TxId).HasColumnName("tx_id");
+            entity.Property(e => e.WalletId).HasColumnName("wallet_id");
+            entity.Property(e => e.TxType)
+                .HasMaxLength(20)
+                .IsUnicode(false)
+                .HasColumnName("tx_type");
+            entity.Property(e => e.Amount)
+                .HasColumnType("decimal(18, 0)")
+                .HasColumnName("amount");
+            entity.Property(e => e.BalanceAfter)
+                .HasColumnType("decimal(18, 0)")
+                .HasColumnName("balance_after");
+            entity.Property(e => e.BookingId).HasColumnName("booking_id");
+            entity.Property(e => e.PaymentId).HasColumnName("payment_id");
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("description");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Wallet).WithMany(p => p.WalletTransactions)
+                .HasForeignKey(d => d.WalletId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_wallet_transactions_wallets");
+
+            entity.HasOne(d => d.Booking).WithMany(p => p.WalletTransactions)
+                .HasForeignKey(d => d.BookingId)
+                .HasConstraintName("FK_wallet_transactions_bookings");
+
+            entity.HasOne(d => d.Payment).WithMany(p => p.WalletTransactions)
+                .HasForeignKey(d => d.PaymentId)
+                .HasConstraintName("FK_wallet_transactions_payments");
+        });
+
         modelBuilder.HasSequence("seq_booking_code");
 
         OnModelCreatingPartial(modelBuilder);
