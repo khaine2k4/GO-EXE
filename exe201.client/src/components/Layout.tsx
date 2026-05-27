@@ -7,45 +7,45 @@ import AIChatbot from './AIChatbot'
 
 const NAV: Record<string, { label: string; to: string }[]> = {
   USER: [
-    { label: 'Home', to: '/' },
-    { label: 'Services', to: '/photosets' },
-    { label: 'Studios', to: '/gallery' },
-    { label: 'My Bookings', to: '/customer/bookings' },
-    { label: 'Become a Studio', to: '/register' },
+    { label: 'Trang chủ', to: '/' },
+    { label: 'Dịch vụ', to: '/photosets' },
+    { label: 'Studio', to: '/gallery' },
+    { label: 'Booking của tôi', to: '/customer/bookings' },
+    { label: 'Đăng ký Studio', to: '/register' },
   ],
   CUSTOMER: [
-    { label: 'Home', to: '/' },
-    { label: 'Services', to: '/photosets' },
-    { label: 'Studios', to: '/gallery' },
-    { label: 'My Bookings', to: '/customer/bookings' },
-    { label: 'Become a Studio', to: '/register' },
+    { label: 'Trang chủ', to: '/' },
+    { label: 'Dịch vụ', to: '/photosets' },
+    { label: 'Studio', to: '/gallery' },
+    { label: 'Booking của tôi', to: '/customer/bookings' },
+    { label: 'Đăng ký Studio', to: '/register' },
   ],
   PHOTOGRAPHER: [
-    { label: 'Overview', to: '/photographer/dashboard' },
-    { label: 'Manage', to: '/photographer/dashboard?tab=manage' },
-    { label: 'Bookings', to: '/photographer/dashboard?tab=bookings' },
-    { label: 'Finance', to: '/photographer/dashboard?tab=finance' },
-    { label: 'Content', to: '/photographer/dashboard?tab=content' },
+    { label: 'Tổng quan', to: '/photographer/dashboard' },
+    { label: 'Quản lý', to: '/photographer/dashboard?tab=manage' },
+    { label: 'Booking', to: '/photographer/dashboard?tab=bookings' },
+    { label: 'Tài chính', to: '/photographer/dashboard?tab=finance' },
+    { label: 'Nội dung', to: '/photographer/dashboard?tab=content' },
   ],
   STUDIO_OWNER: [
-    { label: 'Overview', to: '/photographer/dashboard' },
-    { label: 'Manage', to: '/photographer/dashboard?tab=manage' },
-    { label: 'Bookings', to: '/photographer/dashboard?tab=bookings' },
-    { label: 'Finance', to: '/photographer/dashboard?tab=finance' },
-    { label: 'Content', to: '/photographer/dashboard?tab=content' },
+    { label: 'Tổng quan', to: '/photographer/dashboard' },
+    { label: 'Quản lý', to: '/photographer/dashboard?tab=manage' },
+    { label: 'Booking', to: '/photographer/dashboard?tab=bookings' },
+    { label: 'Tài chính', to: '/photographer/dashboard?tab=finance' },
+    { label: 'Nội dung', to: '/photographer/dashboard?tab=content' },
   ],
   ADMIN: [
-    { label: 'Users', to: '/admin/users' },
-    { label: 'Bookings', to: '/admin/orders' },
-    { label: 'Reports', to: '/admin/support' },
+    { label: 'Người dùng', to: '/admin/users' },
+    { label: 'Booking', to: '/admin/orders' },
+    { label: 'Báo cáo', to: '/admin/support' },
   ],
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  USER: 'Customer',
-  CUSTOMER: 'Customer',
-  PHOTOGRAPHER: 'Photographer',
-  STUDIO_OWNER: 'Photographer',
+  USER: 'Khách hàng',
+  CUSTOMER: 'Khách hàng',
+  PHOTOGRAPHER: 'Studio',
+  STUDIO_OWNER: 'Studio',
   ADMIN: 'Admin',
 }
 
@@ -84,11 +84,11 @@ export default function Layout() {
           <Link to={homePath} className="flex items-center gap-3">
             <img
               src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
-              alt="PhotoMarket Logo"
+              alt="GO! Logo"
               className="h-10 w-10 rounded-full object-cover shadow-sm"
             />
             <span className="text-lg font-semibold text-[var(--color-ink)]">
-              Photo<span className="text-[var(--color-azure)]">Market</span>
+              GO<span className="text-[var(--color-orange)]">!</span>
             </span>
           </Link>
 
@@ -175,7 +175,7 @@ export default function Layout() {
                           onClick={() => setProfileOpen(false)}
                           className="block rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--color-azure)] hover:bg-blue-50"
                         >
-                          Profile & Security
+                          Hồ sơ & bảo mật
                         </Link>
                         <button
                           type="button"
@@ -183,7 +183,7 @@ export default function Layout() {
                           className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50"
                         >
                           <LogOut className="h-4 w-4" />
-                          Sign out
+                          Đăng xuất
                         </button>
                       </div>
                     </motion.div>
@@ -192,7 +192,7 @@ export default function Layout() {
               </div>
             ) : (
               <Link to="/login" className="primary-pill px-5 py-2.5 text-sm font-medium">
-                Sign in
+                Đăng nhập
               </Link>
             )}
 
@@ -235,13 +235,13 @@ export default function Layout() {
 
       {myPhotographer?.status === 'BANNED' && (
         <div className="border-b border-red-300 bg-red-100 px-4 py-2 text-center text-sm font-semibold text-red-800">
-          Your studio is banned and temporarily paused. Open Dashboard for details.
+          Studio của bạn đang bị tạm khóa. Vui lòng mở Dashboard để xem chi tiết.
         </div>
       )}
 
       {myPhotographer?.status === 'PENDING' && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-medium text-amber-800">
-          Your studio profile is waiting for admin approval. You cannot receive bookings yet.
+          Hồ sơ studio đang chờ admin duyệt. Bạn chưa thể nhận booking.
         </div>
       )}
 
@@ -250,9 +250,19 @@ export default function Layout() {
       </main>
 
       <footer className="border-t border-[var(--color-border)] bg-white">
-        <div className="page-shell flex flex-col gap-2 px-4 py-6 text-sm text-[var(--color-graphite)] sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <span className="font-semibold text-[var(--color-ink)]">PhotoMarket</span>
-          <span>Search, compare, book, and review trusted studios.</span>
+        <div className="page-shell grid gap-6 px-4 py-8 text-sm text-[var(--color-graphite)] sm:px-6 md:grid-cols-[1.2fr_1fr_1fr]">
+          <div>
+            <div className="text-xl font-black text-[var(--color-ink)]">GO<span className="text-[var(--color-orange)]">!</span></div>
+            <p className="mt-2 max-w-md leading-6">Marketplace đặt lịch studio tại Đà Nẵng: tìm kiếm, so sánh, gửi yêu cầu booking, chờ studio xác nhận và đánh giá sau khi hoàn thành.</p>
+          </div>
+          <div>
+            <div className="font-bold text-[var(--color-ink)]">Quy trình</div>
+            <p className="mt-2 leading-6">Tìm kiếm {'->'} So sánh {'->'} Đặt lịch {'->'} Studio xác nhận {'->'} Đánh giá</p>
+          </div>
+          <div>
+            <div className="font-bold text-[var(--color-ink)]">Hỗ trợ</div>
+            <p className="mt-2 leading-6">Booking, báo cáo ảnh, ví tiền và quản lý studio trong một hệ thống.</p>
+          </div>
         </div>
       </footer>
 

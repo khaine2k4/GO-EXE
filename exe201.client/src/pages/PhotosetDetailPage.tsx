@@ -7,7 +7,7 @@ import type { ReviewItem, ServiceDetail } from '../services/catalogTypes'
 import BookingModal from '../components/BookingModal'
 
 function formatVnd(value: number) {
-  return new Intl.NumberFormat('vi-VN').format(value) + ' VND'
+  return new Intl.NumberFormat('vi-VN').format(value) + ' đ'
 }
 
 export default function PhotosetDetailPage() {
@@ -30,7 +30,7 @@ export default function PhotosetDetailPage() {
         setSelectedPackageId(data.packages[0]?.id ?? null)
         setReviews(await getStudioReviews(data.studioId))
       })
-      .catch(() => setError('Could not load service detail.'))
+      .catch(() => setError('Không tải được chi tiết dịch vụ.'))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -39,20 +39,20 @@ export default function PhotosetDetailPage() {
     [selectedPackageId, service?.packages]
   )
 
-  if (loading) return <StateBox text="Loading service detail..." />
-  if (error || !service) return <StateBox text={error || 'Service not found.'} />
+  if (loading) return <StateBox text="Đang tải chi tiết dịch vụ..." />
+  if (error || !service) return <StateBox text={error || 'Không tìm thấy dịch vụ.'} />
 
   const images = [service.thumbnailUrl, ...service.images, ...service.portfolio.map((item) => item.imageUrl)].filter(Boolean) as string[]
 
   return (
     <div className="space-y-8 pb-20">
       <button onClick={() => navigate(-1)} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-graphite)] hover:text-[var(--color-ink)]">
-        <ArrowLeft className="h-4 w-4" /> Back
+        <ArrowLeft className="h-4 w-4" /> Quay lại
       </button>
 
       <div className="grid gap-3 overflow-hidden rounded-[28px] lg:grid-cols-[2fr_1fr]">
         <div className="relative aspect-[16/9] overflow-hidden rounded-[28px] bg-slate-100 lg:aspect-[16/8]">
-          {images[0] ? <img src={images[0]} alt={service.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-slate-400">No image</div>}
+          {images[0] ? <img src={images[0]} alt={service.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-slate-400">Chưa có ảnh</div>}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/5 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6 text-white">
             <div className="mb-3 flex flex-wrap gap-2">
@@ -74,12 +74,12 @@ export default function PhotosetDetailPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-8">
-          <Section title="Service Information">
-            <p className="leading-7 text-[var(--color-graphite)]">{service.description || 'Studio has not updated this service description yet.'}</p>
+          <Section title="Thông tin dịch vụ">
+            <p className="leading-7 text-[var(--color-graphite)]">{service.description || 'Studio chưa cập nhật mô tả dịch vụ.'}</p>
           </Section>
 
-          <Section title="Packages">
-            {service.packages.length === 0 ? <Empty text="No active package yet." /> : (
+          <Section title="Gói chụp">
+            {service.packages.length === 0 ? <Empty text="Chưa có gói chụp đang hoạt động." /> : (
               <div className="grid gap-4 md:grid-cols-2">
                 {service.packages.map((item) => (
                   <button
@@ -93,11 +93,11 @@ export default function PhotosetDetailPage() {
                         <h3 className="text-lg font-semibold text-[var(--color-ink)]">{item.name}</h3>
                         <p className="mt-1 text-sm text-[var(--color-graphite)]">{item.description}</p>
                       </div>
-                      <span className="text-sm font-semibold text-[var(--color-azure)]">{formatVnd(item.price)}</span>
+                      <span className="text-lg font-black text-[var(--color-azure)]">{formatVnd(item.price)}</span>
                     </div>
                     <div className="mt-4 grid gap-2 text-sm font-medium text-[var(--color-slate)]">
-                      {item.durationHours && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.durationHours} hours</span>}
-                      {item.maxPhotos && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.maxPhotos} edited photos</span>}
+                      {item.durationHours && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.durationHours} giờ</span>}
+                      {item.maxPhotos && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.maxPhotos} ảnh chỉnh sửa</span>}
                       {item.inclusions && <span><Check className="mr-2 inline h-4 w-4 text-emerald-600" />{item.inclusions}</span>}
                     </div>
                   </button>
@@ -107,7 +107,7 @@ export default function PhotosetDetailPage() {
           </Section>
 
           <Section title="Portfolio">
-            {service.portfolio.length === 0 ? <Empty text="No portfolio images yet." /> : (
+            {service.portfolio.length === 0 ? <Empty text="Chưa có ảnh portfolio." /> : (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {service.portfolio.map((item) => (
                   <img key={item.id} src={item.imageUrl} alt={item.caption || service.name} className="aspect-square rounded-[20px] object-cover" />
@@ -116,8 +116,8 @@ export default function PhotosetDetailPage() {
             )}
           </Section>
 
-          <Section title="Reviews">
-            {reviews.length === 0 ? <Empty text="No reviews yet." /> : (
+          <Section title="Đánh giá">
+            {reviews.length === 0 ? <Empty text="Chưa có đánh giá." /> : (
               <div className="space-y-3">
                 {reviews.map((review) => (
                   <div key={review.id} className="rounded-[20px] border border-[var(--color-soft-border)] bg-[var(--color-fog)] p-4">
@@ -125,7 +125,7 @@ export default function PhotosetDetailPage() {
                       <span className="font-semibold text-[var(--color-ink)]">{review.customerName}</span>
                       <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-500"><Star className="h-4 w-4 fill-current" /> {review.rating}</span>
                     </div>
-                    <p className="mt-2 text-sm text-[var(--color-graphite)]">{review.comment || 'No comment.'}</p>
+                    <p className="mt-2 text-sm text-[var(--color-graphite)]">{review.comment || 'Khách hàng chưa để lại nhận xét.'}</p>
                   </div>
                 ))}
               </div>
@@ -135,8 +135,8 @@ export default function PhotosetDetailPage() {
 
         <aside className="space-y-4 lg:sticky lg:top-[88px] lg:self-start">
           <div className="rounded-[28px] border border-[var(--color-border)] bg-white p-6 shadow-[0_12px_32px_rgba(0,0,0,0.06)]">
-            <p className="text-xs font-semibold uppercase text-[var(--color-graphite)]">Price from</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--color-ink)]">{selectedPackage ? formatVnd(selectedPackage.price) : service.minPrice ? formatVnd(service.minPrice) : 'Contact'}</p>
+            <p className="text-xs font-semibold uppercase text-[var(--color-graphite)]">Giá từ</p>
+            <p className="mt-1 text-4xl font-black text-[var(--color-azure)]">{selectedPackage ? formatVnd(selectedPackage.price) : service.minPrice ? formatVnd(service.minPrice) : 'Liên hệ'}</p>
             <div className="mt-5 rounded-[20px] bg-[var(--color-fog)] p-4">
               <h2 className="font-semibold text-[var(--color-ink)]">{service.studioName}</h2>
               <p className="mt-1 text-sm text-[var(--color-graphite)]">{service.addressLine || service.district || service.city}</p>
@@ -147,18 +147,18 @@ export default function PhotosetDetailPage() {
               disabled={!selectedPackage}
               className="primary-pill mt-5 h-12 w-full gap-2 text-sm font-semibold disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              <CalendarDays className="h-4 w-4" /> {selectedPackage ? 'Request booking' : 'Select package'}
+              <CalendarDays className="h-4 w-4" /> {selectedPackage ? 'Gửi yêu cầu booking' : 'Chọn gói chụp'}
             </button>
             <Link to={`/photographers/${service.studioId}`} className="secondary-pill mt-3 h-11 w-full text-sm font-semibold">
-              View studio
+              Xem studio
             </Link>
           </div>
           <div className="rounded-[24px] border border-[var(--color-border)] bg-white p-5">
             <div className="flex items-center gap-3">
               <Camera className="h-5 w-5 text-[var(--color-azure)]" />
               <div>
-                <p className="text-xs font-semibold uppercase text-[var(--color-graphite)]">Booking flow</p>
-                <p className="text-sm font-medium text-[var(--color-slate)]">Request, studio confirmation, completion, review.</p>
+                <p className="text-xs font-semibold uppercase text-[var(--color-graphite)]">Quy trình booking</p>
+                <p className="text-sm font-medium text-[var(--color-slate)]">Gửi yêu cầu, studio xác nhận, hoàn thành và đánh giá.</p>
               </div>
             </div>
           </div>
