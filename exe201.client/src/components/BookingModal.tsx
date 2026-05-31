@@ -44,7 +44,7 @@ export default function BookingModal({
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(service?.packages[0]?.id ?? null)
   const [shootingLocation, setShootingLocation] = useState('')
   const [note, setNote] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PAYOS')
   const [submitting, setSubmitting] = useState(false)
   const [successCode, setSuccessCode] = useState('')
   const [error, setError] = useState('')
@@ -59,7 +59,7 @@ export default function BookingModal({
     setSelectedPackageId(service?.packages[0]?.id ?? null)
     setShootingLocation('')
     setNote('')
-    setPaymentMethod('BANK_TRANSFER')
+    setPaymentMethod('PAYOS')
     setSubmitting(false)
     setSuccessCode('')
     setError('')
@@ -408,7 +408,7 @@ export default function BookingModal({
 
                           <Panel icon={<CreditCard className="h-4 w-4" />} title="Phương thức thanh toán">
                             <div className="grid gap-2">
-                              {(['PAYOS', 'VNPAY', 'BANK_TRANSFER', 'CASH'] as PaymentMethod[]).map((method) => (
+                              {(['PAYOS'] as PaymentMethod[]).map((method) => (
                                 <button
                                   key={method}
                                   type="button"
