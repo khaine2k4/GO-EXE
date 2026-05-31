@@ -443,28 +443,28 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1000px] text-left">
+                <table className="w-full min-w-[880px] text-left">
                   <thead>
-                    <tr className="border-b border-slate-100 text-xs font-black uppercase tracking-widest text-slate-400">
-                      <th className="px-6 py-4 whitespace-nowrap">Mã Booking</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Khách hàng</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Gói chụp</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Lịch hẹn chụp</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Thu nhập</th>
-                      <th className="px-6 py-4 whitespace-nowrap">Trạng thái</th>
-                      <th className="px-6 py-4 text-right whitespace-nowrap">Thao tác</th>
+                    <tr className="border-b border-slate-100 bg-slate-50/50 text-xs font-black uppercase tracking-widest text-slate-400">
+                      <th className="pl-6 pr-3 py-4 whitespace-nowrap">Mã Booking</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Khách hàng</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Gói chụp</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Lịch hẹn chụp</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Thu nhập</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Trạng thái</th>
+                      <th className="pl-3 pr-6 py-4 text-right whitespace-nowrap w-44">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {paginatedBookings.map((item) => (
                       <tr key={item.id} className="transition hover:bg-slate-50/50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="pl-6 pr-3 py-4 whitespace-nowrap">
                           <div className="font-mono text-xs font-bold text-slate-600">
                             #{item.bookingCode}
                           </div>
                           <div className="mt-1 text-[10px] text-slate-400">ID: {item.id}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-4 whitespace-nowrap">
                           <div className="text-sm font-black text-slate-900">
                             {item.customerName}
                           </div>
@@ -475,23 +475,23 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-4 whitespace-nowrap">
                           <div className="text-sm font-bold text-slate-800">{item.packageName}</div>
                           <div className="mt-1 text-xs text-slate-400">
                             Tổng: {formatVnd(item.totalPrice)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-700">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm font-semibold text-slate-700">
                           <div>{formatDate(item.shootingDate)}</div>
                           <div className="mt-1 flex items-center gap-1 text-xs font-black text-indigo-600">
                             <Clock className="h-3 w-3" />
                             {item.startTime} - {item.endTime}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-indigo-600">
+                        <td className="px-3 py-4 whitespace-nowrap text-sm font-black text-indigo-600">
                           {formatVnd(item.studioRevenue)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-4 whitespace-nowrap">
                           <span
                             className={`inline-flex rounded-xl border px-3 py-1 text-xs font-black uppercase tracking-wider ${
                               STATUS_BADGE[item.status] ?? STATUS_BADGE.PENDING_PAYMENT
@@ -500,7 +500,7 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                             {STATUS_LABEL[item.status] ?? item.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="pl-3 pr-6 py-4 whitespace-nowrap w-44">
                           <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
@@ -859,8 +859,8 @@ function ActionButtons({
 
   const btnClass =
     size === 'sm'
-      ? 'h-8 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95'
-      : 'h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition active:scale-95'
+      ? 'h-8 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 whitespace-nowrap'
+      : 'h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition active:scale-95 whitespace-nowrap'
 
   if (status === 'PENDING_CONFIRMATION') {
     return (

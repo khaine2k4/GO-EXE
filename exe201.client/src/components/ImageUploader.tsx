@@ -87,9 +87,18 @@ export default function ImageUploader({
       </span>
 
       {preview ? (
-        <div className="group relative overflow-hidden rounded-xl border border-slate-200">
-          <img src={preview} alt="Preview" className="aspect-video w-full object-cover" />
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 transition group-hover:bg-black/40">
+        <div className="group relative overflow-hidden rounded-xl border border-slate-200 aspect-video w-full bg-slate-950 flex items-center justify-center">
+          {/* Blurred backdrop to beautifully fill the container for any aspect ratio (especially vertical images) */}
+          <div
+            className="absolute inset-0 bg-cover bg-center filter blur-xl opacity-40 scale-110 pointer-events-none select-none"
+            style={{ backgroundImage: `url(${preview})` }}
+          />
+          <img
+            src={preview}
+            alt="Preview"
+            className="relative z-10 max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+          />
+          <div className="absolute inset-0 z-20 flex items-center justify-center gap-2 bg-black/0 transition group-hover:bg-black/40">
             {uploading ? (
               <div className="flex items-center gap-2 rounded-xl bg-white/90 px-4 py-2 text-xs font-black text-slate-900">
                 <Loader2 className="h-4 w-4 animate-spin" /> Đang tải lên...
