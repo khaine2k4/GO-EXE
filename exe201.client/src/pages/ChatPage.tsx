@@ -138,8 +138,9 @@ export default function ChatPage() {
   // ── Kết nối SignalR ───────────────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('token')
+    const hubBaseUrl = import.meta.env.DEV ? 'http://localhost:5289' : ''
     const conn = new HubConnectionBuilder()
-      .withUrl(`http://localhost:5289/hubs/chat?access_token=${token}`, {
+      .withUrl(`${hubBaseUrl}/hubs/chat?access_token=${token}`, {
         withCredentials: true
       })
       .withAutomaticReconnect()
