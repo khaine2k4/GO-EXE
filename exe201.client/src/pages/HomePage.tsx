@@ -20,6 +20,7 @@ import Galaxy from '../components/Galaxy'
 import { getCategories } from '../services/categoryApi'
 import { getServices } from '../services/serviceApi'
 import type { Category, ServiceSummary } from '../services/catalogTypes'
+import { useAppStore } from '../store/AppStore'
 
 const BENEFITS = [
   {
@@ -112,6 +113,7 @@ const cardRevealTransition = { duration: 0.72, ease: pageEase }
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const { state } = useAppStore()
   const [keyword, setKeyword] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
@@ -119,6 +121,53 @@ export default function HomePage() {
   const [services, setServices] = useState<ServiceSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [visibleServiceCount, setVisibleServiceCount] = useState(6)
+  const user = state.currentUser
+  const role = String(user?.role ?? '')
+  const isLoggedIn = Boolean(user)
+  const isStudio = role === 'PHOTOGRAPHER' || role === 'STUDIO_OWNER'
+  const isAdmin = role === 'ADMIN'
+  const firstName = user?.name?.split(' ')[0] || user?.name || ''
+
+  const heroBadge = isLoggedIn
+    ? `Chào ${firstName}, hôm nay bạn muốn chụp gì?`
+    : 'Marketplace đặt lịch studio tại Đà Nẵng'
+  const heroTitle = isLoggedIn
+    ? isStudio
+      ? 'Quản lý studio và booking trong một nơi'
+      : 'Bạn muốn đặt studio cho khoảnh khắc nào?'
+    : 'Tìm studio phù hợp cho từng khoảnh khắc'
+  const heroDescription = isLoggedIn
+    ? isStudio
+      ? 'Theo dõi yêu cầu booking, dịch vụ, portfolio và doanh thu studio từ dashboard của bạn.'
+      : 'Tiếp tục tìm dịch vụ, xem lịch trống, gửi yêu cầu booking và theo dõi các lịch chụp của bạn.'
+    : 'Xem portfolio, so sánh gói chụp, kiểm tra giá và gửi yêu cầu booking cho studio bạn tin tưởng trong cùng một nơi.'
+  const primaryHref = isAdmin ? '/admin/dashboard' : isStudio ? '/photographer/dashboard' : '/photosets'
+  const primaryLabel = isAdmin ? 'Mở Admin' : isStudio ? 'Mở Dashboard' : 'Tìm studio ngay'
+  const secondaryHref = isLoggedIn
+    ? isAdmin
+      ? '/admin/users'
+      : isStudio
+        ? '/photosets'
+        : '/customer/bookings'
+    : '/register'
+  const secondaryLabel = isLoggedIn
+    ? isAdmin
+      ? 'Quản lý user'
+      : isStudio
+        ? 'Xem marketplace'
+        : 'Booking của tôi'
+    : 'Đăng ký Studio'
+  const bottomCtaEyebrow = isLoggedIn ? (isStudio ? 'Không gian studio' : 'Không gian của bạn') : 'Dành cho studio'
+  const bottomCtaTitle = isLoggedIn
+    ? isStudio
+      ? 'Mở dashboard để quản lý lịch chụp, dịch vụ, portfolio và doanh thu studio.'
+      : 'Theo dõi các booking, xem trạng thái thanh toán và tiếp tục tìm studio phù hợp.'
+    : 'Quản lý dịch vụ, portfolio, lịch chụp, booking và doanh thu trong một dashboard rõ ràng.'
+  const bottomCtaDescription = isLoggedIn
+    ? isStudio
+      ? 'Dashboard giúp bạn xử lý yêu cầu mới, cập nhật lịch làm việc và kiểm soát hoạt động studio rõ ràng hơn.'
+      : 'Tất cả yêu cầu đặt lịch, thanh toán và lịch sử chụp của bạn được gom trong một nơi dễ theo dõi.'
+    : 'Tạo hồ sơ studio, đăng gói chụp, nhận yêu cầu và theo dõi thanh toán mà không phải gom dữ liệu từ nhiều nơi.'
 
   useEffect(() => {
     Promise.allSettled([getCategories(), getServices()])
@@ -207,7 +256,7 @@ export default function HomePage() {
             className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/84 backdrop-blur-xl"
           >
             <Sparkles className="h-4 w-4 text-[var(--color-orange)]" />
-            Marketplace đặt lịch studio tại Đà Nẵng
+            {heroBadge}
           </motion.div>
 
           <motion.h1
@@ -219,7 +268,7 @@ export default function HomePage() {
               textShadow: '0 8px 36px rgba(2, 6, 23, 0.92), 0 2px 12px rgba(2, 6, 23, 0.72)',
             }}
           >
-            Tìm studio phù hợp cho từng khoảnh khắc
+            {heroTitle}
           </motion.h1>
 
           <motion.p
@@ -228,7 +277,7 @@ export default function HomePage() {
             transition={{ ...revealTransition, delay: 0.32 }}
             className="mt-4 max-w-2xl text-base font-medium leading-7 text-white/76 sm:text-lg"
           >
-            Xem portfolio, so sánh gói chụp, kiểm tra giá và gửi yêu cầu booking cho studio bạn tin tưởng trong cùng một nơi.
+            {heroDescription}
           </motion.p>
 
           <motion.div
@@ -237,11 +286,11 @@ export default function HomePage() {
             transition={{ ...revealTransition, delay: 0.44 }}
             className="mt-6 flex flex-wrap justify-center gap-3"
           >
-            <Link to="/photosets" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-black text-slate-950 shadow-lg shadow-black/10 transition hover:bg-slate-100">
-              Tìm studio ngay <ArrowRight className="h-4 w-4" />
+            <Link to={primaryHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-black text-slate-950 shadow-lg shadow-black/10 transition hover:bg-slate-100">
+              {primaryLabel} <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link to="/register" className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/22 bg-white/10 px-6 text-sm font-black text-white backdrop-blur-xl transition hover:bg-white/16">
-              Đăng ký Studio
+            <Link to={secondaryHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/22 bg-white/10 px-6 text-sm font-black text-white backdrop-blur-xl transition hover:bg-white/16">
+              {secondaryLabel}
             </Link>
           </motion.div>
 
@@ -431,16 +480,16 @@ export default function HomePage() {
       <section className="overflow-hidden rounded-[28px] bg-[var(--color-azure)] p-8 text-white sm:p-10">
         <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-white/72">Dành cho studio</p>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-white/72">{bottomCtaEyebrow}</p>
             <h2 className="mt-3 max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl">
-              Quản lý dịch vụ, portfolio, lịch chụp, booking và doanh thu trong một dashboard rõ ràng.
+              {bottomCtaTitle}
             </h2>
             <p className="mt-4 max-w-2xl text-sm font-medium leading-6 text-white/76">
-              Tạo hồ sơ studio, đăng gói chụp, nhận yêu cầu và theo dõi thanh toán mà không phải gom dữ liệu từ nhiều nơi.
+              {bottomCtaDescription}
             </p>
           </div>
-          <Link to="/register" className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-[var(--color-orange)] px-7 text-sm font-black text-white transition hover:bg-[var(--color-orange-dark)]">
-            Đăng ký Studio <ArrowRight className="h-4 w-4" />
+          <Link to={secondaryHref} className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-[var(--color-orange)] px-7 text-sm font-black text-white transition hover:bg-[var(--color-orange-dark)]">
+            {secondaryLabel} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
