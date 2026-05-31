@@ -75,8 +75,8 @@ export default function HomePage() {
 
   return (
     <div className="space-y-20 pb-16">
-      <section className="relative overflow-hidden bg-white py-6 md:py-10">
-        <div className="grid items-center gap-10 xl:grid-cols-[1fr_0.9fr]">
+      <section className="relative bg-white py-6 md:py-10">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.25fr_0.75fr]">
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-[var(--color-slate)] shadow-sm ring-1 ring-[var(--color-border)]">
               <Sparkles className="h-4 w-4 text-[var(--color-azure)]" />
@@ -142,7 +142,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-5xl gap-3 md:grid-cols-3">
+      <section className="grid gap-6 md:grid-cols-3">
         {BENEFITS.map((step, index) => (
           <motion.div
             key={step.title}

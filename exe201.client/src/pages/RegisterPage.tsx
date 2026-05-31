@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '../components/Toast'
 import type { Role } from '../types'
 import api from '../api/axios'
+import logoImg from '../assets/GO - EXE logo.png'
 
 const TAGS_OPTIONS = ['Wedding', 'Portrait', 'Lifestyle', 'Street', 'Couple', 'Landscape', 'Travel', 'Fashion', 'Commercial', 'Documentary']
 
@@ -92,9 +93,9 @@ export default function RegisterPage() {
                 <div className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/70 shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl">
                     <div className="px-8 pt-10 pb-6 text-center border-b border-slate-100 bg-white/40">
                         <img
-                            src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+                            src={logoImg}
                             alt="Logo"
-                            className="mx-auto h-14 w-14 rounded-2xl object-cover shadow-lg shadow-indigo-600/10"
+                            className="mx-auto h-14 w-14 object-contain shadow-lg"
                         />
                         <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-900">Tạo tài khoản mới</h1>
                         <p className="mt-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Gia nhập cộng đồng PhotoMarket</p>

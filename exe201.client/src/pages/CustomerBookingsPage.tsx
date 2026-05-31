@@ -48,17 +48,45 @@ export default function CustomerBookingsPage() {
   useEffect(() => {
     setLoading(true)
     setError('')
-    setCurrentPage(1)
-    getBookings(activeTab)
+    getBookings('ALL')
       .then(setBookings)
       .catch(() => setError('Không tải được lịch sử booking.'))
       .finally(() => setLoading(false))
+  }, [])
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(1)
   }, [activeTab])
 
+  // Client-side filtering to support multi-status mapping per tab (e.g. showing both PENDING_CONFIRMATION and AWAITING_CUSTOMER under "Chờ xác nhận")
+  const filteredBookings = bookings.filter((booking) => {
+    if (activeTab === 'ALL') return true
+    if (activeTab === 'PENDING_PAYMENT') return booking.status === 'PENDING_PAYMENT'
+    
+    if (activeTab === 'PENDING_CONFIRMATION') {
+      return booking.status === 'PENDING_CONFIRMATION' || booking.status === 'AWAITING_CUSTOMER'
+    }
+    
+    if (activeTab === 'CONFIRMED') {
+      return (
+        booking.status === 'CONFIRMED' ||
+        booking.status === 'IN_PROGRESS' ||
+        booking.status === 'DEMO_UPLOADED' ||
+        booking.status === 'EDITING'
+      )
+    }
+    
+    if (activeTab === 'FINAL_DELIVERED') return booking.status === 'FINAL_DELIVERED' || booking.status === 'AWAITING_CUSTOMER'
+    if (activeTab === 'COMPLETED') return booking.status === 'COMPLETED'
+    if (activeTab === 'CANCELLED') return booking.status === 'CANCELLED' || booking.status === 'REJECTED'
+    return true
+  })
+
   // Pagination calculations
-  const totalPages = Math.ceil(bookings.length / itemsPerPage)
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
-  const paginatedBookings = bookings.slice(startIndex, startIndex + itemsPerPage)
+  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + itemsPerPage)
 
   return (
     <div className="mx-auto max-w-6xl pt-24 pb-20 px-4 md:px-0">
@@ -122,7 +150,7 @@ export default function CustomerBookingsPage() {
         <StateBox text="Đang tải danh sách booking..." />
       ) : error ? (
         <StateBox text={error} />
-      ) : bookings.length === 0 ? (
+      ) : filteredBookings.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50/40 py-24 text-center">
           <ImageIcon className="h-12 w-12 text-slate-300" />
           <h3 className="mt-4 text-lg font-black text-slate-950">Chưa có booking nào</h3>
@@ -211,7 +239,7 @@ export default function CustomerBookingsPage() {
           {totalPages > 1 && (
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-6">
               <span className="text-xs font-semibold text-slate-500">
-                Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, bookings.length)} trên tổng số {bookings.length} booking
+                Hiển thị {startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredBookings.length)} trên tổng số {filteredBookings.length} booking
               </span>
               <div className="flex items-center gap-1">
                 <button

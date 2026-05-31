@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import logoImg from '../assets/GO - EXE logo.png'
 import { ChevronDown, LogOut, Menu, X, MessageCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
@@ -81,15 +82,12 @@ export default function Layout() {
     <div className="app-shell">
       <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-white/86 backdrop-blur-xl">
         <div className="page-shell flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-          <Link to={homePath} className="flex items-center gap-3">
+          <Link to={homePath} className="flex items-center">
             <img
-              src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+              src={logoImg}
               alt="GO! Logo"
-              className="h-10 w-10 rounded-full object-cover shadow-sm"
+              className="h-12 w-auto object-contain transition-all hover:scale-105"
             />
-            <span className="text-lg font-semibold text-[var(--color-ink)]">
-              GO<span className="text-[var(--color-orange)]">!</span>
-            </span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
