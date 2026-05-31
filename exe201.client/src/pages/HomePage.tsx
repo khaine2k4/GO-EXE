@@ -248,12 +248,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="relative z-20 -mt-12 space-y-5">
+      <section className="relative z-20 -mx-4 -mt-12 space-y-5 sm:-mx-6">
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ ...revealTransition, delay: 0.54 }}
-          className="mx-auto w-full max-w-5xl rounded-[28px] border border-[var(--color-border)] bg-white p-3 text-left shadow-[0_20px_60px_rgba(15,23,42,0.14)]"
+          className="w-full rounded-[28px] border border-[var(--color-border)] bg-white p-3 text-left shadow-[0_20px_60px_rgba(15,23,42,0.14)]"
         >
           <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.5fr)_minmax(180px,1fr)_minmax(150px,0.8fr)_auto] lg:items-center">
             <label className="flex h-12 items-center gap-2 rounded-full bg-[var(--color-fog)] px-4 text-slate-950">
@@ -302,7 +302,7 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        <div className="mx-auto grid w-full max-w-4xl grid-cols-3 gap-3 text-left">
+        <div className="grid w-full grid-cols-3 gap-3 text-left">
           {[
             ['120+', 'studio và dịch vụ'],
             ['4.8/5', 'đánh giá trung bình'],
