@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast'
 import type { Role } from '../types'
 import api from '../api/axios'
 import logoImg from '../assets/GO - EXE logo.png'
+import Galaxy from '../components/Galaxy'
 
 const TAGS_OPTIONS = ['Wedding', 'Portrait', 'Lifestyle', 'Street', 'Couple', 'Landscape', 'Travel', 'Fashion', 'Commercial', 'Documentary']
 
@@ -72,16 +73,37 @@ export default function RegisterPage() {
     }
 
     return (
-        <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/60 px-4 py-16 overflow-hidden">
-            {/* Ambient Background Lights */}
+        <div className="relative flex min-h-screen items-center justify-center bg-slate-950 px-4 py-16 overflow-hidden">
+            {/* Galaxy Background */}
             <div className="absolute inset-0 z-0 overflow-hidden">
-                <div className="absolute -left-[10%] -top-[10%] h-[600px] w-[600px] rounded-full bg-indigo-500/12 blur-[130px] animate-blob-slow" />
-                <div className="absolute -right-[10%] -bottom-[10%] h-[700px] w-[700px] rounded-full bg-violet-400/12 blur-[150px] animate-blob-reverse" />
-                <div className="absolute left-[20%] top-[30%] h-[400px] w-[400px] rounded-full bg-pink-400/8 blur-[100px] animate-blob-slow" />
-                {/* Modern Decorative Lens Flare rings */}
-                <div className="absolute right-[15%] top-[10%] h-[300px] w-[300px] rounded-full border border-indigo-500/5 bg-transparent opacity-60" style={{ boxShadow: 'inset 0 0 60px rgba(99, 102, 241, 0.02)' }} />
-                <div className="absolute left-[10%] bottom-[15%] h-[450px] w-[450px] rounded-full border border-pink-500/5 bg-transparent opacity-40" style={{ boxShadow: '0 0 100px rgba(244, 63, 94, 0.01)' }} />
-                <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #4f46e5 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+                <Galaxy
+                    aria-hidden="true"
+                    className="absolute inset-0"
+                    density={0.78}
+                    glowIntensity={0.24}
+                    hueShift={210}
+                    mouseInteraction
+                    mouseRepulsion
+                    repulsionStrength={1.35}
+                    rotationSpeed={0.032}
+                    saturation={0.14}
+                    speed={0.68}
+                    starSpeed={0.3}
+                    twinkleIntensity={0.34}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                        background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.8) 0%, rgba(15, 23, 42, 0.42) 45%, rgba(248, 250, 252, 0.74) 100%)',
+                    }}
+                />
+                <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.08]"
+                    style={{
+                        backgroundImage: 'linear-gradient(rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px)',
+                        backgroundSize: '42px 42px',
+                    }}
+                />
             </div>
 
             <motion.div
