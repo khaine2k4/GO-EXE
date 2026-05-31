@@ -26,6 +26,8 @@ import AdminPayoutsPage from './pages/AdminPayoutsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
 import PremierPage from './pages/PremierPage'
 import AdminSupportPage from './pages/AdminSupportPage'
 import AdminReviewsPage from './pages/AdminReviewsPage'
@@ -59,6 +61,8 @@ export default function App() {
       {/* Auth pages — no layout */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       {/* Admin Dedicated Workspace Sidebar Layout */}
       <Route element={<RequireAuth role="ADMIN"><AdminLayout /></RequireAuth>}>

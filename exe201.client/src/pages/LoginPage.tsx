@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, LogIn, Mail, Lock } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Eye, EyeOff, LogIn, Mail, Lock, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
 import api from '../api/axios'
@@ -18,6 +18,29 @@ export default function LoginPage() {
     const [showPw, setShowPw] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+
+    // States for Forgot Password Modal
+    const [isForgotOpen, setIsForgotOpen] = useState(false)
+    const [forgotEmail, setForgotEmail] = useState('')
+    const [forgotLoading, setForgotLoading] = useState(false)
+    const [forgotError, setForgotError] = useState('')
+    const [forgotSuccess, setForgotSuccess] = useState('')
+
+    async function handleForgotPassword(e: React.FormEvent) {
+        e.preventDefault()
+        setForgotError('')
+        setForgotSuccess('')
+        setForgotLoading(true)
+        try {
+            const res = await api.post('/auth/forgot-password', { email: forgotEmail })
+            setForgotLoading(false)
+            setForgotSuccess(res.data.message || 'Đường dẫn đặt lại mật khẩu đã được gửi đến email của bạn!')
+            toast.push({ type: 'success', title: 'Đã gửi email khôi phục!', message: 'Vui lòng kiểm tra hộp thư email của bạn.' })
+        } catch (err: any) {
+            setForgotLoading(false)
+            setForgotError(err.response?.data || 'Không tìm thấy tài khoản hoặc xảy ra lỗi.')
+        }
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -198,6 +221,18 @@ export default function LoginPage() {
                                 <div className="space-y-1">
                                     <div className="flex items-center justify-between">
                                         <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Mật khẩu</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setForgotEmail('')
+                                                setForgotError('')
+                                                setForgotSuccess('')
+                                                setIsForgotOpen(true)
+                                            }}
+                                            className="text-[11px] font-bold text-indigo-600 transition-colors hover:text-indigo-500 hover:underline cursor-pointer"
+                                        >
+                                            Quên mật khẩu?
+                                        </button>
                                     </div>
                                     <div className="relative flex items-center rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all focus-ring-premium">
                                         <div className="pl-4 text-slate-400">
@@ -286,6 +321,90 @@ export default function LoginPage() {
                     </div>
                 </div>
             </motion.div>
+
+            {/* Forgot Password Modal */}
+            <AnimatePresence>
+                {isForgotOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/90 p-8 shadow-2xl shadow-slate-950/20 backdrop-blur-2xl"
+                        >
+                            {/* Close button */}
+                            <button
+                                onClick={() => setIsForgotOpen(false)}
+                                className="absolute right-6 top-6 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+
+                            <div className="text-center md:text-left mb-6">
+                                <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 font-sans">Quên mật khẩu?</h3>
+                                <p className="mt-2 text-xs font-bold text-slate-400 tracking-wider uppercase">Nhập email để khôi phục tài khoản</p>
+                            </div>
+
+                            {forgotSuccess ? (
+                                <div className="space-y-4 text-left">
+                                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 px-4 py-3.5 text-xs font-semibold text-emerald-600 leading-relaxed">
+                                        🎉 {forgotSuccess}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsForgotOpen(false)}
+                                        className="h-12 w-full rounded-2xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 transition-all active:scale-[0.98] cursor-pointer"
+                                    >
+                                        Quay lại Đăng nhập
+                                    </button>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleForgotPassword} className="space-y-5 text-left">
+                                    <div className="space-y-1">
+                                        <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Địa chỉ Email liên kết</label>
+                                        <div className="relative flex items-center rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                                            <div className="pl-4 text-slate-400">
+                                                <Mail className="h-5 w-5" />
+                                            </div>
+                                            <input
+                                                type="email"
+                                                value={forgotEmail}
+                                                onChange={(e) => setForgotEmail(e.target.value)}
+                                                placeholder="name@example.com"
+                                                required
+                                                className="h-12 w-full bg-transparent px-3 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {forgotError && (
+                                        <div className="rounded-2xl border border-rose-200 bg-rose-50/50 px-4 py-3 text-xs font-semibold text-rose-600 leading-relaxed">
+                                            ⚠️ {forgotError}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        type="submit"
+                                        disabled={forgotLoading}
+                                        className={`flex h-12 w-full items-center justify-center gap-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all active:scale-[0.98] cursor-pointer ${
+                                            forgotLoading
+                                            ? 'bg-slate-200 text-slate-400'
+                                            : 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 hover:shadow-indigo-600/30'
+                                        }`}
+                                    >
+                                        {forgotLoading ? (
+                                            <> <Spinner /> Đang gửi...</>
+                                        ) : (
+                                            'Gửi liên kết khôi phục'
+                                        )}
+                                    </button>
+                                </form>
+                            )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

@@ -85,6 +85,11 @@ export default function ChatPage() {
         const bookingId = searchParams.get('bookingId')
 
         if (studioId) {
+          // Nếu người dùng là PHOTOGRAPHER (Studio Owner) mà không có customerId thì không tự động tạo/mở hội thoại
+          if (currentUser?.role === 'PHOTOGRAPHER' && !customerId) {
+            return
+          }
+
           // Find existing conversation in the loaded list
           let found = list.find((c) => {
             const matchStudio = c.studioId === Number(studioId)

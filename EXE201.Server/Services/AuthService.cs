@@ -14,12 +14,14 @@ namespace EXE201.Server.Services
         private readonly IUserRepository _userRepository;
         private readonly IStudioRepository _studioRepository;
         private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
 
-        public AuthService(IUserRepository userRepository, IStudioRepository studioRepository, IConfiguration configuration)
+        public AuthService(IUserRepository userRepository, IStudioRepository studioRepository, IConfiguration configuration, IEmailService emailService)
         {
             _userRepository = userRepository;
             _studioRepository = studioRepository;
             _configuration = configuration;
+            _emailService = emailService;
         }
 
         private async Task<UserDto> MapToUserDto(User user)
@@ -63,7 +65,17 @@ namespace EXE201.Server.Services
         {
             var user = await _userRepository.GetUserByEmailAsync(request.Email);
 
-            if (user == null || user.Status != "ACTIVE")
+            if (user == null)
+            {
+                return null;
+            }
+
+            if (user.Status == "UNVERIFIED")
+            {
+                throw new Exception("UNVERIFIED");
+            }
+
+            if (user.Status != "ACTIVE")
             {
                 return null;
             }
@@ -222,6 +234,7 @@ namespace EXE201.Server.Services
             }
 
             string hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            string verificationToken = Guid.NewGuid().ToString();
 
             var user = new User
             {
@@ -229,8 +242,10 @@ namespace EXE201.Server.Services
                 FullName = request.Name,
                 Email = request.Email,
                 PasswordHash = hashedPassword,
-                Status = "ACTIVE",
-                EmailVerified = true,
+                Status = "UNVERIFIED",
+                EmailVerified = false,
+                VerificationToken = verificationToken,
+                VerificationTokenExpiresAt = DateTime.UtcNow.AddHours(24),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 AvatarUrl = $"https://api.dicebear.com/7.x/initials/svg?seed={Uri.EscapeDataString(request.Name)}&backgroundColor=6366f1"
@@ -262,6 +277,41 @@ namespace EXE201.Server.Services
             // Reload user with roles loaded for mapping
             var reloadedUser = await _userRepository.GetUserByIdAsync(createdUser.UserId);
             if (reloadedUser == null) return null;
+
+            // Đường dẫn kích hoạt tài khoản bằng HashRouter
+            string verifyUrl = $"http://localhost:5173/#/verify-email?token={verificationToken}&email={Uri.EscapeDataString(request.Email)}";
+
+            // Gửi email kích hoạt tài khoản trong luồng chạy ngầm để không chặn phản hồi HTTP
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    string verifyBody = $@"
+                        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);'>
+                            <div style='text-align: center; margin-bottom: 25px;'>
+                                <h1 style='color: #4f46e5; margin: 0; font-size: 28px; font-weight: 800;'>GO! Marketplace</h1>
+                                <p style='color: #64748b; font-size: 14px; margin: 5px 0 0 0;'>Nền tảng kết nối Nhiếp ảnh gia Đà Nẵng</p>
+                            </div>
+                            <hr style='border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;' />
+                            <p style='font-size: 16px; color: #1e293b;'>Xin chào <strong>{request.Name}</strong>,</p>
+                            <p style='font-size: 15px; color: #475569; line-height: 1.6;'>Chào mừng bạn đến với GO! Marketplace. Để hoàn tất đăng ký và bắt đầu trải nghiệm dịch vụ kết nối chụp ảnh hàng đầu tại Đà Nẵng, bạn vui lòng kích hoạt tài khoản của mình bằng cách nhấp vào nút bên dưới:</p>
+                            <div style='text-align: center; margin: 35px 0;'>
+                                <a href='{verifyUrl}' style='background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1);'>Kích hoạt tài khoản của bạn</a>
+                            </div>
+                            <p style='font-size: 13px; color: #4b5563;'>Liên kết này có hiệu lực trong vòng <strong>24 tiếng</strong> kể từ thời điểm đăng ký.</p>
+                            <hr style='border: 0; border-top: 1px solid #f1f5f9; margin: 25px 0;' />
+                            <p style='font-size: 12px; color: #94a3b8; line-height: 1.6;'>Nếu nút ở trên không hoạt động, bạn hãy copy và dán đường link sau vào trình duyệt của bạn:<br/>
+                            <a href='{verifyUrl}' style='color: #4f46e5; word-break: break-all;'>{verifyUrl}</a></p>
+                            <p style='font-size: 11px; color: #cbd5e1; text-align: center; margin-top: 20px;'>Email này được gửi tự động từ hệ thống GO!. Vui lòng không phản hồi trực tiếp email này.</p>
+                        </div>
+                    ";
+                    await _emailService.SendEmailAsync(request.Email, "Xác nhận đăng ký tài khoản GO! Marketplace 📸", verifyBody);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RegisterEmail] Failed: {ex.Message}");
+                }
+            });
 
             return await MapToUserDto(reloadedUser);
         }
@@ -340,6 +390,116 @@ namespace EXE201.Server.Services
             }
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user);
+            return true;
+        }
+
+        public async Task<bool> ForgotPasswordAsync(string email)
+        {
+            var user = await _userRepository.GetUserByEmailAsync(email);
+            if (user == null)
+            {
+                return false;
+            }
+
+            // Tạo token an toàn
+            string token = Guid.NewGuid().ToString();
+            user.ResetToken = token;
+            user.ResetTokenExpiresAt = DateTime.UtcNow.AddMinutes(15); // Hạn dùng 15 phút
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userRepository.UpdateUserAsync(user);
+
+            // Đường link đổi mật khẩu
+            string resetUrl = $"http://localhost:5173/#/reset-password?token={token}&email={Uri.EscapeDataString(email)}";
+
+            // Gửi email chứa đường dẫn khôi phục mật khẩu chuẩn ngoài đời
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    string resetBody = $@"
+                        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);'>
+                            <div style='text-align: center; margin-bottom: 25px;'>
+                                <h1 style='color: #4f46e5; margin: 0; font-size: 28px; font-weight: 800;'>GO! Marketplace</h1>
+                                <p style='color: #64748b; font-size: 14px; margin: 5px 0 0 0;'>Nền tảng kết nối Nhiếp ảnh gia Đà Nẵng</p>
+                            </div>
+                            <hr style='border: 0; border-top: 1px solid #f1f5f9; margin: 20px 0;' />
+                            <p style='font-size: 16px; color: #1e293b;'>Xin chào <strong>{user.FullName}</strong>,</p>
+                            <p style='font-size: 15px; color: #475569; line-height: 1.6;'>Chúng tôi nhận được yêu cầu khôi phục mật khẩu tài khoản GO! Marketplace của bạn. Hãy click vào nút bên dưới để đặt lại mật khẩu của mình. Liên kết này chỉ có thời hạn sử dụng trong <strong>15 phút</strong>.</p>
+                            <div style='text-align: center; margin: 30px 0;'>
+                                <a href='{resetUrl}' style='background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1);'>Đặt lại mật khẩu của bạn</a>
+                            </div>
+                            <p style='font-size: 13px; color: #ef4444; font-weight: bold; text-align: center;'>⚠️ Lưu ý: Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này hoặc liên hệ hỗ trợ.</p>
+                            <hr style='border: 0; border-top: 1px solid #f1f5f9; margin: 25px 0;' />
+                            <p style='font-size: 12px; color: #94a3b8; line-height: 1.6;'>Nếu nút ở trên không hoạt động, bạn hãy copy và dán đường link sau vào trình duyệt của bạn:<br/>
+                            <a href='{resetUrl}' style='color: #4f46e5; word-break: break-all;'>{resetUrl}</a></p>
+                            <p style='font-size: 11px; color: #cbd5e1; text-align: center; margin-top: 20px;'>Email này được gửi tự động từ hệ thống GO!. Vui lòng không phản hồi trực tiếp email này.</p>
+                        </div>
+                    ";
+                    await _emailService.SendEmailAsync(email, "Yêu cầu khôi phục mật khẩu trên GO! Marketplace 🔐", resetBody);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ForgotPasswordEmail] Failed: {ex.Message}");
+                }
+            });
+
+            return true;
+        }
+
+        public async Task<bool> ResetPasswordAsync(ResetPasswordRequestDto request)
+        {
+            var user = await _userRepository.GetUserByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(user.ResetToken) || user.ResetToken != request.Token)
+            {
+                return false;
+            }
+
+            if (!user.ResetTokenExpiresAt.HasValue || user.ResetTokenExpiresAt.Value < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            // Băm mật khẩu mới và làm sạch token
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            user.ResetToken = null;
+            user.ResetTokenExpiresAt = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateUserAsync(user);
+            return true;
+        }
+
+        public async Task<bool> VerifyEmailAsync(VerifyEmailRequestDto request)
+        {
+            var user = await _userRepository.GetUserByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(user.VerificationToken) || user.VerificationToken != request.Token)
+            {
+                return false;
+            }
+
+            if (!user.VerificationTokenExpiresAt.HasValue || user.VerificationTokenExpiresAt.Value < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            // Kích hoạt tài khoản thành công
+            user.Status = "ACTIVE";
+            user.EmailVerified = true;
+            user.VerificationToken = null;
+            user.VerificationTokenExpiresAt = null;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _userRepository.UpdateUserAsync(user);

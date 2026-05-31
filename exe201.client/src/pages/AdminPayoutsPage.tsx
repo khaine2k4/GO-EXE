@@ -59,7 +59,7 @@ export default function AdminPayoutsPage() {
       setPayouts(data)
     } catch (err: any) {
       toast.push({
-        type: 'danger',
+        type: 'error',
         title: 'Lỗi tải danh sách',
         message: err.response?.data?.message || 'Không thể tải danh sách yêu cầu rút tiền.'
       })
@@ -83,7 +83,7 @@ export default function AdminPayoutsPage() {
       loadPayouts()
     } catch (err: any) {
       toast.push({
-        type: 'danger',
+        type: 'error',
         title: 'Chuyển tiền thất bại',
         message: err.response?.data?.message || 'Lỗi kết nối API PayOS. Giao dịch đã được hoàn trả về ví người dùng.'
       })
@@ -111,7 +111,7 @@ export default function AdminPayoutsPage() {
       loadPayouts()
     } catch (err: any) {
       toast.push({
-        type: 'danger',
+        type: 'error',
         title: 'Từ chối thất bại',
         message: err.response?.data?.message || 'Không thể từ chối yêu cầu rút tiền.'
       })
