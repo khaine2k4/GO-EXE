@@ -76,4 +76,22 @@ namespace EXE201.Server.DTOs
         public string CurrentPassword { get; set; } = null!;
         public string NewPassword { get; set; } = null!;
     }
+
+    public class ForgotPasswordRequestDto
+    {
+        public string Email { get; set; } = null!;
+    }
+
+    public class ResetPasswordRequestDto
+    {
+        public string Email { get; set; } = null!;
+        public string Token { get; set; } = null!;
+        public string NewPassword { get; set; } = null!;
+    }
+
+    public class VerifyEmailRequestDto
+    {
+        public string Email { get; set; } = null!;
+        public string Token { get; set; } = null!;
+    }
 }

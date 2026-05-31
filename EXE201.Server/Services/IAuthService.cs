@@ -10,5 +10,8 @@ namespace EXE201.Server.Services
         Task<UserDto?> RegisterAsync(RegisterRequestDto request);
         Task<UserDto?> UpdateProfileAsync(long userId, UpdateProfileRequestDto request);
         Task<bool> ChangePasswordAsync(long userId, ChangePasswordRequestDto request);
+        Task<bool> ForgotPasswordAsync(string email);
+        Task<bool> ResetPasswordAsync(ResetPasswordRequestDto request);
+        Task<bool> VerifyEmailAsync(VerifyEmailRequestDto request);
     }
 }

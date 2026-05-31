@@ -25,14 +25,25 @@ namespace EXE201.Server.Controllers
                 return BadRequest("Email và mật khẩu không được để trống.");
             }
 
-            var response = await _authService.LoginAsync(request);
-
-            if (response == null)
+            try
             {
-                return Unauthorized("Email hoặc mật khẩu không đúng, hoặc tài khoản chưa kích hoạt.");
-            }
+                var response = await _authService.LoginAsync(request);
 
-            return Ok(response);
+                if (response == null)
+                {
+                    return Unauthorized("Email hoặc mật khẩu không chính xác.");
+                }
+
+                return Ok(response);
+            }
+            catch (Exception ex) when (ex.Message == "UNVERIFIED")
+            {
+                return BadRequest("Tài khoản chưa được xác thực email. Vui lòng kiểm tra email của bạn để kích hoạt tài khoản.");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("google-login")]
@@ -148,6 +159,57 @@ namespace EXE201.Server.Controllers
             }
 
             return Ok(new { message = "Đổi mật khẩu thành công!" });
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Email))
+            {
+                return BadRequest("Email không được để trống.");
+            }
+
+            var success = await _authService.ForgotPasswordAsync(request.Email);
+            if (!success)
+            {
+                return BadRequest("Email không tồn tại trong hệ thống.");
+            }
+
+            return Ok(new { message = "Đường dẫn đặt lại mật khẩu đã được gửi đến email của bạn!" });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Token) || string.IsNullOrEmpty(request.NewPassword))
+            {
+                return BadRequest("Thông tin yêu cầu đặt lại mật khẩu không đầy đủ.");
+            }
+
+            var success = await _authService.ResetPasswordAsync(request);
+            if (!success)
+            {
+                return BadRequest("Liên kết khôi phục không hợp lệ, đã hết hạn hoặc tài khoản không tồn tại.");
+            }
+
+            return Ok(new { message = "Đặt lại mật khẩu thành công!" });
+        }
+
+        [HttpPost("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Token))
+            {
+                return BadRequest("Thông tin xác thực email không hợp lệ hoặc thiếu.");
+            }
+
+            var success = await _authService.VerifyEmailAsync(request);
+            if (!success)
+            {
+                return BadRequest("Liên kết kích hoạt không hợp lệ, đã hết hạn hoặc tài khoản không tồn tại.");
+            }
+
+            return Ok(new { message = "Tài khoản của bạn đã được xác thực thành công!" });
         }
     }
 }

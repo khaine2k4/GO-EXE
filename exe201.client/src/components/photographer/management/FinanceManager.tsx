@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Banknote, ArrowUpRight, AlertCircle } from 'lucide-react'
+import { RefreshCw, Banknote, AlertCircle } from 'lucide-react'
 import { getStudioSettlements, type SettlementItem, type SettlementStatus } from '../../../services/settlementApi'
 import { getStudioCommissionSetting, getStudioCommissions, getStudioRevenue, type StudioCommission, type StudioCommissionSetting, type StudioRevenue } from '../../../services/studioRevenueApi'
 import { getStudioWallet, createWithdrawal, getMyWithdrawals, type WalletDetail, type PayoutRequestItem } from '../../../services/walletApi'

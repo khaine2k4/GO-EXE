@@ -1103,6 +1103,17 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasColumnName("updated_at");
             entity.Property(e => e.UpdatedBy).HasColumnName("updated_by");
+            entity.Property(e => e.ResetToken)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("reset_token");
+            entity.Property(e => e.ResetTokenExpiresAt).HasColumnName("reset_token_expires_at");
+            entity.Property(e => e.VerificationToken)
+                .HasMaxLength(255)
+                .IsUnicode(false)
+                .HasColumnName("verification_token");
+            entity.Property(e => e.VerificationTokenExpiresAt).HasColumnName("verification_token_expires_at");
+
 
             entity.HasOne(d => d.Role).WithMany(p => p.Users)
                 .HasForeignKey(d => d.RoleId)

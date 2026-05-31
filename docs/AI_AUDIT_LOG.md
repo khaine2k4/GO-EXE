@@ -1,5 +1,44 @@
 # AI Audit Log
 
+## 2026-05-31 - Secure Email Verification Flow for Registration
+
+- **Database & Model Configuration**:
+  - Executed SQL script `add_verification_columns.ps1` to add nullable columns `verification_token` and `verification_token_expires_at` in physical database.
+  - Added properties `VerificationToken` and `VerificationTokenExpiresAt` in [User.cs](file:///d:/PRN212/EXE201/exe201.Server/Models/User.cs).
+  - Configured Fluent API mappings for the new columns in [PhotoStudioBookingContext.cs](file:///d:/PRN212/EXE201/exe201.Server/Models/PhotoStudioBookingContext.cs).
+- **Backend Refactoring & Additions**:
+  - Created `VerifyEmailRequestDto` in [AuthDto.cs](file:///d:/PRN212/EXE201/exe201.Server/DTOs/AuthDto.cs).
+  - Extended `IAuthService` and updated `AuthService.cs` implementation:
+    - Modified `RegisterAsync` to create users with status `UNVERIFIED` and `EmailVerified = false`, generating a 24-hour verification token and emailing a premium HTML activation link.
+    - Modified `LoginAsync` to explicitly throw an `Exception("UNVERIFIED")` if an unverified user tries to sign in.
+    - Implemented `VerifyEmailAsync` to validate tokens, set account status to `ACTIVE`, and clear token values.
+  - Updated `Login` endpoint to catch `UNVERIFIED` state and return explicit BadRequest. Exposed `POST /api/auth/verify-email` in [AuthController.cs](file:///d:/PRN212/EXE201/exe201.Server/Controllers/AuthController.cs).
+- **Frontend Refactoring & Additions**:
+  - Registered `/verify-email` route in [App.tsx](file:///d:/PRN212/EXE201/exe201.client/src/App.tsx).
+  - Created light-glassmorphic [VerifyEmailPage.tsx](file:///d:/PRN212/EXE201/exe201.client/src/pages/VerifyEmailPage.tsx) that automatically verifies email tokens and handles success/error views.
+  - Refactored [RegisterPage.tsx](file:///d:/PRN212/EXE201/exe201.client/src/pages/RegisterPage.tsx) to block auto-login on signup, and instead display a premium glassmorphic modal prompting users to check their email for activation.
+- **Verification**:
+  - Successfully built React client via `npm run build` with **0 errors and 0 warnings**.
+  - Confirmed compiler-clean backend architecture.
+
+## 2026-05-31 - Secure Token-Based Forgot Password Flow
+
+- **Database & Model Configuration**:
+  - Mapped properties `ResetToken` and `ResetTokenExpiresAt` to columns `reset_token` and `reset_token_expires_at` using EF Core Fluent API mapping in [PhotoStudioBookingContext.cs](file:///d:/PRN212/EXE201/exe201.Server/Models/PhotoStudioBookingContext.cs).
+- **Backend Refactoring & Additions**:
+  - Created `ResetPasswordRequestDto` in [AuthDto.cs](file:///d:/PRN212/EXE201/exe201.Server/DTOs/AuthDto.cs).
+  - Extended `IAuthService` and updated `AuthService.cs` implementation:
+    - `ForgotPasswordAsync` now generates a cryptographically secure token (GUID), saves it with a 15-minute expiration time, and emails a premium HTML link to `http://localhost:5173/reset-password?token=TOKEN&email=EMAIL`.
+    - `ResetPasswordAsync` validates the token, checks the expiration, hashes the new password using BCrypt, and invalidates the token by setting fields to `null`.
+  - Exposed `POST /api/auth/reset-password` and updated `POST /api/auth/forgot-password` in [AuthController.cs](file:///d:/PRN212/EXE201/exe201.Server/Controllers/AuthController.cs).
+- **Frontend Refactoring & Additions**:
+  - Registered the `/reset-password` route in the routing tree inside [App.tsx](file:///d:/PRN212/EXE201/exe201.client/src/App.tsx).
+  - Developed the premium, glassmorphic [ResetPasswordPage.tsx](file:///d:/PRN212/EXE201/exe201.client/src/pages/ResetPasswordPage.tsx) featuring responsive design, secure inputs, a real-time password strength checklist (Min length, letters, numbers, match check), and elegant dynamic success feedback.
+  - Refactored `handleForgotPassword` success flow in [LoginPage.tsx](file:///d:/PRN212/EXE201/exe201.client/src/pages/LoginPage.tsx) to align with link instructions instead of temporary passwords.
+- **Verification**:
+  - Completed React Vite production compilation successfully using `npm run build` with **0 errors and 0 warnings**.
+  - Verified backend compilation is highly robust under the watcher.
+
 ## 2026-05-27 - Vietnamese Marketplace UI Refresh
 
 - Applied the requested 60/30/10 visual direction using white surfaces, primary blue `#004aad`, and orange `#ff751f` accents in `src/index.css`.

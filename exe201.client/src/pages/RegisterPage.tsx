@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, Mail, Lock, MapPin, Sparkles, BookOpen, Tag } from 'lucide-react'
-import { motion } from 'framer-motion'
-import { useAppStore } from '../store/AppStore'
+import { User, Mail, Lock, MapPin, Sparkles, BookOpen, Tag, MailCheck } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '../components/Toast'
 import type { Role } from '../types'
 import api from '../api/axios'
@@ -10,7 +9,6 @@ import api from '../api/axios'
 const TAGS_OPTIONS = ['Wedding', 'Portrait', 'Lifestyle', 'Street', 'Couple', 'Landscape', 'Travel', 'Fashion', 'Commercial', 'Documentary']
 
 export default function RegisterPage() {
-    const { actions } = useAppStore()
     const nav = useNavigate()
     const toast = useToast()
 
@@ -18,12 +16,14 @@ export default function RegisterPage() {
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
     const [bio, setBio] = useState('')
     const [location, setLocation] = useState('')
     const [tags, setTags] = useState<string[]>([])
     const [startingPrice, setStartingPrice] = useState('1000000')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [registeredEmail, setRegisteredEmail] = useState('')
 
     function toggleTag(t: string) {
         setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])
@@ -37,6 +37,7 @@ export default function RegisterPage() {
             return
         }
         if (password.length < 6) { setError('Mật khẩu tối thiểu 6 ký tự.'); return }
+        if (password !== confirmPassword) { setError('Mật khẩu và xác nhận mật khẩu không khớp.'); return }
         setLoading(true)
         
         try {
@@ -50,48 +51,14 @@ export default function RegisterPage() {
                 location: role === 'PHOTOGRAPHER' ? location : null
             });
 
-            // 2. Tự động đăng nhập sau khi đăng ký thành công để tạo trải nghiệm mượt mà
-            const loginRes = await api.post('/auth/login', {
-                email,
-                password
-            });
-
-            const { token, user: loggedUser } = loginRes.data;
-
-            // Lưu token và thông tin user vào localStorage
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(loggedUser));
+            // 2. Thiết lập trạng thái đăng ký thành công để hiển thị Modal kích hoạt email
+            setRegisteredEmail(email);
             
-            // Cập nhật state trong store
-            actions.setCurrentUser({
-                id: String(loggedUser.id),
-                name: loggedUser.name,
-                email: loggedUser.email,
-                role: loggedUser.role,
-                password: '',
-                createdAt: new Date().toISOString(),
-                status: loggedUser.status,
-                avatarUrl: loggedUser.avatarUrl,
-                studioName: loggedUser.studioName,
-                logoUrl: loggedUser.logoUrl,
-                bio: loggedUser.bio,
-                city: loggedUser.city,
-                district: loggedUser.district,
-                coverUrl: loggedUser.coverUrl,
-                studioStatus: loggedUser.studioStatus,
-            });
-
             toast.push({
                 type: 'success',
-                title: role === 'PHOTOGRAPHER' ? 'Đăng ký thành công! Đang chờ admin duyệt.' : `Chào mừng, ${loggedUser.name}!`,
-                message: role === 'PHOTOGRAPHER' ? 'Hồ sơ Studio của bạn đang được xem xét.' : '',
+                title: 'Đăng ký thành công!',
+                message: 'Vui lòng kiểm tra hòm thư để kích hoạt tài khoản của bạn.'
             });
-
-            if (loggedUser.role === 'STUDIO_OWNER') {
-                nav('/photographer/dashboard');
-            } else {
-                nav('/');
-            }
         } catch (err: any) {
             if (err.response && err.response.data) {
                 setError(err.response.data);
@@ -210,6 +177,23 @@ export default function RegisterPage() {
                                         type="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        required
+                                        className="h-12 w-full bg-transparent px-3 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Xác nhận mật khẩu</label>
+                                <div className="relative flex items-center rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all focus-ring-premium">
+                                    <div className="pl-4 text-slate-400">
+                                        <Lock className="h-5 w-5" />
+                                    </div>
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
                                         placeholder="••••••••"
                                         required
                                         className="h-12 w-full bg-transparent px-3 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
@@ -347,6 +331,41 @@ export default function RegisterPage() {
                     </div>
                 </div>
             </motion.div>
+
+            {/* Inbox Verification Modal */}
+            <AnimatePresence>
+                {registeredEmail && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-md">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/95 p-8 shadow-2xl shadow-slate-950/20 backdrop-blur-2xl text-center"
+                        >
+                            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 shadow-lg shadow-indigo-600/5 mb-6">
+                                <MailCheck className="h-10 w-10 animate-bounce" />
+                            </div>
+
+                            <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 font-sans">Kiểm tra hộp thư!</h3>
+                            <p className="mt-2 text-xs font-bold text-indigo-600 tracking-wider uppercase">Đăng ký hoàn tất</p>
+                            
+                            <p className="mt-4 text-xs text-slate-500 font-medium leading-relaxed max-w-xs mx-auto">
+                                Một liên kết kích hoạt đã được gửi tới địa chỉ email: <strong className="text-slate-800">{registeredEmail}</strong>.<br/><br/>
+                                Vui lòng mở hòm thư điện tử và nhấp vào liên kết để kích hoạt tài khoản của bạn trước khi đăng nhập.
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={() => nav('/login')}
+                                className="mt-8 h-12 w-full rounded-2xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-indigo-600/10 hover:bg-indigo-500 transition-all active:scale-[0.98] cursor-pointer"
+                            >
+                                Đóng & Đăng nhập
+                            </button>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     )
 }

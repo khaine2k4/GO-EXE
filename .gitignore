@@ -92,4 +92,7 @@ appsettings.json.user
 appsettings.json
 appsettings.Development.json
 
+# Ignore temporary scratch files and scripts
+scratch/
+
 

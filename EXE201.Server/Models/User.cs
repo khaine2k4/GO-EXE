@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace exe201.Server.Models;
@@ -40,6 +40,14 @@ public partial class User
     public DateTime UpdatedAt { get; set; }
 
     public long? UpdatedBy { get; set; }
+
+    public string? ResetToken { get; set; }
+
+    public DateTime? ResetTokenExpiresAt { get; set; }
+
+    public string? VerificationToken { get; set; }
+
+    public DateTime? VerificationTokenExpiresAt { get; set; }
 
     public virtual ICollection<Booking> BookingCancelledByNavigations { get; set; } = new List<Booking>();
 

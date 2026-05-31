@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { User, Lock, MapPin, Building, Save, Plus, Home, Check, Banknote, RefreshCw, AlertCircle, ArrowUpRight, DollarSign, XCircle, CheckCircle2 } from 'lucide-react'
+import { User, Lock, MapPin, Building, Save, Plus, Home, Check, Banknote, RefreshCw, AlertCircle, ArrowUpRight, DollarSign } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
