@@ -83,36 +83,22 @@ export default function App() {
       {/* Protected pages inside Layout */}
       <Route element={<Layout />}>
         {/* Public / Customer */}
-        <Route path="/" element={
-          <RequireAuth><HomePage /></RequireAuth>
-        } />
-        <Route path="/gallery" element={
-          <RequireAuth><GalleryPage /></RequireAuth>
-        } />
-        <Route path="/photosets" element={
-          <RequireAuth><PhotosetsPage /></RequireAuth>
-        } />
-        <Route path="/photosets/:id" element={
-          <RequireAuth><PhotosetDetailPage /></RequireAuth>
-        } />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/gallery" element={<GalleryPage />} />
+        <Route path="/photosets" element={<PhotosetsPage />} />
+        <Route path="/photosets/:id" element={<PhotosetDetailPage />} />
         <Route path="/albums/:id" element={
           <RequireAuth><AlbumDetailPage /></RequireAuth>
         } />
-        <Route path="/photographers/:id" element={
-          <RequireAuth><PhotographerProfilePage /></RequireAuth>
-        } />
+        <Route path="/photographers/:id" element={<PhotographerProfilePage />} />
         <Route path="/customer/bookings" element={
           <RequireAuth role="CUSTOMER"><CustomerBookingsPage /></RequireAuth>
         } />
         <Route path="/customer/bookings/:id" element={
           <RequireAuth role="CUSTOMER"><CustomerBookingDetailPage /></RequireAuth>
         } />
-        <Route path="/premier" element={
-          <RequireAuth><PremierPage /></RequireAuth>
-        } />
-        <Route path="/faq" element={
-          <RequireAuth><FAQPage /></RequireAuth>
-        } />
+        <Route path="/premier" element={<PremierPage />} />
+        <Route path="/faq" element={<FAQPage />} />
         <Route path="/profile" element={
           <RequireAuth><ProfilePage /></RequireAuth>
         } />
