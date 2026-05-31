@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  # ===== BACKEND (.NET 8 API) =====
+  backend:
+    build:
+      context: ./EXE201.Server
+      dockerfile: Dockerfile
+    container_name: goexe-backend
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Override connection string — trỏ sang MSSQL container đang chạy
+      - ConnectionStrings__DefaultConnection=Server=host.docker.internal,1433;Database=PhotoStudioBooking;User Id=sa;Password=Khaidz12345;TrustServerCertificate=True;Encrypt=False;Connection Timeout=30;Command Timeout=60;MultipleActiveResultSets=True;Max Pool Size=100;Pooling=True;
+      # JWT — update Issuer & Audience cho domain thật
+      - Jwt__Issuer=https://gophotostudio.uk
+      - Jwt__Audience=https://gophotostudio.uk
+      # VnPay callback URLs
+      - VnPay__ReturnUrl=https://gophotostudio.uk/api/payments/vnpay-return
+      - VnPay__IpnUrl=https://gophotostudio.uk/api/payments/vnpay-ipn
+      # SePay
+      - SePay__BackendBaseUrl=https://gophotostudio.uk
+      - SePay__FrontendBaseUrl=https://gophotostudio.uk
+      # PayOS
+      - PayOS__ClientId=${PAYOS_CLIENT_ID}
+      - PayOS__ApiKey=${PAYOS_API_KEY}
+      - PayOS__ChecksumKey=${PAYOS_CHECKSUM_KEY}
+      - PayOS__ReturnUrl=https://gophotostudio.uk/api/payments/payos-return
+      - PayOS__CancelUrl=https://gophotostudio.uk/customer/bookings
+      - PayOS__PayoutClientId=${PAYOS_PAYOUT_CLIENT_ID}
+      - PayOS__PayoutApiKey=${PAYOS_PAYOUT_API_KEY}
+      - PayOS__PayoutChecksumKey=${PAYOS_PAYOUT_CHECKSUM_KEY}
+    ports:
+      - "8080:8080"
+    networks:
+      - goexe-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ===== FRONTEND (React + Nginx reverse proxy) =====
+  frontend:
+    build:
+      context: ./exe201.client
+      dockerfile: Dockerfile
+    container_name: goexe-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - goexe-net
+
+  # ===== CLOUDFLARE TUNNEL =====
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: goexe-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - goexe-net
+    depends_on:
+      - frontend
+
+networks:
+  goexe-net:
+    driver: bridge

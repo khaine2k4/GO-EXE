@@ -86,8 +86,8 @@ namespace EXE201.Server.Controllers
             var success = await _bookingService.ProcessVnPayReturnAsync(vnpayParams);
             var status = success ? "success" : "fail";
 
-            // Redirect back to frontend
-            return Redirect($"http://localhost:5173/customer/bookings/{bookingId}?paymentStatus={status}");
+            // Dùng relative path để tự động chạy đúng cả ở localhost và domain thật gophotostudio.uk
+            return Redirect($"/customer/bookings/{bookingId}?paymentStatus={status}");
         }
 
         [HttpGet("vnpay-ipn")]
@@ -123,6 +123,7 @@ namespace EXE201.Server.Controllers
             var paymentUrl = await _bookingService.CreatePayOsPaymentUrlAsync(GetCurrentUserId(), request.BookingId);
             if (string.IsNullOrEmpty(paymentUrl))
             {
+                // Clean IPv6 loopback
                 return BadRequest("Could not create payOS payment URL.");
             }
 
@@ -136,7 +137,9 @@ namespace EXE201.Server.Controllers
             // Process the return URL parameters, query PayOS API for verification, and update database state
             var success = await _bookingService.ProcessPayOsReturnAsync(orderCode, status);
             var paymentStatus = success ? "success" : "fail";
-            return Redirect($"http://localhost:5173/customer/bookings/{orderCode}?paymentStatus={paymentStatus}");
+            
+            // Dùng relative path để tự động chạy đúng cả ở localhost và domain thật gophotostudio.uk
+            return Redirect($"/customer/bookings/{orderCode}?paymentStatus={paymentStatus}");
         }
 
         [HttpPost("payos-webhook")]
@@ -145,6 +148,13 @@ namespace EXE201.Server.Controllers
         {
             using var reader = new System.IO.StreamReader(Request.Body);
             var body = await reader.ReadToEndAsync();
+
+            // PayOS gửi request ping/test chứa "ma giao dich thu nghiem" để xác thực Webhook URL khi cấu hình.
+            // Cần bypass kiểm tra chữ ký ở bước này để tránh lỗi 400 Bad Request.
+            if (body.Contains("ma giao dich thu nghiem") || body.Contains("Ma giao dich thu nghiem"))
+            {
+                return Ok(new { code = "00", desc = "success" });
+            }
 
             var success = await _bookingService.ProcessPayOsWebhookAsync(body);
             if (success)

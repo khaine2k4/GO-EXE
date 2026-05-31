@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5289/api', // Địa chỉ Backend của bạn
+    baseURL: import.meta.env.DEV ? 'http://localhost:5289/api' : '/api',
 });
 
 // Bộ chặn (Interceptor) cho request: Tự động đính kèm Token nếu có

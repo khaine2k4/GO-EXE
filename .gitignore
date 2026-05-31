@@ -83,6 +83,9 @@ message.txt
 # --------------------------------------------------------------------
 # 7. Local Configuration Overrides & Secrets
 # --------------------------------------------------------------------
+# Ignore root environment variables and secrets
+.env
+
 # Standard practice is to track appsettings.json & appsettings.Development.json
 # with generic/default values, and use local JSON files for overrides.
 appsettings.local.json
