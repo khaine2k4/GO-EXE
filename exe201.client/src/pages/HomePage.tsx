@@ -1,7 +1,7 @@
-import { Camera, CheckCircle2, Search, Shield, Sparkles, Star, Users } from 'lucide-react'
+import { Camera, CheckCircle2, ChevronDown, Search, Shield, Sparkles, Star, Users } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMemo, useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { getCategories } from '../services/categoryApi'
 import { getServices } from '../services/serviceApi'
 import type { Category, ServiceSummary } from '../services/catalogTypes'
@@ -76,7 +76,7 @@ export default function HomePage() {
   return (
     <div className="space-y-20 pb-16">
       <section className="relative bg-white py-6 md:py-10">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.25fr_0.75fr]">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.3fr_0.7fr] xl:grid-cols-[1.4fr_0.6fr]">
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-[var(--color-slate)] shadow-sm ring-1 ring-[var(--color-border)]">
               <Sparkles className="h-4 w-4 text-[var(--color-azure)]" />
@@ -97,14 +97,14 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-[28px] border border-[var(--color-border)] bg-white p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)]">
-              <div className="grid gap-3 lg:grid-cols-[minmax(230px,1.45fr)_minmax(160px,0.85fr)_minmax(140px,0.7fr)_auto] lg:items-center">
-                <label className="flex h-12 items-center gap-3 rounded-full bg-[var(--color-fog)] px-4">
-                  <Search className="h-5 w-5 shrink-0 text-[var(--color-graphite)]" />
+              <div className="grid gap-3 lg:grid-cols-[minmax(270px,1.7fr)_minmax(190px,1.1fr)_minmax(120px,0.6fr)_auto] lg:items-center">
+                <label className="flex h-12 items-center gap-2 rounded-full bg-[var(--color-fog)] px-3">
+                  <Search className="h-4 w-4 shrink-0 text-[var(--color-graphite)]" />
                   <input
                     value={keyword}
                     onChange={(event) => setKeyword(event.target.value)}
-                    placeholder="Tìm studio, dịch vụ, phong cách hoặc khu vực"
-                    className="min-w-0 w-full bg-transparent text-sm font-medium text-[var(--color-ink)] outline-none placeholder:text-slate-400"
+                    placeholder="Tìm dịch vụ, studio..."
+                    className="min-w-0 w-full bg-transparent text-[13px] font-medium text-[var(--color-ink)] outline-none placeholder:text-slate-400"
                   />
                 </label>
                 <Dropdown
@@ -138,7 +138,7 @@ export default function HomePage() {
 
           </div>
 
-          <HeroCollage images={heroImages} />
+          <HeroBanner image={FALLBACK_IMAGES[3]} />
         </div>
       </section>
 
@@ -214,19 +214,25 @@ export default function HomePage() {
   )
 }
 
-function HeroCollage({ images }: { images: string[] }) {
+function HeroBanner({ image }: { image: string }) {
   return (
-    <div className="grid min-h-[480px] grid-cols-[1.15fr_0.85fr] grid-rows-6 gap-4">
-      <SafeImage src={images[0]} fallback={FALLBACK_IMAGES[0]} alt="Wedding photography service" className="row-span-6 h-full w-full rounded-[28px] object-cover" />
-      <SafeImage src={images[1]} fallback={FALLBACK_IMAGES[1]} alt="Portrait studio session" className="row-span-2 h-full w-full rounded-[28px] object-cover" />
-      <SafeImage src={images[2]} fallback={FALLBACK_IMAGES[2]} alt="Event photography booking" className="row-span-2 h-full w-full rounded-[28px] object-cover" />
-      <div className="relative row-span-2 overflow-hidden rounded-[28px] bg-black">
-        <SafeImage src={images[3]} fallback={FALLBACK_IMAGES[3]} alt="Product photography studio" className="h-full w-full object-cover opacity-85" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-        <div className="absolute bottom-4 left-4 right-4 rounded-[20px] border border-white/20 bg-white/15 p-4 text-white backdrop-blur-xl">
-          <div className="text-xs font-semibold uppercase text-white/75">Gói được đặt nhiều nhất</div>
-          <div className="mt-1 text-base font-semibold leading-snug text-white">Chọn gói phù hợp và chờ studio xác nhận lịch chụp.</div>
+    <div className="relative h-[480px] w-full overflow-hidden rounded-[28px] shadow-lg group">
+      <SafeImage
+        src={image || FALLBACK_IMAGES[0]}
+        fallback={FALLBACK_IMAGES[0]}
+        alt="Creative Studio Banner"
+        className="h-full w-full object-cover transition-transform duration-10000 ease-out group-hover:scale-105"
+      />
+      {/* Premium Glass Card Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+      <div className="absolute bottom-6 left-6 right-6 rounded-[24px] border border-white/20 bg-white/10 p-5 text-white backdrop-blur-xl transition-all duration-300 hover:bg-white/15">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">Gợi ý từ GO!</span>
         </div>
+        <h3 className="mt-2 text-base font-bold leading-snug">
+          Chọn gói chụp phù hợp nhất và gửi yêu cầu đặt lịch nhanh chóng đến Studio tin cậy.
+        </h3>
       </div>
     </div>
   )
@@ -288,22 +294,58 @@ function Dropdown({
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen((state) => !state)} className="flex h-12 w-full items-center justify-between gap-3 rounded-full bg-[var(--color-fog)] px-4 text-left text-sm font-medium text-[var(--color-ink)]">
+      <button
+        type="button"
+        onClick={() => setOpen((state) => !state)}
+        className="flex h-12 w-full items-center justify-between gap-2 rounded-full bg-[var(--color-fog)] px-3 text-left text-[13px] font-semibold text-[var(--color-ink)] transition-colors hover:bg-slate-100"
+      >
         <span className="truncate">{selected?.label ?? placeholder}</span>
-        <span className="text-xs text-slate-500">⌄</span>
+        <ChevronDown
+          className="h-4 w-4 shrink-0 text-slate-400 transition-transform"
+          style={{
+            transform: open ? 'rotate(180deg)' : 'none',
+            transitionDuration: '360ms',
+            transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
+        />
       </button>
-      {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white p-1 shadow-xl">
-          <button type="button" onClick={() => { onChange(''); setOpen(false) }} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-[var(--color-fog)]">
-            {placeholder}
-          </button>
-          {options.map((option) => (
-            <button key={option.value} type="button" onClick={() => { onChange(option.value); setOpen(false) }} className={`block w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium ${option.value === value ? 'bg-blue-50 text-[var(--color-azure)]' : 'text-slate-700 hover:bg-[var(--color-fog)]'}`}>
-              {option.label}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white p-1 shadow-xl origin-top"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onChange('')
+                setOpen(false)
+              }}
+              className="block w-full rounded-xl px-3 py-2 text-left text-[13px] font-medium text-slate-600 hover:bg-[var(--color-fog)] transition-colors duration-200"
+            >
+              {placeholder}
             </button>
-          ))}
-        </div>
-      )}
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value)
+                  setOpen(false)
+                }}
+                className={`block w-full rounded-xl px-3 py-2 text-left text-[13px] font-medium transition-colors duration-200 ${
+                  option.value === value ? 'bg-blue-50 text-[var(--color-azure)]' : 'text-slate-700 hover:bg-[var(--color-fog)]'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
