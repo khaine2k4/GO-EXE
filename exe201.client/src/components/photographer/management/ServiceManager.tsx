@@ -240,7 +240,7 @@ export default function ServiceManager({ refreshKey = 0, initialCreate = false, 
       </SectionPanel>
 
       <Drawer title={form.id ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'} open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="space-y-5">
           <Select label="Danh mục" value={form.categoryId} onChange={(value) => setForm((prev) => ({ ...prev, categoryId: value }))} options={categories.map((item) => ({ value: String(item.id), label: item.name }))} />
           <Input label="Tên dịch vụ" value={form.serviceName} onChange={(value) => setForm((prev) => ({ ...prev, serviceName: value }))} />
           <Input label="Thành phố" value={form.city} onChange={(value) => setForm((prev) => ({ ...prev, city: value }))} />
@@ -252,7 +252,7 @@ export default function ServiceManager({ refreshKey = 0, initialCreate = false, 
           />
           <Input label="Thứ tự sắp xếp" type="number" value={form.sortOrder} onChange={(value) => setForm((prev) => ({ ...prev, sortOrder: value }))} />
           <Textarea label="Mô tả chi tiết" value={form.description} onChange={(value) => setForm((prev) => ({ ...prev, description: value }))} />
-          <button className="h-11 w-full rounded-xl bg-indigo-600 text-xs font-black uppercase tracking-widest text-white">{form.id ? 'Cập nhật dịch vụ' : 'Tạo dịch vụ mới'}</button>
+          <button className="h-12 w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-600/15 transition duration-150 active:scale-[0.99]">{form.id ? 'Cập nhật dịch vụ' : 'Tạo dịch vụ mới'}</button>
         </form>
       </Drawer>
 
@@ -269,13 +269,13 @@ export default function ServiceManager({ refreshKey = 0, initialCreate = false, 
 }
 
 function Input({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
-  return <label className="block"><span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-400">{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-400" /></label>
+  return <label className="block"><span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3.5 text-sm font-semibold outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition duration-150 text-slate-800" /></label>
 }
 
 function Textarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="block"><span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-400">{label}</span><textarea value={value} onChange={(event) => onChange(event.target.value)} className="min-h-28 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-400" /></label>
+  return <label className="block"><span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span><textarea value={value} onChange={(event) => onChange(event.target.value)} className="min-h-28 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3.5 py-3 text-sm font-semibold outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition duration-150 text-slate-800 leading-relaxed" /></label>
 }
 
 function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
-  return <label className="block"><span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-400">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-400"><option value="">Chọn danh mục</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+  return <label className="block"><span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3.5 text-sm font-semibold outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 transition duration-150 text-slate-800"><option value="">Chọn danh mục</option>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
 }
