@@ -84,6 +84,7 @@ export default function App() {
       <Route element={<Layout />}>
         {/* Public / Customer */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/home" element={<HomePage />} />
         <Route path="/gallery" element={<GalleryPage />} />
         <Route path="/photosets" element={<PhotosetsPage />} />
         <Route path="/photosets/:id" element={<PhotosetDetailPage />} />
