@@ -55,12 +55,18 @@ export interface PayoutRequestItem {
   updatedAt: string
 }
 
-export async function createWithdrawal(amount: number, bankCode: string, accountNumber: string, description?: string): Promise<{ message: string; payoutId: number }> {
+export async function requestWithdrawalOtp(): Promise<{ message: string }> {
+  const response = await api.post<{ message: string }>('/wallet/withdraw/request-otp')
+  return response.data
+}
+
+export async function createWithdrawal(amount: number, bankCode: string, accountNumber: string, description: string | undefined, otpCode: string): Promise<{ message: string; payoutId: number }> {
   const response = await api.post<{ message: string; payoutId: number }>('/wallet/withdraw', {
     amount,
     bankCode,
     accountNumber,
-    description
+    description,
+    otpCode
   })
   return response.data
 }

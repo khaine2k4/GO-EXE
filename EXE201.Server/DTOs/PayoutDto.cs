@@ -27,6 +27,7 @@ namespace EXE201.Server.DTOs
         public string BankCode { get; set; } = null!;
         public string AccountNumber { get; set; } = null!;
         public string? Description { get; set; }
+        public string OtpCode { get; set; } = null!;
     }
 
     public class RejectPayoutRequestDto
