@@ -2,10 +2,16 @@ import { useState } from 'react'
 import type React from 'react'
 import { useAppStore } from '../../../store/AppStore'
 import { SectionPanel } from './Panel'
+import ImageUploader from '../../ImageUploader'
+import api from '../../../api/axios'
+import { useToast } from '../../Toast'
+import { Save, Loader2 } from 'lucide-react'
 
 export default function PhotographerProfileManager() {
-  const { state } = useAppStore()
+  const { state, actions } = useAppStore()
   const current = state.currentUser
+  const toast = useToast()
+  
   const [form, setForm] = useState({
     name: current?.studioName || current?.name || '',
     bio: current?.bio || '',
@@ -14,24 +20,111 @@ export default function PhotographerProfileManager() {
     coverUrl: current?.coverUrl || '',
   })
 
-  function submit(event: React.FormEvent) {
+  const [loading, setLoading] = useState(false)
+
+  async function submit(event: React.FormEvent) {
     event.preventDefault()
+    setLoading(true)
+
+    try {
+      const parts = form.location.split(',').map((s) => s.trim())
+      const city = parts[0] || ''
+      const district = parts[1] || ''
+
+      const res = await api.put('/auth/profile', {
+        name: current?.name || '',
+        phone: current?.phone || '',
+        avatarUrl: current?.avatarUrl || '',
+        gender: current?.gender || 'MALE',
+        dob: current?.dob || null,
+        studioName: form.name,
+        logoUrl: form.avatarUrl,
+        studioPhone: current?.studioPhone || current?.phone || '',
+        studioEmail: current?.studioEmail || current?.email || '',
+        bio: form.bio,
+        city: city,
+        district: district,
+        addressLine: current?.addressLine || '',
+        coverUrl: form.coverUrl,
+      })
+
+      const updatedUser = res.data
+
+      // Update user in global store
+      actions.setCurrentUser({
+        ...current!,
+        name: updatedUser.name,
+        avatarUrl: updatedUser.avatarUrl,
+        status: updatedUser.status,
+        studioName: updatedUser.studioName,
+        logoUrl: updatedUser.logoUrl,
+        bio: updatedUser.bio,
+        city: updatedUser.city,
+        district: updatedUser.district,
+        coverUrl: updatedUser.coverUrl,
+      })
+
+      // Update user in localStorage
+      const localUserData = JSON.parse(localStorage.getItem('user') || '{}')
+      localStorage.setItem('user', JSON.stringify({
+        ...localUserData,
+        name: updatedUser.name,
+        avatarUrl: updatedUser.avatarUrl,
+      }))
+
+      toast.push({
+        type: 'success',
+        title: 'Thành công',
+        message: 'Hồ sơ Studio đã được cập nhật thành công!',
+      })
+    } catch (err: any) {
+      console.error('Lỗi khi cập nhật hồ sơ studio:', err)
+      toast.push({
+        type: 'error',
+        title: 'Thất bại',
+        message: err.response?.data || 'Không thể cập nhật hồ sơ Studio. Vui lòng thử lại.',
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-      <SectionPanel title="Studio profile" subtitle="Manage the public studio identity used across the marketplace.">
+      <SectionPanel title="Studio profile" subtitle="Quản lý hồ sơ studio công khai trên marketplace.">
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <Input label="Studio name" value={form.name} onChange={(value) => setForm((prev) => ({ ...prev, name: value }))} />
-          <Input label="City / location" value={form.location} onChange={(value) => setForm((prev) => ({ ...prev, location: value }))} />
-          <Input label="Logo / avatar URL" value={form.avatarUrl} onChange={(value) => setForm((prev) => ({ ...prev, avatarUrl: value }))} />
-          <Input label="Cover URL" value={form.coverUrl} onChange={(value) => setForm((prev) => ({ ...prev, coverUrl: value }))} />
+          <Input label="Tên studio" value={form.name} onChange={(value) => setForm((prev) => ({ ...prev, name: value }))} />
+          <Input label="Thành phố / Khu vực" value={form.location} onChange={(value) => setForm((prev) => ({ ...prev, location: value }))} />
+          <ImageUploader
+            label="Logo / Avatar"
+            folder="exe201/studios/logos"
+            currentUrl={form.avatarUrl || undefined}
+            onUploaded={(url) => setForm((prev) => ({ ...prev, avatarUrl: url }))}
+          />
+          <ImageUploader
+            label="Ảnh bìa (Cover)"
+            folder="exe201/studios/covers"
+            currentUrl={form.coverUrl || undefined}
+            onUploaded={(url) => setForm((prev) => ({ ...prev, coverUrl: url }))}
+          />
           <label className="block md:col-span-2">
-            <span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-400">Bio / description</span>
+            <span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-400">Mô tả studio</span>
             <textarea value={form.bio} onChange={(event) => setForm((prev) => ({ ...prev, bio: event.target.value }))} className="min-h-32 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold outline-none focus:border-indigo-400" />
           </label>
-          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 md:col-span-2">
-            Profile is currently read from backend auth data. A real studio profile update API is needed before enabling save.
+          
+          <div className="md:col-span-2 pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-6 text-xs font-black uppercase tracking-widest text-white transition hover:bg-slate-800 active:scale-95 disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {loading ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+            </button>
           </div>
         </form>
       </SectionPanel>
@@ -57,3 +150,4 @@ export default function PhotographerProfileManager() {
 function Input({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <label className="block"><span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-400">{label}</span><input value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-indigo-400" /></label>
 }
+

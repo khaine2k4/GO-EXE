@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import ImageUploader from '../components/ImageUploader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { User, Lock, MapPin, Building, Save, Plus, Home, Check, Banknote, RefreshCw, AlertCircle, ArrowUpRight, DollarSign } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -617,18 +618,12 @@ export default function ProfilePage() {
                                 </label>
                             </div>
 
-                            <label className="block space-y-2">
-                                <span className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-1.5">
-                                    Link Ảnh Đại Diện (Avatar URL)
-                                </span>
-                                <input
-                                    type="url"
-                                    value={avatarUrl}
-                                    onChange={(e) => setAvatarUrl(e.target.value)}
-                                    placeholder="https://images.unsplash.com/..."
-                                    className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 transition-colors"
-                                />
-                            </label>
+                            <ImageUploader
+                                label="Ảnh đại diện (Avatar)"
+                                folder="exe201/avatars"
+                                currentUrl={avatarUrl || undefined}
+                                onUploaded={(url) => setAvatarUrl(url)}
+                            />
 
                             <button
                                 type="submit"
@@ -855,18 +850,12 @@ export default function ProfilePage() {
                                     />
                                 </label>
 
-                                <label className="block space-y-2">
-                                    <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">
-                                        Link Logo Studio (Logo URL)
-                                    </span>
-                                    <input
-                                        type="url"
-                                        value={logoUrl}
-                                        onChange={(e) => setLogoUrl(e.target.value)}
-                                        placeholder="https://images.unsplash.com/..."
-                                        className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 transition-colors"
-                                    />
-                                </label>
+                                <ImageUploader
+                                    label="Logo Studio"
+                                    folder="exe201/studios/logos"
+                                    currentUrl={logoUrl || undefined}
+                                    onUploaded={(url) => setLogoUrl(url)}
+                                />
 
                                 <label className="block space-y-2">
                                     <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">
@@ -949,18 +938,12 @@ export default function ProfilePage() {
                                 </label>
                             </div>
 
-                            <label className="block space-y-2">
-                                <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">
-                                    Ảnh bìa Studio (Cover Photo URL)
-                                </span>
-                                <input
-                                    type="url"
-                                    value={coverUrl}
-                                    onChange={(e) => setCoverUrl(e.target.value)}
-                                    placeholder="https://images.unsplash.com/..."
-                                    className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 transition-colors"
-                                />
-                            </label>
+                            <ImageUploader
+                                label="Ảnh bìa Studio (Cover)"
+                                folder="exe201/studios/covers"
+                                currentUrl={coverUrl || undefined}
+                                onUploaded={(url) => setCoverUrl(url)}
+                            />
 
                             <button
                                 type="submit"

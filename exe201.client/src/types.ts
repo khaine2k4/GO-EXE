@@ -100,14 +100,20 @@ export type AuthUser = {
   password: string     // plain-text for mock only
   role: Role
   avatarUrl?: string
+  phone?: string
+  gender?: string
+  dob?: string
   createdAt: string
   status?: string      // 'ACTIVE' | 'LOCKED' từ DB
   // Studio/Photographer fields
   studioName?: string
   logoUrl?: string
+  studioPhone?: string
+  studioEmail?: string
   bio?: string
   city?: string
   district?: string
+  addressLine?: string
   coverUrl?: string
   studioStatus?: string
   banReason?: string

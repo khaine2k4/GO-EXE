@@ -6,6 +6,7 @@ import { getStudioServices } from '../../../services/serviceApi'
 import type { PortfolioItem, ServiceSummary } from '../../../services/catalogTypes'
 import { Drawer, EmptyState, SectionPanel } from './Panel'
 import CustomDialog from '../../CustomDialog'
+import ImageUploader from '../../ImageUploader'
 
 const emptyForm = { serviceId: '', imageUrl: '', caption: '', sortOrder: '0' }
 
@@ -79,10 +80,15 @@ export default function PortfolioManager({ initialCreate = false, onChanged }: {
       <Drawer title="Thêm ảnh vào hồ sơ năng lực" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <form onSubmit={submit} className="space-y-4">
           <label className="block"><span className="mb-1 block text-xs font-black uppercase tracking-widest text-slate-400">Dịch vụ đính kèm</span><select value={form.serviceId} onChange={(event) => setForm((prev) => ({ ...prev, serviceId: event.target.value }))} className="h-11 w-full rounded-xl border border-slate-200 px-3 text-sm font-semibold"><option value="">Không đính kèm dịch vụ</option>{services.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></label>
-          <Input label="Đường dẫn hình ảnh (URL)" value={form.imageUrl} onChange={(value) => setForm((prev) => ({ ...prev, imageUrl: value }))} />
+          <ImageUploader
+            label="Hình ảnh"
+            folder="exe201/portfolios"
+            currentUrl={form.imageUrl || undefined}
+            onUploaded={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))}
+          />
           <Input label="Chú thích ảnh" value={form.caption} onChange={(value) => setForm((prev) => ({ ...prev, caption: value }))} />
           <Input label="Thứ tự sắp xếp" type="number" value={form.sortOrder} onChange={(value) => setForm((prev) => ({ ...prev, sortOrder: value }))} />
-          <button disabled={saving} className="h-11 w-full rounded-xl bg-indigo-600 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Thêm hình ảnh</button>
+          <button disabled={saving || !form.imageUrl.trim()} className="h-11 w-full rounded-xl bg-indigo-600 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">Thêm hình ảnh</button>
         </form>
       </Drawer>
 

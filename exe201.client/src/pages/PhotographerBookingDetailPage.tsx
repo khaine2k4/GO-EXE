@@ -23,6 +23,7 @@ import {
   uploadFinalPhotos,
   type BookingDto,
 } from '../services/bookingApi'
+import MultiImageUploader from '../components/MultiImageUploader'
 
 function formatVnd(value: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`
@@ -58,7 +59,7 @@ export default function PhotographerBookingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actioning, setActioning] = useState(false)
   const [error, setError] = useState('')
-  const [deliveryForm, setDeliveryForm] = useState<{ type: 'demo' | 'final'; urls: string; note: string } | null>(null)
+  const [deliveryForm, setDeliveryForm] = useState<{ type: 'demo' | 'final'; urls: string[]; note: string } | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -83,22 +84,14 @@ export default function PhotographerBookingDetailPage() {
     }
   }
 
-  function parsePhotoUrls(raw: string) {
-    return raw
-      .split(/\r?\n|,/)
-      .map((url) => url.trim())
-      .filter(Boolean)
-  }
-
   async function submitDelivery() {
     if (!booking || !deliveryForm) return
-    const photoUrls = parsePhotoUrls(deliveryForm.urls)
-    if (photoUrls.length === 0) {
-      toast.push({ type: 'error', title: 'Can nhap it nhat 1 link anh' })
+    if (deliveryForm.urls.length === 0) {
+      toast.push({ type: 'error', title: 'Can upload it nhat 1 anh' })
       return
     }
 
-    const payload = { photoUrls, note: deliveryForm.note.trim() || undefined }
+    const payload = { photoUrls: deliveryForm.urls, note: deliveryForm.note.trim() || undefined }
     const action = deliveryForm.type === 'demo'
       ? () => uploadDemoPhotos(booking.id, payload)
       : () => uploadFinalPhotos(booking.id, payload)
@@ -161,34 +154,37 @@ export default function PhotographerBookingDetailPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-sm font-black uppercase tracking-widest text-slate-900">
-                    {deliveryForm.type === 'demo' ? 'Gui anh demo' : 'Gui anh final'}
+                    {deliveryForm.type === 'demo' ? 'Upload ảnh demo' : 'Upload ảnh final'}
                   </h2>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">Nhap moi link anh tren mot dong hoac cach nhau bang dau phay.</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Chọn ảnh từ máy tính hoặc kéo thả vào khung bên dưới.</p>
                 </div>
                 <button type="button" onClick={() => setDeliveryForm(null)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase text-slate-500">
-                  Huy
+                  Hủy
                 </button>
               </div>
-              <textarea
-                value={deliveryForm.urls}
-                onChange={(event) => setDeliveryForm({ ...deliveryForm, urls: event.target.value })}
-                rows={6}
-                placeholder="https://example.com/photo-01.jpg"
-                className="mt-4 w-full rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold outline-none focus:border-indigo-400"
-              />
+
+              <div className="mt-4">
+                <MultiImageUploader
+                  label={deliveryForm.type === 'demo' ? 'Ảnh demo' : 'Ảnh final'}
+                  folder={deliveryForm.type === 'demo' ? 'exe201/bookings/demo' : 'exe201/bookings/final'}
+                  onUrlsChanged={(urls) => setDeliveryForm((prev) => prev ? { ...prev, urls } : null)}
+                  maxFiles={50}
+                />
+              </div>
+
               <input
                 value={deliveryForm.note}
-                onChange={(event) => setDeliveryForm({ ...deliveryForm, note: event.target.value })}
-                placeholder="Ghi chu giao anh"
+                onChange={(event) => setDeliveryForm((prev) => prev ? { ...prev, note: event.target.value } : null)}
+                placeholder="Ghi chú giao ảnh"
                 className="mt-3 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-400"
               />
               <button
                 type="button"
-                disabled={actioning || parsePhotoUrls(deliveryForm.urls).length === 0}
+                disabled={actioning || deliveryForm.urls.length === 0}
                 onClick={submitDelivery}
                 className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-xs font-black uppercase text-white disabled:opacity-50"
               >
-                <Send className="h-4 w-4" /> Gui anh
+                <Send className="h-4 w-4" /> Gửi ảnh ({deliveryForm.urls.length})
               </button>
             </div>
           )}
@@ -214,12 +210,12 @@ export default function PhotographerBookingDetailPage() {
                 </button>
               )}
               {booking.status === 'IN_PROGRESS' && (
-                <button disabled={actioning} type="button" onClick={() => setDeliveryForm({ type: 'demo', urls: '', note: '' })} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 text-xs font-black uppercase text-white disabled:opacity-50">
+                <button disabled={actioning} type="button" onClick={() => setDeliveryForm({ type: 'demo', urls: [], note: '' })} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 text-xs font-black uppercase text-white disabled:opacity-50">
                   <ImageUp className="h-4 w-4" /> Upload demo
                 </button>
               )}
               {(booking.status === 'DEMO_UPLOADED' || booking.status === 'EDITING') && (
-                <button disabled={actioning} type="button" onClick={() => setDeliveryForm({ type: 'final', urls: '', note: '' })} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-teal-600 text-xs font-black uppercase text-white disabled:opacity-50">
+                <button disabled={actioning} type="button" onClick={() => setDeliveryForm({ type: 'final', urls: [], note: '' })} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-teal-600 text-xs font-black uppercase text-white disabled:opacity-50">
                   <ImageUp className="h-4 w-4" /> Upload final
                 </button>
               )}
