@@ -1,14 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Calendar, Check, Clock, CreditCard, MapPin, Package, X } from 'lucide-react'
+import { Calendar, Check, Clock, CreditCard, MapPin, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import BookingCalendar from './BookingCalendar'
+import Stepper, { Step } from './Stepper'
 import { useAppStore } from '../store/AppStore'
 import { useToast } from './Toast'
 import type { Photographer, Photoset } from '../types'
 import type { ServiceDetail } from '../services/catalogTypes'
 import { getStudioDays } from '../services/scheduleApi'
-import { createBooking, getStudioSlots, payBooking, vnpayCreatePaymentUrl, payosCreatePaymentUrl, type TimeSlotDto } from '../services/bookingApi'
+import {
+  createBooking,
+  getStudioSlots,
+  payBooking,
+  payosCreatePaymentUrl,
+  vnpayCreatePaymentUrl,
+  type TimeSlotDto,
+} from '../services/bookingApi'
 
 type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'VNPAY' | 'PAYOS'
 
@@ -41,6 +49,7 @@ export default function BookingModal({
   const [successCode, setSuccessCode] = useState('')
   const [error, setError] = useState('')
   const [busyDates, setBusyDates] = useState<string[]>([])
+  const [activeStep, setActiveStep] = useState(1)
 
   useEffect(() => {
     if (!open) return
@@ -55,6 +64,7 @@ export default function BookingModal({
     setSuccessCode('')
     setError('')
     setBusyDates([])
+    setActiveStep(1)
   }, [open, service?.id])
 
   useEffect(() => {
@@ -72,15 +82,13 @@ export default function BookingModal({
       .then((days) => {
         const busy: string[] = []
         days.forEach((day) => {
-          const hasOpenSlots = day.slots && day.slots.some((s) => s.status === 'OPEN')
-          if (!day.isAvailable || !hasOpenSlots) {
-            busy.push(day.date)
-          }
+          const hasOpenSlots = day.slots && day.slots.some((slot) => slot.status === 'OPEN')
+          if (!day.isAvailable || !hasOpenSlots) busy.push(day.date)
         })
         setBusyDates(busy)
       })
       .catch((err) => {
-        console.error('Lỗi khi tải lịch làm việc của Studio:', err)
+        console.error('Không thể tải lịch làm việc của Studio:', err)
       })
   }, [open, service?.studioId])
 
@@ -98,12 +106,36 @@ export default function BookingModal({
     () => service?.packages.find((item) => item.id === selectedPackageId),
     [service?.packages, selectedPackageId],
   )
+  const selectedSlot = useMemo(
+    () => slots.find((slot) => slot.id === selectedSlotId),
+    [selectedSlotId, slots],
+  )
 
   const openSlots = slots.filter((slot) => slot.status === 'OPEN')
   const apiMode = Boolean(service)
   const title = service?.name || photoset?.title || photographer?.name || 'Dịch vụ chụp ảnh'
   const studioName = service?.studioName || photographer?.name || 'Studio'
   const totalPrice = selectedPackage?.price ?? photoset?.packageDetails.standard.price ?? photographer?.startingPrice ?? 0
+
+  function canContinue(step: number) {
+    if (step === 1) return !apiMode || Boolean(selectedPackageId)
+    if (step === 2) return apiMode ? Boolean(date && selectedSlotId) : Boolean(date)
+    if (step === 3) return apiMode ? shootingLocation.trim().length > 0 : true
+    return true
+  }
+
+  function canEnterStep(step: number) {
+    if (step <= 1) return true
+    for (let current = 1; current < step; current += 1) {
+      if (!canContinue(current)) return false
+    }
+    return true
+  }
+
+  function handleStepChange(step: number) {
+    setActiveStep(step)
+    setError('')
+  }
 
   async function handleSubmit() {
     setError('')
@@ -119,27 +151,32 @@ export default function BookingModal({
           shootingLocation: shootingLocation.trim(),
           note: note.trim() || undefined,
         })
+
         if (paymentMethod === 'PAYOS') {
           const payosRes = await payosCreatePaymentUrl(booking.id)
           if (payosRes?.paymentUrl) {
             window.location.href = payosRes.paymentUrl
             return
-          } else {
-            throw new Error('Không thể tạo link thanh toán VietQR.')
           }
-        } else if (paymentMethod === 'VNPAY') {
+          throw new Error('Không thể tạo link thanh toán VietQR.')
+        }
+
+        if (paymentMethod === 'VNPAY') {
           const vnpayRes = await vnpayCreatePaymentUrl(booking.id)
           if (vnpayRes?.paymentUrl) {
             window.location.href = vnpayRes.paymentUrl
             return
-          } else {
-            throw new Error('Không thể tạo link thanh toán VNPay.')
           }
-        } else {
-          await payBooking({ bookingId: booking.id, methodName: paymentMethod })
-          setSuccessCode(booking.bookingCode)
-          toast.push({ type: 'success', title: 'Đặt lịch thành công', message: 'Thanh toán giả lập đã được ghi nhận, chờ Studio xác nhận.' })
+          throw new Error('Không thể tạo link thanh toán VNPay.')
         }
+
+        await payBooking({ bookingId: booking.id, methodName: paymentMethod })
+        setSuccessCode(booking.bookingCode)
+        toast.push({
+          type: 'success',
+          title: 'Đặt lịch thành công',
+          message: 'Thanh toán giả lập đã được ghi nhận, chờ Studio xác nhận.',
+        })
       } else {
         if (!photographer || !date) throw new Error('Vui lòng chọn ngày chụp.')
         await actions.createBooking({
@@ -180,7 +217,7 @@ export default function BookingModal({
             initial={{ opacity: 0, y: 18, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.96 }}
-            className="relative max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="relative max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
           >
             {successCode ? (
               <div className="p-8 text-center">
@@ -192,7 +229,7 @@ export default function BookingModal({
                   Mã booking: <span className="font-black text-slate-950">{successCode}</span>
                 </p>
                 <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-500">
-                  Slot đã được chuyển sang trạng thái BOOKED sau thanh toán giả lập. Studio sẽ xác nhận lịch ở bước tiếp theo.
+                  Slot đã được giữ sau thanh toán. Studio sẽ xác nhận lịch ở bước tiếp theo.
                 </p>
                 <button
                   type="button"
@@ -215,18 +252,38 @@ export default function BookingModal({
                   </button>
                 </div>
 
-                <div className="max-h-[72vh] overflow-y-auto px-6 py-6">
-                  <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
-                    <div className="space-y-6">
-                      {service && (
-                        <Panel icon={<Package className="h-4 w-4" />} title="Chọn gói chụp">
+                <div className="max-h-[72vh] overflow-y-auto bg-slate-50/40">
+                  <Stepper
+                    initialStep={1}
+                    onStepChange={handleStepChange}
+                    onFinalStepCompleted={handleSubmit}
+                    backButtonText="Quay lại"
+                    nextButtonText="Tiếp tục"
+                    finalButtonText="Tạo booking & thanh toán"
+                    disableStepIndicators={false}
+                    canGoNext={canContinue}
+                    canEnterStep={canEnterStep}
+                    loading={submitting}
+                  >
+                    <Step>
+                      <div className="space-y-5">
+                        <StepHeading
+                          index={activeStep}
+                          title="Chọn gói chụp"
+                          description="Chọn gói phù hợp trước khi giữ lịch. Bạn có thể quay lại chỉnh bất cứ lúc nào."
+                        />
+                        {service ? (
                           <div className="grid gap-3">
                             {service.packages.map((item) => (
                               <button
                                 key={item.id}
                                 type="button"
                                 onClick={() => setSelectedPackageId(item.id)}
-                                className={`rounded-2xl border p-4 text-left transition ${selectedPackageId === item.id ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'}`}
+                                className={`rounded-2xl border p-4 text-left transition-all duration-500 ${
+                                  selectedPackageId === item.id
+                                    ? 'border-indigo-500 bg-indigo-50 shadow-sm'
+                                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                                }`}
                               >
                                 <div className="flex items-start justify-between gap-4">
                                   <div>
@@ -238,119 +295,149 @@ export default function BookingModal({
                               </button>
                             ))}
                           </div>
+                        ) : (
+                          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                            <div className="text-sm font-black text-slate-950">{title}</div>
+                            <p className="mt-2 text-sm font-semibold text-slate-500">Gói mặc định sẽ được dùng cho booking demo này.</p>
+                          </div>
+                        )}
+                      </div>
+                    </Step>
+
+                    <Step>
+                      <div className="space-y-5">
+                        <StepHeading
+                          index={activeStep}
+                          title="Chọn ngày và khung giờ"
+                          description="Các ngày kín lịch sẽ bị khóa. Sau khi chọn ngày, hệ thống sẽ tải slot còn trống."
+                        />
+                        <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+                          <Panel icon={<Calendar className="h-4 w-4" />} title="Ngày chụp">
+                            <BookingCalendar value={date} onChange={setDate} busyDates={busyDates} />
+                          </Panel>
+
+                          <Panel icon={<Clock className="h-4 w-4" />} title="Khung giờ">
+                            {!apiMode ? (
+                              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm font-bold text-slate-500">
+                                Chọn ngày chụp ở lịch bên cạnh để tiếp tục.
+                              </div>
+                            ) : !date ? (
+                              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm font-bold text-slate-500">
+                                Chọn ngày chụp trước để xem giờ trống.
+                              </div>
+                            ) : slotLoading ? (
+                              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm font-bold text-slate-500">
+                                Đang tải slot...
+                              </div>
+                            ) : openSlots.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-sm font-bold text-slate-500">
+                                Ngày này chưa có slot trống.
+                              </div>
+                            ) : (
+                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                                {openSlots.map((slot) => (
+                                  <button
+                                    key={slot.id}
+                                    type="button"
+                                    onClick={() => setSelectedSlotId(slot.id)}
+                                    className={`rounded-2xl border px-4 py-3 text-sm font-black transition-all duration-500 ${
+                                      selectedSlotId === slot.id
+                                        ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50'
+                                    }`}
+                                  >
+                                    {slot.startTime} - {slot.endTime}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </Panel>
+                        </div>
+                      </div>
+                    </Step>
+
+                    <Step>
+                      <div className="space-y-5">
+                        <StepHeading
+                          index={activeStep}
+                          title="Thông tin buổi chụp"
+                          description="Nhập địa điểm, concept hoặc các yêu cầu đặc biệt để studio chuẩn bị tốt hơn."
+                        />
+                        <Panel icon={<MapPin className="h-4 w-4" />} title="Địa điểm và ghi chú">
+                          <div className="space-y-3">
+                            <input
+                              value={shootingLocation}
+                              onChange={(event) => setShootingLocation(event.target.value)}
+                              placeholder="Ví dụ: Bãi biển Mỹ Khê, Đà Nẵng"
+                              className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm font-bold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
+                            />
+                            <textarea
+                              value={note}
+                              onChange={(event) => setNote(event.target.value)}
+                              rows={4}
+                              placeholder="Concept, trang phục, yêu cầu đặc biệt..."
+                              className="w-full resize-none rounded-2xl border border-slate-200 p-4 text-sm font-bold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
+                            />
+                          </div>
                         </Panel>
-                      )}
+                      </div>
+                    </Step>
 
-                      <Panel icon={<Calendar className="h-4 w-4" />} title="Chọn ngày chụp">
-                        <BookingCalendar value={date} onChange={setDate} busyDates={busyDates} />
-                      </Panel>
+                    <Step>
+                      <div className="space-y-5">
+                        <StepHeading
+                          index={activeStep}
+                          title="Xác nhận và thanh toán"
+                          description="Kiểm tra lại thông tin booking rồi chọn phương thức thanh toán phù hợp."
+                        />
+                        <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <div className="text-xs font-black uppercase tracking-widest text-slate-400">Tóm tắt</div>
+                            <div className="mt-3 space-y-3 text-sm">
+                              <SummaryRow label="Studio" value={studioName} />
+                              <SummaryRow label="Gói" value={selectedPackage?.name || title} />
+                              <SummaryRow label="Ngày" value={date || 'Chưa chọn'} />
+                              <SummaryRow label="Giờ" value={selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : apiMode ? 'Chưa chọn' : 'Theo ngày đã chọn'} />
+                              <SummaryRow label="Địa điểm" value={shootingLocation || 'Chưa nhập'} />
+                            </div>
+                            <div className="mt-5 border-t border-slate-200 pt-4">
+                              <div className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tạm tính</div>
+                              <div className="mt-1 text-2xl font-black text-slate-950">{formatVnd(totalPrice)}</div>
+                            </div>
+                          </div>
 
-                      {service && (
-                        <Panel icon={<Clock className="h-4 w-4" />} title="Chọn giờ chụp">
-                          {!date ? (
-                            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400">Chon ngay chup truoc de xem gio trong.</div>
-                          ) : slotLoading ? (
-                            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400">Đang tải slot...</div>
-                          ) : openSlots.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-400">Ngày này chưa có slot trống.</div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                              {openSlots.map((slot) => (
+                          <Panel icon={<CreditCard className="h-4 w-4" />} title="Phương thức thanh toán">
+                            <div className="grid gap-2">
+                              {(['PAYOS', 'VNPAY', 'BANK_TRANSFER', 'CASH'] as PaymentMethod[]).map((method) => (
                                 <button
-                                  key={slot.id}
+                                  key={method}
                                   type="button"
-                                  onClick={() => setSelectedSlotId(slot.id)}
-                                  className={`rounded-2xl border px-4 py-3 text-sm font-black transition ${selectedSlotId === slot.id ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50'}`}
+                                  onClick={() => setPaymentMethod(method)}
+                                  className={`rounded-xl border px-3 py-3 text-left text-xs font-black transition-all duration-500 ${
+                                    paymentMethod === method
+                                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                                  }`}
                                 >
-                                  {slot.startTime} - {slot.endTime}
+                                  {method === 'PAYOS' && 'Quét VietQR qua payOS (Napas 24/7)'}
+                                  {method === 'VNPAY' && 'Thanh toán online qua VNPay'}
+                                  {method === 'BANK_TRANSFER' && 'Chuyển khoản giả lập'}
+                                  {method === 'CASH' && 'Tiền mặt tại Studio giả lập'}
                                 </button>
                               ))}
                             </div>
-                          )}
-                        </Panel>
-                      )}
-
-                      <Panel icon={<MapPin className="h-4 w-4" />} title="Địa điểm và ghi chú">
-                        <div className="space-y-3">
-                          <input
-                            value={shootingLocation}
-                            onChange={(event) => setShootingLocation(event.target.value)}
-                            placeholder="Ví dụ: Bãi biển Mỹ Khê, Đà Nẵng"
-                            className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-indigo-500"
-                          />
-                          <textarea
-                            value={note}
-                            onChange={(event) => setNote(event.target.value)}
-                            rows={3}
-                            placeholder="Concept, trang phục, yêu cầu đặc biệt..."
-                            className="w-full resize-none rounded-2xl border border-slate-200 p-4 text-sm font-bold outline-none focus:border-indigo-500"
-                          />
+                            <PaymentNote method={paymentMethod} />
+                          </Panel>
                         </div>
-                      </Panel>
+                      </div>
+                    </Step>
+                  </Stepper>
+
+                  {error && (
+                    <div className="px-6 pb-6">
+                      <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4 text-xs font-bold text-rose-700">{error}</div>
                     </div>
-
-                    <aside className="space-y-4">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                        <div className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tạm tính</div>
-                        <div className="mt-2 text-2xl font-black text-slate-950">{formatVnd(totalPrice)}</div>
-                        {selectedPackage && <div className="mt-1 text-sm font-semibold text-slate-500">{selectedPackage.name}</div>}
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                        <div className="mb-4 flex items-center gap-2 text-sm font-black text-slate-950">
-                          <CreditCard className="h-4 w-4 text-indigo-600" /> Chọn phương thức thanh toán
-                        </div>
-                        <div className="grid gap-2">
-                          {(['PAYOS', 'VNPAY', 'BANK_TRANSFER', 'CASH'] as PaymentMethod[]).map((method) => (
-                            <button
-                              key={method}
-                              type="button"
-                              onClick={() => setPaymentMethod(method)}
-                              className={`rounded-xl border px-3 py-3 text-left text-xs font-black transition ${paymentMethod === method ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
-                            >
-                              {method === 'PAYOS' && '💳 Quét VietQR qua payOS (Napas 24/7)'}
-                              {method === 'VNPAY' && '💳 Thanh toán Online qua VNPay'}
-                              {method === 'BANK_TRANSFER' && '💸 Chuyển khoản (Giả lập)'}
-                              {method === 'CASH' && '💵 Tiền mặt tại Studio (Giả lập)'}
-                            </button>
-                          ))}
-                        </div>
-                        {paymentMethod === 'PAYOS' && (
-                          <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-xs font-semibold leading-5 text-indigo-800 border border-indigo-100">
-                            Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của <span className="font-black text-indigo-950">payOS (VietQR)</span> để quét mã chuyển khoản Napas 24/7.
-                          </div>
-                        )}
-                        {paymentMethod === 'VNPAY' && (
-                          <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-xs font-semibold leading-5 text-emerald-800 border border-emerald-100">
-                            Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán bảo mật của <span className="font-black text-emerald-950">VNPay Sandbox</span> để thực hiện thanh toán trực tuyến.
-                          </div>
-                        )}
-                        {paymentMethod === 'BANK_TRANSFER' && (
-                          <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-500">
-                            Nội dung chuyển khoản: <span className="font-black text-slate-950">GO BOOKING</span>. Nút bên dưới sẽ giả lập giao dịch thành công cho MVP.
-                          </div>
-                        )}
-                        {paymentMethod === 'CASH' && (
-                          <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-500">
-                            Bạn sẽ thanh toán tiền mặt trực tiếp tại studio khi đến chụp. Slot sẽ được giữ ở trạng thái <span className="font-black text-slate-950">HOLDING</span> trong 15 phút để chờ thanh toán/xác nhận.
-                          </div>
-                        )}
-                      </div>
-
-                      {error && (
-                        <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4 text-xs font-bold text-rose-700">{error}</div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={submitting || (apiMode && (!selectedPackageId || !selectedSlotId || !date))}
-                        className="h-12 w-full rounded-2xl bg-slate-950 px-5 text-xs font-black uppercase tracking-widest text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                      >
-                        {submitting ? 'Đang xử lý...' : 'Tạo booking & thanh toán'}
-                      </button>
-                    </aside>
-                  </div>
+                  )}
                 </div>
               </>
             )}
@@ -361,7 +448,17 @@ export default function BookingModal({
   )
 }
 
-function Panel({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function StepHeading({ index, title, description }: { index: number; title: string; description: string }) {
+  return (
+    <div>
+      <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Bước {index}/4</div>
+      <h3 className="mt-1 text-xl font-black text-slate-950">{title}</h3>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+    </div>
+  )
+}
+
+function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-2 text-sm font-black text-slate-950">
@@ -370,6 +467,47 @@ function Panel({ icon, title, children }: { icon: React.ReactNode; title: string
       </div>
       {children}
     </section>
+  )
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-slate-200/70 pb-2 last:border-b-0 last:pb-0">
+      <span className="shrink-0 font-bold text-slate-400">{label}</span>
+      <span className="text-right font-black text-slate-800">{value}</span>
+    </div>
+  )
+}
+
+function PaymentNote({ method }: { method: PaymentMethod }) {
+  if (method === 'PAYOS') {
+    return (
+      <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs font-semibold leading-5 text-indigo-800">
+        Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán payOS để quét mã VietQR.
+      </div>
+    )
+  }
+
+  if (method === 'VNPAY') {
+    return (
+      <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-semibold leading-5 text-emerald-800">
+        Hệ thống sẽ chuyển hướng bạn đến cổng thanh toán VNPay Sandbox.
+      </div>
+    )
+  }
+
+  if (method === 'BANK_TRANSFER') {
+    return (
+      <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-500">
+        Nội dung chuyển khoản: <span className="font-black text-slate-950">GO BOOKING</span>. Nút hoàn tất sẽ giả lập giao dịch thành công cho MVP.
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-500">
+      Bạn sẽ thanh toán tiền mặt trực tiếp tại studio khi đến chụp. Slot sẽ được giữ theo luồng booking hiện tại.
+    </div>
   )
 }
 
