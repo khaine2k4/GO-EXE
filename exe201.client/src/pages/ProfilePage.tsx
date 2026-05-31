@@ -7,7 +7,7 @@ import { useAppStore } from '../store/AppStore'
 import { useToast } from '../components/Toast'
 import api from '../api/axios'
 import CustomDialog from '../components/CustomDialog'
-import { getCustomerWallet, createWithdrawal, getMyWithdrawals, type WalletDetail, type PayoutRequestItem } from '../services/walletApi'
+import { getCustomerWallet, createWithdrawal, getMyWithdrawals, requestWithdrawalOtp, type WalletDetail, type PayoutRequestItem } from '../services/walletApi'
 
 interface UserAddressDto {
     addressId: number
@@ -85,6 +85,19 @@ export default function ProfilePage() {
     const [accountNumber, setAccountNumber] = useState('')
     const [withdrawDesc, setWithdrawDesc] = useState('')
     const [withdrawLoading, setWithdrawLoading] = useState(false)
+
+    // OTP States
+    const [otpSent, setOtpSent] = useState(false)
+    const [otpCode, setOtpCode] = useState('')
+    const [otpLoading, setOtpLoading] = useState(false)
+    const [countdown, setCountdown] = useState(0)
+
+    useEffect(() => {
+        if (countdown > 0) {
+            const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+            return () => clearTimeout(timer)
+        }
+    }, [countdown])
 
     // Helper to sanitize accent/diacritics to uppercase unaccented name
     function removeSign4VietnameseString(str: string): string {
@@ -251,8 +264,7 @@ export default function ProfilePage() {
         }
     }
 
-    async function handleCreateWithdrawal(e: React.FormEvent) {
-        e.preventDefault()
+    async function handleRequestOtp() {
         if (!accountNumber || accountNumber.length < 8) {
             toast.push({
                 type: 'error',
@@ -263,11 +275,11 @@ export default function ProfilePage() {
         }
 
         const amt = Number(withdrawAmount)
-        if (isNaN(amt) || amt < 50000) {
+        if (isNaN(amt) || amt < 10000) {
             toast.push({
                 type: 'error',
                 title: 'Số tiền không hợp lệ',
-                message: 'Số tiền rút tối thiểu là 50.000 VND.'
+                message: 'Số tiền rút tối thiểu là 10,000 VND.'
             })
             return
         }
@@ -281,6 +293,68 @@ export default function ProfilePage() {
             return
         }
 
+        setOtpLoading(true)
+        try {
+            const res = await requestWithdrawalOtp()
+            toast.push({
+                type: 'success',
+                title: 'Đã gửi mã OTP',
+                message: res.message || 'Mã OTP đã được gửi đến email đăng ký của bạn.'
+            })
+            setOtpSent(true)
+            setCountdown(60)
+        } catch (err: any) {
+            console.error("Lỗi gửi OTP:", err)
+            const errMsg = err.response?.data || 'Không thể gửi mã OTP. Vui lòng thử lại.'
+            toast.push({
+                type: 'error',
+                title: 'Gửi OTP thất bại',
+                message: typeof errMsg === 'string' ? errMsg : 'Không thể gửi mã OTP. Vui lòng thử lại.'
+            })
+        } finally {
+            setOtpLoading(false)
+        }
+    }
+
+    async function handleCreateWithdrawal(e: React.FormEvent) {
+        e.preventDefault()
+        if (!accountNumber || accountNumber.length < 8) {
+            toast.push({
+                type: 'error',
+                title: 'Lỗi nhập liệu',
+                message: 'Vui lòng nhập số tài khoản ngân hàng hợp lệ (từ 8 đến 16 số).'
+            })
+            return
+        }
+
+        const amt = Number(withdrawAmount)
+        if (isNaN(amt) || amt < 10000) {
+            toast.push({
+                type: 'error',
+                title: 'Số tiền không hợp lệ',
+                message: 'Số tiền rút tối thiểu là 10,000 VND.'
+            })
+            return
+        }
+
+        if (wallet && amt > wallet.balance) {
+            toast.push({
+                type: 'error',
+                title: 'Số dư không đủ',
+                message: 'Số dư khả dụng trong ví không đủ để thực hiện giao dịch này.'
+            })
+            return
+        }
+
+        if (!otpCode || otpCode.length < 6) {
+            toast.push({
+                type: 'error',
+                title: 'Mã OTP không hợp lệ',
+                message: 'Vui lòng nhập đầy đủ mã OTP 6 chữ số.'
+            })
+            return
+        }
+
         setWithdrawLoading(true)
         try {
             const sanitizedName = removeSign4VietnameseString(name || currentUser?.name || '')
@@ -288,7 +362,8 @@ export default function ProfilePage() {
                 amt,
                 bankCode,
                 accountNumber,
-                withdrawDesc.trim() || `Rut tien ve tai khoan ${bankCode}`
+                withdrawDesc.trim() || `Rut tien ve tai khoan ${bankCode}`,
+                otpCode.trim()
             )
             toast.push({
                 type: 'success',
@@ -298,6 +373,8 @@ export default function ProfilePage() {
             setWithdrawAmount('')
             setAccountNumber('')
             setWithdrawDesc('')
+            setOtpCode('')
+            setOtpSent(false)
             // Refresh data
             fetchWalletAndPayouts()
         } catch (err: any) {
@@ -1107,7 +1184,8 @@ export default function ProfilePage() {
                                                     <select
                                                         value={bankCode}
                                                         onChange={(e) => setBankCode(e.target.value)}
-                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                        disabled={otpSent}
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                                                     >
                                                         <option value="VCB">Vietcombank (VCB)</option>
                                                         <option value="CTG">VietinBank (CTG)</option>
@@ -1130,9 +1208,10 @@ export default function ProfilePage() {
                                                         type="text"
                                                         value={accountNumber}
                                                         onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                                                        disabled={otpSent}
                                                         placeholder="Nhập số tài khoản ngân hàng nhận tiền"
                                                         required
-                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                                                     />
                                                 </div>
 
@@ -1155,17 +1234,18 @@ export default function ProfilePage() {
                                                         type="number"
                                                         value={withdrawAmount}
                                                         onChange={(e) => setWithdrawAmount(e.target.value)}
-                                                        placeholder="Tối thiểu 50.000 VND"
-                                                        min="50000"
+                                                        disabled={otpSent}
+                                                        placeholder="Tối thiểu 10.000 VND"
+                                                        min="10000"
                                                         max={wallet?.balance || 0}
                                                         required
-                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                                                     />
                                                     <div className="flex justify-between items-center px-1">
                                                         <span className="text-[10px] text-slate-400 font-semibold">
-                                                            Rút tối thiểu: 50.000đ
+                                                            Rút tối thiểu: 10.000đ
                                                         </span>
-                                                        {wallet && wallet.balance >= 50000 && (
+                                                        {wallet && wallet.balance >= 10000 && !otpSent && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setWithdrawAmount(String(wallet.balance))}
@@ -1183,28 +1263,96 @@ export default function ProfilePage() {
                                                         type="text"
                                                         value={withdrawDesc}
                                                         onChange={(e) => setWithdrawDesc(e.target.value)}
+                                                        disabled={otpSent}
                                                         placeholder="Nội dung chuyển tiền"
-                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200"
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                                                     />
                                                 </div>
 
-                                                <button
-                                                    type="submit"
-                                                    disabled={withdrawLoading || !wallet || wallet.balance < 50000}
-                                                    className="w-full flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition hover:bg-indigo-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    {withdrawLoading ? (
-                                                        <>
-                                                            <RefreshCw className="h-4 w-4 animate-spin" />
-                                                            Đang gửi yêu cầu...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Banknote className="h-4 w-4" />
-                                                            Gửi yêu cầu rút tiền qua PayOS
-                                                        </>
-                                                    )}
-                                                </button>
+                                                {otpSent && (
+                                                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-3 animate-in slide-in-from-top-2 duration-300">
+                                                        <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-950 uppercase tracking-wide">
+                                                            <AlertCircle className="h-4 w-4 text-indigo-600 animate-pulse" />
+                                                            Xác thực mã OTP rút tiền
+                                                        </div>
+                                                        <p className="text-[11px] font-semibold text-indigo-700 leading-relaxed">
+                                                            Một mã xác thực OTP gồm 6 chữ số đã được gửi tới email đăng ký của bạn. Vui lòng kiểm tra và nhập vào ô dưới đây.
+                                                        </p>
+                                                        <div className="grid grid-cols-3 gap-3 items-end">
+                                                            <div className="col-span-2 space-y-1">
+                                                                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Mã OTP</span>
+                                                                <input
+                                                                    type="text"
+                                                                    maxLength={6}
+                                                                    value={otpCode}
+                                                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                                                                    placeholder="Nhập mã OTP 6 số"
+                                                                    required
+                                                                    className="h-12 w-full rounded-2xl border border-indigo-200 bg-white px-3 text-center text-sm font-black letter-spacing-4 text-slate-950 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition duration-200 font-mono"
+                                                                />
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                disabled={countdown > 0 || otpLoading}
+                                                                onClick={handleRequestOtp}
+                                                                className="h-12 rounded-2xl border border-slate-200 bg-white px-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                {countdown > 0 ? `Gửi lại (${countdown}s)` : 'Gửi lại mã'}
+                                                            </button>
+                                                        </div>
+                                                        <div className="flex justify-end">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setOtpSent(false)
+                                                                    setOtpCode('')
+                                                                }}
+                                                                className="text-[10px] font-black uppercase text-rose-600 hover:underline"
+                                                            >
+                                                                Hủy & Sửa thông tin
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {!otpSent ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={otpLoading || !wallet || wallet.balance < 10000}
+                                                        onClick={handleRequestOtp}
+                                                        className="w-full flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition hover:bg-indigo-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {otpLoading ? (
+                                                            <>
+                                                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                                                Đang gửi OTP...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <AlertCircle className="h-4 w-4" />
+                                                                Nhận mã OTP qua Email
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="submit"
+                                                        disabled={withdrawLoading || !otpCode || otpCode.length < 6}
+                                                        className="w-full flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-emerald-600/10 transition hover:bg-emerald-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {withdrawLoading ? (
+                                                            <>
+                                                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                                                Đang xác thực & rút...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Banknote className="h-4 w-4" />
+                                                                Xác nhận & Rút tiền
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
                                             </form>
                                         </div>
 

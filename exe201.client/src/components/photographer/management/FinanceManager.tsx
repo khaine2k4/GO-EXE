@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Banknote, AlertCircle, TrendingUp } from 'lucide-react'
 import { getStudioSettlements, type SettlementItem, type SettlementStatus } from '../../../services/settlementApi'
 import { getStudioCommissionSetting, getStudioCommissions, getStudioRevenue, type StudioCommission, type StudioCommissionSetting, type StudioRevenue } from '../../../services/studioRevenueApi'
-import { getStudioWallet, createWithdrawal, getMyWithdrawals, type WalletDetail, type PayoutRequestItem } from '../../../services/walletApi'
+import { getStudioWallet, createWithdrawal, getMyWithdrawals, requestWithdrawalOtp, type WalletDetail, type PayoutRequestItem } from '../../../services/walletApi'
 import { formatDateTime, formatMonth, formatVnd } from '../format'
 import { EmptyState, SectionPanel } from './Panel'
 import { useAppStore } from '../../../store/AppStore'
@@ -68,6 +68,19 @@ export default function FinanceManager() {
   const [withdrawDesc, setWithdrawDesc] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
 
+  // OTP States
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [countdown])
+
   // Paginated states
   const [settlementsPage, setSettlementsPage] = useState(1)
   const [txPage, setTxPage] = useState(1)
@@ -110,6 +123,58 @@ export default function FinanceManager() {
 
   useEffect(() => { load() }, [status])
 
+  async function handleRequestOtp() {
+    if (!accountNumber || accountNumber.length < 8) {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi nhập liệu',
+        message: 'Vui lòng nhập số tài khoản ngân hàng hợp lệ (8-16 chữ số).'
+      })
+      return
+    }
+
+    const amt = Number(withdrawAmount)
+    if (isNaN(amt) || amt < 10000) {
+      toast.push({
+        type: 'error',
+        title: 'Số tiền không hợp lệ',
+        message: 'Số tiền rút tối thiểu là 10,000 VND.'
+      })
+      return
+    }
+
+    if (wallet && amt > wallet.balance) {
+      toast.push({
+        type: 'error',
+        title: 'Số dư không đủ',
+        message: 'Số dư trong ví của bạn không đủ để thực hiện giao dịch này.'
+      })
+      return
+    }
+
+    setOtpLoading(true)
+    try {
+      const res = await requestWithdrawalOtp()
+      toast.push({
+        type: 'success',
+        title: 'Đã gửi mã OTP',
+        message: res.message || 'Mã OTP đã được gửi đến email đăng ký của bạn.'
+      })
+      setOtpSent(true)
+      setCountdown(60)
+    } catch (err: any) {
+      console.error("Lỗi gửi OTP:", err)
+      const errMsg = err.response?.data || 'Không thể gửi mã OTP. Vui lòng thử lại.'
+      toast.push({
+        type: 'error',
+        title: 'Gửi OTP thất bại',
+        message: typeof errMsg === 'string' ? errMsg : 'Không thể gửi mã OTP. Vui lòng thử lại.'
+      })
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
   async function handleCreateWithdrawal(e: React.FormEvent) {
     e.preventDefault()
     if (!accountNumber || accountNumber.length < 8) {
@@ -140,6 +205,15 @@ export default function FinanceManager() {
       return
     }
 
+    if (!otpCode || otpCode.length < 6) {
+      toast.push({
+        type: 'error',
+        title: 'Mã OTP không hợp lệ',
+        message: 'Vui lòng nhập đầy đủ mã OTP 6 chữ số.'
+      })
+      return
+    }
+
     setWithdrawLoading(true)
     try {
       const sanitizedName = removeSign4VietnameseString(currentUser?.name || '')
@@ -147,7 +221,8 @@ export default function FinanceManager() {
         amt,
         bankCode,
         accountNumber,
-        withdrawDesc.trim() || `Studio rut tien ve tai khoan ${bankCode}`
+        withdrawDesc.trim() || `Studio rut tien ve tai khoan ${bankCode}`,
+        otpCode.trim()
       )
       toast.push({
         type: 'success',
@@ -157,6 +232,8 @@ export default function FinanceManager() {
       setWithdrawAmount('')
       setAccountNumber('')
       setWithdrawDesc('')
+      setOtpCode('')
+      setOtpSent(false)
       // Delay nhỏ để toast hiển thị trước, sau đó mới refresh
       await new Promise(r => setTimeout(r, 600))
       const walletData = await getStudioWallet()
@@ -241,7 +318,8 @@ export default function FinanceManager() {
                 <select
                   value={bankCode}
                   onChange={(e) => setBankCode(e.target.value)}
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-500 transition"
+                  disabled={otpSent}
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-500 transition disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 >
                   <option value="VCB">Vietcombank (VCB)</option>
                   <option value="CTG">VietinBank (CTG)</option>
@@ -264,9 +342,10 @@ export default function FinanceManager() {
                   type="text"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                  disabled={otpSent}
                   placeholder="Nhập số tài khoản ngân hàng"
                   required
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-indigo-500 transition"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-indigo-500 transition disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </label>
             </div>
@@ -288,11 +367,12 @@ export default function FinanceManager() {
                   type="number"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
+                  disabled={otpSent}
                   placeholder="Tối thiểu 10,000 VND"
                   min="10000"
                   max={wallet?.balance || 0}
                   required
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-indigo-500 transition"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-indigo-500 transition disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </label>
             </div>
@@ -303,19 +383,96 @@ export default function FinanceManager() {
                 type="text"
                 value={withdrawDesc}
                 onChange={(e) => setWithdrawDesc(e.target.value)}
+                disabled={otpSent}
                 placeholder="Ví dụ: Rút tiền doanh thu tuần..."
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-indigo-500 transition"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-indigo-500 transition disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
               />
             </label>
 
-            <button
-              type="submit"
-              disabled={withdrawLoading || !wallet || wallet.balance < 10000}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-black uppercase tracking-widest text-white hover:bg-indigo-700 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-indigo-600/10"
-            >
-              <Banknote className="h-4 w-4" />
-              {withdrawLoading ? 'Đang gửi lệnh rút...' : 'Rút tiền qua PayOS'}
-            </button>
+            {otpSent && (
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-3 animate-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2 text-xs font-extrabold text-indigo-950 uppercase tracking-wide">
+                  <AlertCircle className="h-4 w-4 text-indigo-600 animate-pulse" />
+                  Xác thực mã OTP rút tiền
+                </div>
+                <p className="text-[11px] font-semibold text-indigo-700 leading-relaxed">
+                  Một mã xác thực OTP gồm 6 chữ số đã được gửi tới email đăng ký của bạn. Vui lòng kiểm tra và nhập vào ô dưới đây.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3 items-end">
+                  <label className="block space-y-1.5 sm:col-span-2">
+                    <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Mã OTP</span>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Nhập mã OTP 6 số"
+                      required
+                      className="h-10 w-full rounded-xl border border-indigo-200 bg-white px-3 text-center text-sm font-black letter-spacing-4 text-slate-950 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-inner font-mono"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={countdown > 0 || otpLoading}
+                    onClick={handleRequestOtp}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-black uppercase text-slate-700 hover:bg-slate-50 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {countdown > 0 ? `Gửi lại (${countdown}s)` : 'Gửi lại mã'}
+                  </button>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpSent(false)
+                      setOtpCode('')
+                    }}
+                    className="text-[10px] font-black uppercase text-rose-600 hover:underline"
+                  >
+                    Hủy & Sửa thông tin
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!otpSent ? (
+              <button
+                type="button"
+                disabled={otpLoading || !wallet || wallet.balance < 10000}
+                onClick={handleRequestOtp}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-xs font-black uppercase tracking-widest text-white hover:bg-indigo-700 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-indigo-600/10"
+              >
+                {otpLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Đang gửi OTP...
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4" />
+                    Nhận mã OTP qua Email
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={withdrawLoading || !otpCode || otpCode.length < 6}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-700 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-emerald-600/10"
+              >
+                {withdrawLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Đang xác thực & rút...
+                  </>
+                ) : (
+                  <>
+                    <Banknote className="h-4 w-4" />
+                    Xác nhận & Rút tiền
+                  </>
+                )}
+              </button>
+            )}
           </form>
         </SectionPanel>
 
