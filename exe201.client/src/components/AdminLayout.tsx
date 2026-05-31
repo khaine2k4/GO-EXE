@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import logoImg from '../assets/GO - EXE logo.png'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, Banknote, BarChart3, Bell, BriefcaseBusiness, ChevronLeft, CircleDollarSign, FolderTree, HandCoins, LifeBuoy, LogOut, Menu, MessageSquare, Percent, ShieldCheck, Users, X } from 'lucide-react'
 import { useAppStore } from '../store/AppStore'
@@ -76,9 +77,9 @@ export default function AdminLayout() {
       >
         <div className="flex h-16 items-center gap-3 border-b border-[var(--color-border)] px-5">
           <img
-            src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+            src={logoImg}
             alt="Logo"
-            className="h-10 w-10 shrink-0 rounded-full object-cover shadow-sm"
+            className="h-12 w-auto shrink-0 object-contain transition-all hover:scale-105"
           />
           {!collapsed && (
             <div className="min-w-0">
@@ -132,9 +133,9 @@ export default function AdminLayout() {
             <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="fixed bottom-0 left-0 top-0 z-50 w-72 border-r border-slate-200 bg-white p-4 text-slate-700 md:hidden">
               <div className="mb-5 flex items-center gap-3">
                 <img
-                  src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+                  src={logoImg}
                   alt="Logo"
-                  className="h-10 w-10 rounded-xl object-cover"
+                  className="h-12 w-auto object-contain transition-all hover:scale-105"
                 />
                 <div>
                   <div className="text-sm font-semibold text-slate-950">PhotoMarket</div>

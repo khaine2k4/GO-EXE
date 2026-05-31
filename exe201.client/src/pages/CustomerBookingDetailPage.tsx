@@ -154,8 +154,8 @@ export default function CustomerBookingDetailPage() {
                 <RotateCcw className="h-4 w-4" /> Hủy booking
               </button>
             )}
-            {booking.status === 'FINAL_DELIVERED' && (
-              <button type="button" onClick={handleConfirmCompletion} disabled={actioning} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--color-azure)] px-4 text-xs font-black uppercase tracking-widest text-white disabled:opacity-50">
+            {(booking.status === 'FINAL_DELIVERED' || booking.status === 'AWAITING_CUSTOMER') && (
+              <button type="button" onClick={handleConfirmCompletion} disabled={actioning} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--color-azure)] px-4 text-xs font-black uppercase tracking-widest text-white transition hover:bg-sky-600 active:scale-95 disabled:opacity-50">
                 <CheckCircle2 className="h-4 w-4" /> Xác nhận đã nhận ảnh
               </button>
             )}

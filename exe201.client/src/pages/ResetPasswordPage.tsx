@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useToast } from '../components/Toast'
 import api from '../api/axios'
 import loginBanner from '../assets/login_banner.png'
+import logoImg from '../assets/GO - EXE logo.png'
 
 export default function ResetPasswordPage() {
     const [searchParams] = useSearchParams()
@@ -123,9 +124,9 @@ export default function ResetPasswordPage() {
                         {/* Top corner branding */}
                         <div className="relative z-20 flex items-center gap-3">
                             <img
-                                src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+                                src={logoImg}
                                 alt="Logo"
-                                className="h-10 w-10 rounded-xl object-cover shadow-lg shadow-indigo-600/10"
+                                className="h-10 w-10 object-contain shadow-lg"
                             />
                             <div>
                                 <span className="font-bold text-sm tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">PhotoMarket</span>

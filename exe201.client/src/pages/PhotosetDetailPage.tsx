@@ -5,6 +5,7 @@ import { getServiceDetail } from '../services/serviceApi'
 import { getStudioReviews } from '../services/reviewApi'
 import type { ReviewItem, ServiceDetail } from '../services/catalogTypes'
 import BookingModal from '../components/BookingModal'
+import { useAppStore } from '../store/AppStore'
 
 function formatVnd(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value) + ' đ'
@@ -13,6 +14,7 @@ function formatVnd(value: number) {
 export default function PhotosetDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { state } = useAppStore()
   const [service, setService] = useState<ServiceDetail | null>(null)
   const [reviews, setReviews] = useState<ReviewItem[]>([])
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null)
@@ -38,6 +40,14 @@ export default function PhotosetDetailPage() {
     () => service?.packages.find((item) => item.id === selectedPackageId) ?? null,
     [selectedPackageId, service?.packages]
   )
+
+  function openBooking() {
+    if (!state.currentUser) {
+      navigate('/login')
+      return
+    }
+    setBookingOpen(true)
+  }
 
   if (loading) return <StateBox text="Đang tải chi tiết dịch vụ..." />
   if (error || !service) return <StateBox text={error || 'Không tìm thấy dịch vụ.'} />
@@ -143,7 +153,7 @@ export default function PhotosetDetailPage() {
             </div>
             <button
               type="button"
-              onClick={() => setBookingOpen(true)}
+              onClick={openBooking}
               disabled={!selectedPackage}
               className="primary-pill mt-5 h-12 w-full gap-2 text-sm font-semibold disabled:cursor-not-allowed disabled:bg-slate-300"
             >

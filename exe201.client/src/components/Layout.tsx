@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import logoImg from '../assets/GO - EXE logo.png'
 import { ChevronDown, LogOut, Menu, X, MessageCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
@@ -11,14 +12,12 @@ const NAV: Record<string, { label: string; to: string }[]> = {
     { label: 'Dịch vụ', to: '/photosets' },
     { label: 'Studio', to: '/gallery' },
     { label: 'Booking của tôi', to: '/customer/bookings' },
-    { label: 'Đăng ký Studio', to: '/register' },
   ],
   CUSTOMER: [
     { label: 'Trang chủ', to: '/' },
     { label: 'Dịch vụ', to: '/photosets' },
     { label: 'Studio', to: '/gallery' },
     { label: 'Booking của tôi', to: '/customer/bookings' },
-    { label: 'Đăng ký Studio', to: '/register' },
   ],
   PHOTOGRAPHER: [
     { label: 'Tổng quan', to: '/photographer/dashboard' },
@@ -41,6 +40,12 @@ const NAV: Record<string, { label: string; to: string }[]> = {
   ],
 }
 
+const GUEST_NAV = [
+  { label: 'Trang chủ', to: '/' },
+  { label: 'Dịch vụ', to: '/photosets' },
+  { label: 'Studio', to: '/gallery' },
+]
+
 const ROLE_LABEL: Record<string, string> = {
   USER: 'Khách hàng',
   CUSTOMER: 'Khách hàng',
@@ -58,9 +63,9 @@ export default function Layout() {
 
   const user = state.currentUser
   const role = String(user?.role ?? 'USER')
-  const links = NAV[role] ?? NAV.USER
+  const links = user ? NAV[role] ?? NAV.USER : GUEST_NAV
   const isPhotographer = role === 'PHOTOGRAPHER' || role === 'STUDIO_OWNER'
-  const homePath = isPhotographer ? '/photographer/dashboard' : role === 'ADMIN' ? '/admin/users' : '/'
+  const homePath = user && isPhotographer ? '/photographer/dashboard' : user && role === 'ADMIN' ? '/admin/users' : '/'
   const myPhotographer = isPhotographer ? state.photographers.find((p) => p.id === user?.id) : null
 
   function handleLogout() {
@@ -80,19 +85,16 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-white/86 backdrop-blur-xl">
-        <div className="page-shell flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-          <Link to={homePath} className="flex items-center gap-3">
+        <div className="page-shell relative flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+          <Link to={homePath} className="flex shrink-0 items-center">
             <img
-              src="https://t4.ftcdn.net/jpg/04/96/47/13/360_F_496471319_DbtjoUvKqyy2e9OfgBnK5mm2AXhKpa9m.jpg"
+              src={logoImg}
               alt="GO! Logo"
-              className="h-10 w-10 rounded-full object-cover shadow-sm"
+              className="h-12 w-auto object-contain transition-all hover:scale-105"
             />
-            <span className="text-lg font-semibold text-[var(--color-ink)]">
-              GO<span className="text-[var(--color-orange)]">!</span>
-            </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
             {links.map((item) => (
               <Link
                 key={item.to}
@@ -106,7 +108,7 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             {user && role !== 'ADMIN' && (
               <Link
                 to="/chat"

@@ -119,16 +119,20 @@ export default function PhotographerDashboardPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-end">
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 p-8 text-white shadow-xl">
+        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="absolute left-1/3 bottom-0 translate-y-12 h-48 w-48 rounded-full bg-indigo-500/5 blur-3xl" />
+        <div className="relative z-10 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Bảng điều khiển Studio</p>
-            <h1 className="mt-2 text-3xl font-black text-slate-950">Quản lý Studio ở một nơi duy nhất</h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
-              Xem tổng quan trước, sau đó đi sâu vào quản lý dịch vụ, gói chụp, lịch làm việc, đơn đặt lịch, tài chính hoặc hồ sơ cá nhân nhanh chóng.
+            <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-indigo-300">
+              ⚡ BẢNG ĐIỀU KHIỂN CHUYÊN NGHIỆP
+            </div>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-white">Quản lý Studio ở một nơi duy nhất</h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-400">
+              Xem tổng quan hoạt động kinh doanh, sau đó quản lý dịch vụ, gói dịch vụ, đơn đặt lịch, doanh thu và hồ sơ năng lực nhanh chóng, hiệu quả.
             </p>
           </div>
-          <Link to="/photosets" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-black uppercase text-slate-700">
+          <Link to="/photosets" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 text-slate-950 text-xs font-black uppercase tracking-widest px-5 shadow-lg active:scale-95 transition duration-150">
             <BarChart3 className="h-4 w-4" /> Xem thị trường
           </Link>
         </div>

@@ -458,7 +458,7 @@ namespace EXE201.Server.Services
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
-            if (booking.Status.StatusName != BookingFinalDelivered) return null;
+            if (booking.Status.StatusName != BookingFinalDelivered && booking.Status.StatusName != "AWAITING_CUSTOMER") return null;
 
             var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
             if (completedId == null) return null;
@@ -476,7 +476,7 @@ namespace EXE201.Server.Services
                 booking.BookingId,
                 $"Studio revenue from Booking #{booking.BookingCode}");
 
-            AddBookingLogEntry(booking.BookingId, BookingFinalDelivered, BookingCompleted, customerId, "Customer confirmed final photos received");
+            AddBookingLogEntry(booking.BookingId, booking.Status.StatusName, BookingCompleted, customerId, "Customer confirmed final photos received");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
@@ -877,8 +877,12 @@ namespace EXE201.Server.Services
 
         private static List<string> ParseDeliveryUrls(IEnumerable<BookingLog> logs, string status)
         {
+            var targetStatuses = status == BookingFinalDelivered
+                ? new[] { BookingFinalDelivered, "AWAITING_CUSTOMER" }
+                : new[] { status };
+
             var note = logs
-                .Where(log => log.NewStatus == status && !string.IsNullOrWhiteSpace(log.Note))
+                .Where(log => targetStatuses.Contains(log.NewStatus) && !string.IsNullOrWhiteSpace(log.Note))
                 .OrderByDescending(log => log.ChangedAt)
                 .Select(log => log.Note)
                 .FirstOrDefault();

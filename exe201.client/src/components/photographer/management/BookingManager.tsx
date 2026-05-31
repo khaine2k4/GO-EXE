@@ -81,6 +81,10 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
   const [selected, setSelected] = useState<BookingDto | null>(initialBooking ?? null)
   const [dialog, setDialog] = useState<{ isOpen: boolean; title: string; message: string; type: 'confirm' | 'prompt'; placeholder?: string; onConfirm: (val?: string) => void } | null>(null)
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 5
+
   // Calendar States
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDateStr, setSelectedDateStr] = useState<string>(
@@ -210,6 +214,17 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
       return matchStatus && matchSearch
     })
   }, [bookings, search, statusFilter])
+
+  // Reset pagination to first page on search filter change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter])
+
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage)
+  const paginatedBookings = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage
+    return filteredBookings.slice(start, start + itemsPerPage)
+  }, [filteredBookings, currentPage])
 
   // KPIs
   const kpis = useMemo(() => {
@@ -341,26 +356,26 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
       {activeTab === 'list' && (
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
           {/* Controls Bar */}
-          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative min-w-[280px] lg:w-[400px]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Tìm mã, tên khách, gói dịch vụ, địa điểm..."
-                className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5"
-              />
-            </div>
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/50 p-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col sm:flex-row flex-1 items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Tìm mã, tên khách, gói dịch vụ, địa điểm..."
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
+                />
+              </div>
 
-            <div className="flex flex-wrap gap-2">
-              <label className="relative inline-flex h-11 items-center">
-                <span className="pointer-events-none absolute left-3 text-slate-400">
+              <label className="relative inline-flex h-11 shrink-0 items-center">
+                <span className="pointer-events-none absolute left-3.5 text-slate-400">
                   <ListFilter className="h-4 w-4" />
                 </span>
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
-                  className="h-11 appearance-none rounded-2xl border border-slate-200 bg-white pl-10 pr-9 text-xs font-black uppercase tracking-wider text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5"
+                  className="h-11 appearance-none rounded-2xl border border-slate-200 bg-white pl-10 pr-9 text-xs font-black uppercase tracking-wider text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 select-custom"
                 >
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="PENDING_PAYMENT">Chờ thanh toán</option>
@@ -371,8 +386,46 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                   <option value="CANCELLED">Đã hủy</option>
                   <option value="REJECTED">Từ chối</option>
                 </select>
+                <span className="pointer-events-none absolute right-3 flex h-5 w-5 items-center justify-center text-slate-400">
+                  <ChevronRight className="h-4 w-4 rotate-90" />
+                </span>
               </label>
             </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5 shrink-0 bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 hover:text-slate-900 hover:shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 border border-slate-200/50"
+                >
+                  &lsaquo;
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-xs font-black transition active:scale-95 ${
+                      currentPage === page
+                        ? 'bg-slate-950 text-white shadow-md shadow-slate-950/20'
+                        : 'bg-white text-slate-600 hover:bg-slate-100/50 border border-slate-200/50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 hover:text-slate-900 hover:shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 border border-slate-200/50"
+                >
+                  &rsaquo;
+                </button>
+              </div>
+            )}
           </div>
 
           {/* List Table */}
@@ -388,91 +441,102 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 text-xs font-black uppercase tracking-widest text-slate-400">
-                    <th className="px-6 py-4">Mã Booking</th>
-                    <th className="px-6 py-4">Khách hàng</th>
-                    <th className="px-6 py-4">Gói chụp</th>
-                    <th className="px-6 py-4">Lịch hẹn chụp</th>
-                    <th className="px-6 py-4">Thu nhập</th>
-                    <th className="px-6 py-4">Trạng thái</th>
-                    <th className="px-6 py-4 text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredBookings.map((item) => (
-                    <tr key={item.id} className="transition hover:bg-slate-50/50">
-                      <td className="px-6 py-4">
-                        <div className="font-mono text-xs font-bold text-slate-600">
-                          #{item.bookingCode}
-                        </div>
-                        <div className="mt-1 text-[10px] text-slate-400">ID: {item.id}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-black text-slate-900">
-                          {item.customerName}
-                        </div>
-                        <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          <span className="truncate max-w-[180px]">
-                            {item.shootingLocation || 'Tại Studio'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-bold text-slate-800">{item.packageName}</div>
-                        <div className="mt-1 text-xs text-slate-400">
-                          Tổng: {formatVnd(item.totalPrice)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-700">
-                        <div>{formatDate(item.shootingDate)}</div>
-                        <div className="mt-1 flex items-center gap-1 text-xs font-black text-indigo-600">
-                          <Clock className="h-3 w-3" />
-                          {item.startTime} - {item.endTime}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-black text-indigo-600">
-                        {formatVnd(item.studioRevenue)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-xl border px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                            STATUS_BADGE[item.status] ?? STATUS_BADGE.PENDING_PAYMENT
-                          }`}
-                        >
-                          {STATUS_LABEL[item.status] ?? item.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/photographer/bookings/${item.id}`)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                            title="Xem chi tiết"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-
-                          {/* Quick Actions */}
-                          <ActionButtons
-                            status={item.status}
-                            loading={actionLoadingId === item.id}
-                            onConfirm={() => handleConfirm(item.id)}
-                            onReject={() => handleReject(item.id)}
-                            onStart={() => handleStart(item.id)}
-                            onComplete={() => handleComplete(item.id)}
-                          />
-                        </div>
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[880px] text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/50 text-xs font-black uppercase tracking-widest text-slate-400">
+                      <th className="pl-6 pr-3 py-4 whitespace-nowrap">Mã Booking</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Khách hàng</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Gói chụp</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Lịch hẹn chụp</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Thu nhập</th>
+                      <th className="px-3 py-4 whitespace-nowrap">Trạng thái</th>
+                      <th className="pl-3 pr-6 py-4 text-right whitespace-nowrap w-44">Thao tác</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedBookings.map((item) => (
+                      <tr key={item.id} className="transition hover:bg-slate-50/50">
+                        <td className="pl-6 pr-3 py-4 whitespace-nowrap">
+                          <div className="font-mono text-xs font-bold text-slate-600">
+                            #{item.bookingCode}
+                          </div>
+                          <div className="mt-1 text-[10px] text-slate-400">ID: {item.id}</div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap">
+                          <div className="text-sm font-black text-slate-900">
+                            {item.customerName}
+                          </div>
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[180px]">
+                              {item.shootingLocation || 'Tại Studio'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap">
+                          <div className="text-sm font-bold text-slate-800">{item.packageName}</div>
+                          <div className="mt-1 text-xs text-slate-400">
+                            Tổng: {formatVnd(item.totalPrice)}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm font-semibold text-slate-700">
+                          <div>{formatDate(item.shootingDate)}</div>
+                          <div className="mt-1 flex items-center gap-1 text-xs font-black text-indigo-600">
+                            <Clock className="h-3 w-3" />
+                            {item.startTime} - {item.endTime}
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap text-sm font-black text-indigo-600">
+                          {formatVnd(item.studioRevenue)}
+                        </td>
+                        <td className="px-3 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex rounded-xl border px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                              STATUS_BADGE[item.status] ?? STATUS_BADGE.PENDING_PAYMENT
+                            }`}
+                          >
+                            {STATUS_LABEL[item.status] ?? item.status}
+                          </span>
+                        </td>
+                        <td className="pl-3 pr-6 py-4 whitespace-nowrap w-44">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/photographer/bookings/${item.id}`)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 active:scale-90"
+                              title="Xem chi tiết"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+
+                            {/* Quick Actions */}
+                            <ActionButtons
+                              status={item.status}
+                              loading={actionLoadingId === item.id}
+                              onConfirm={() => handleConfirm(item.id)}
+                              onReject={() => handleReject(item.id)}
+                              onStart={() => handleStart(item.id)}
+                              onComplete={() => handleComplete(item.id)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Info Footer */}
+              {filteredBookings.length > 0 && (
+                <div className="flex items-center justify-between border-t border-slate-100 bg-white px-6 py-4 rounded-b-3xl">
+                  <div className="text-xs font-bold text-slate-500">
+                    Hiển thị <span className="text-slate-900 font-extrabold">{Math.min(filteredBookings.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredBookings.length, currentPage * itemsPerPage)}</span> trong tổng số <span className="text-slate-900 font-extrabold">{filteredBookings.length}</span> đơn đặt lịch
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
       )}
@@ -795,8 +859,8 @@ function ActionButtons({
 
   const btnClass =
     size === 'sm'
-      ? 'h-8 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95'
-      : 'h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition active:scale-95'
+      ? 'h-8 px-2.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 whitespace-nowrap'
+      : 'h-9 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider transition active:scale-95 whitespace-nowrap'
 
   if (status === 'PENDING_CONFIRMATION') {
     return (

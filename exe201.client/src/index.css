@@ -38,10 +38,10 @@
   --shadow-card: 0 8px 24px rgba(0,0,0,0.04);
   --shadow-hover: 0 12px 32px rgba(0,0,0,0.08);
   --shadow-modal: 0 24px 64px rgba(0,0,0,0.14);
-  --motion-fast: 0.1s;
-  --motion-normal: 0.2s;
-  --motion-slow: 0.32s;
-  --motion-ease: ease;
+  --motion-fast: 0.28s;
+  --motion-normal: 0.58s;
+  --motion-slow: 0.85s;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 *, *::before, *::after {
@@ -102,7 +102,7 @@ img {
   background: #94a3b8;
 }
 
-:focus-visible {
+:focus-visible:not(input):not(textarea):not(select) {
   outline: 2px solid var(--color-azure);
   outline-offset: 2px;
 }
@@ -178,7 +178,7 @@ img {
 }
 
 .animate-fade-up {
-  animation: fade-up 0.4s ease forwards;
+  animation: fade-up 0.85s var(--motion-ease) forwards;
 }
 
 @keyframes shimmer {
