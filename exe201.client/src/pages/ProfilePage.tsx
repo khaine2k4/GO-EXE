@@ -1235,17 +1235,17 @@ export default function ProfilePage() {
                                                         value={withdrawAmount}
                                                         onChange={(e) => setWithdrawAmount(e.target.value)}
                                                         disabled={otpSent}
-                                                        placeholder="Tối thiểu 50.000 VND"
-                                                        min="50000"
+                                                        placeholder="Tối thiểu 10.000 VND"
+                                                        min="10000"
                                                         max={wallet?.balance || 0}
                                                         required
                                                         className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                                                     />
                                                     <div className="flex justify-between items-center px-1">
                                                         <span className="text-[10px] text-slate-400 font-semibold">
-                                                            Rút tối thiểu: 50.000đ
+                                                            Rút tối thiểu: 10.000đ
                                                         </span>
-                                                        {wallet && wallet.balance >= 50000 && !otpSent && (
+                                                        {wallet && wallet.balance >= 10000 && !otpSent && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setWithdrawAmount(String(wallet.balance))}
@@ -1318,7 +1318,7 @@ export default function ProfilePage() {
                                                 {!otpSent ? (
                                                     <button
                                                         type="button"
-                                                        disabled={otpLoading || !wallet || wallet.balance < 50000}
+                                                        disabled={otpLoading || !wallet || wallet.balance < 10000}
                                                         onClick={handleRequestOtp}
                                                         className="w-full flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition hover:bg-indigo-700 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
