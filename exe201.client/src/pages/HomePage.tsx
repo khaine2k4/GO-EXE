@@ -21,6 +21,10 @@ const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=900&q=80',
 ]
 
+const pageEase = [0.22, 1, 0.36, 1] as const
+const revealTransition = { duration: 0.85, ease: pageEase }
+const cardRevealTransition = { duration: 0.78, ease: pageEase }
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [keyword, setKeyword] = useState('')
@@ -47,11 +51,6 @@ export default function HomePage() {
   }, [keyword, services])
 
   const visibleFeaturedServices = featuredServices.slice(0, visibleServiceCount)
-
-  const heroImages = useMemo(() => {
-    const apiImages = services.map((service) => service.thumbnailUrl).filter(Boolean) as string[]
-    return [...apiImages, ...FALLBACK_IMAGES].slice(0, 4)
-  }, [services])
 
   function submitSearch() {
     const params = new URLSearchParams()
@@ -87,16 +86,27 @@ export default function HomePage() {
               <motion.h1
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ ...revealTransition, delay: 0.12 }}
                 className="max-w-3xl text-[38px] font-black uppercase leading-[1.04] text-[var(--color-ink)] sm:text-[48px] lg:text-[60px]"
               >
                 Tìm Studio Phù Hợp Cho Từng Khoảnh Khắc
               </motion.h1>
-              <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-[var(--color-graphite)] sm:text-lg">
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...revealTransition, delay: 0.28 }}
+                className="mt-6 max-w-2xl text-base font-medium leading-7 text-[var(--color-graphite)] sm:text-lg"
+              >
                 Tìm kiếm, so sánh portfolio, chọn gói chụp và gửi yêu cầu booking cho studio bạn tin tưởng.
-              </p>
+              </motion.p>
             </div>
 
-            <div className="rounded-[28px] border border-[var(--color-border)] bg-white p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)]">
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...revealTransition, delay: 0.42 }}
+              className="rounded-[28px] border border-[var(--color-border)] bg-white p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)]"
+            >
               <div className="grid gap-3 lg:grid-cols-[minmax(270px,1.7fr)_minmax(190px,1.1fr)_minmax(120px,0.6fr)_auto] lg:items-center">
                 <label className="flex h-12 items-center gap-2 rounded-full bg-[var(--color-fog)] px-3">
                   <Search className="h-4 w-4 shrink-0 text-[var(--color-graphite)]" />
@@ -134,7 +144,7 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
           </div>
 
@@ -149,7 +159,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ delay: index * 0.08 }}
+            transition={{ ...cardRevealTransition, delay: index * 0.16 }}
             className="surface-card p-4"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-fog)] text-[var(--color-azure)]">
@@ -162,7 +172,13 @@ export default function HomePage() {
       </section>
 
       <section className="space-y-8">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ ...revealTransition, delay: 0.08 }}
+          className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"
+        >
           <div>
             <div className="text-sm font-semibold uppercase text-[var(--color-azure)]">Dịch vụ nổi bật</div>
             <h2 className="mt-2 text-4xl font-bold">Khám phá studio được khách hàng tin chọn</h2>
@@ -170,7 +186,7 @@ export default function HomePage() {
               Xem portfolio, gói chụp, giá và đánh giá trước khi gửi yêu cầu booking.
             </p>
           </div>
-        </div>
+        </motion.div>
 
         {loading ? (
           <div className="surface-card p-12 text-center text-sm font-medium text-[var(--color-graphite)]">Đang tải dịch vụ nổi bật...</div>
@@ -182,8 +198,8 @@ export default function HomePage() {
         ) : (
           <>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleFeaturedServices.map((service) => (
-                <ServiceCard key={service.id} service={service} onClick={() => navigate(`/photosets/${service.id}`)} />
+              {visibleFeaturedServices.map((service, index) => (
+                <ServiceCard key={service.id} service={service} index={index} onClick={() => navigate(`/photosets/${service.id}`)} />
               ))}
             </div>
             {visibleServiceCount < featuredServices.length && (
@@ -216,7 +232,12 @@ export default function HomePage() {
 
 function HeroBanner({ image }: { image: string }) {
   return (
-    <div className="relative h-[480px] w-full overflow-hidden rounded-[28px] shadow-lg group">
+    <motion.div
+      initial={{ opacity: 0, y: 18, scale: 0.985 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 1, ease: pageEase, delay: 0.28 }}
+      className="relative h-[480px] w-full overflow-hidden rounded-[28px] shadow-lg group"
+    >
       <SafeImage
         src={image || FALLBACK_IMAGES[0]}
         fallback={FALLBACK_IMAGES[0]}
@@ -225,7 +246,7 @@ function HeroBanner({ image }: { image: string }) {
       />
       {/* Premium Glass Card Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-      <div className="absolute bottom-6 left-6 right-6 rounded-[24px] border border-white/20 bg-white/10 p-5 text-white backdrop-blur-xl transition-all duration-300 hover:bg-white/15">
+      <div className="absolute bottom-6 left-6 right-6 rounded-[24px] border border-white/20 bg-white/10 p-5 text-white backdrop-blur-xl transition-all duration-700 hover:bg-white/15">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">Gợi ý từ GO!</span>
@@ -234,15 +255,23 @@ function HeroBanner({ image }: { image: string }) {
           Chọn gói chụp phù hợp nhất và gửi yêu cầu đặt lịch nhanh chóng đến Studio tin cậy.
         </h3>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
-function ServiceCard({ service, onClick }: { service: ServiceSummary; onClick: () => void }) {
+function ServiceCard({ service, index, onClick }: { service: ServiceSummary; index: number; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="group flex h-full min-h-[560px] flex-col overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
+    <motion.button
+      type="button"
+      onClick={onClick}
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ ...cardRevealTransition, delay: Math.min(index, 5) * 0.1 }}
+      className="group flex h-full min-h-[560px] flex-col overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white text-left shadow-sm transition duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]"
+    >
       <div className="aspect-[4/3] shrink-0 overflow-hidden bg-slate-100">
-        <SafeImage src={service.thumbnailUrl || FALLBACK_IMAGES[0]} fallback={FALLBACK_IMAGES[0]} alt={service.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+        <SafeImage src={service.thumbnailUrl || FALLBACK_IMAGES[0]} fallback={FALLBACK_IMAGES[0]} alt={service.name} className="h-full w-full object-cover transition duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105" />
       </div>
       <div className="flex flex-1 flex-col space-y-4 p-5">
         <div className="flex min-h-[72px] items-start justify-between gap-3">
@@ -260,7 +289,7 @@ function ServiceCard({ service, onClick }: { service: ServiceSummary; onClick: (
           </span>
         </div>
       </div>
-    </button>
+    </motion.button>
   )
 }
 

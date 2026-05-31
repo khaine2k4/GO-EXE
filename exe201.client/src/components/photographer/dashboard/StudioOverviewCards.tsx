@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Camera, Image, Star, Wallet, ArrowUpRight } from 'lucide-react'
+import { BriefcaseBusiness, Camera, Star, Wallet, ArrowUpRight } from 'lucide-react'
 import type { StudioDashboard } from '../../../services/catalogTypes'
 
 type OverviewKey = 'services' | 'packages' | 'portfolio' | 'bookings' | 'finance' | 'reviews'
