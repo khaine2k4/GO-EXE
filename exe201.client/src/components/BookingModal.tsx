@@ -81,10 +81,30 @@ export default function BookingModal({
     getStudioDays(service.studioId, { from: todayStr, to: futureStr, includeClosed: true })
       .then((days) => {
         const busy: string[] = []
+        const availableSet = new Set<string>()
+        
+        // 1. Chỉ gom các ngày có slot trống trạng thái 'OPEN' thực sự
         days.forEach((day) => {
           const hasOpenSlots = day.slots && day.slots.some((slot) => slot.status === 'OPEN')
-          if (!day.isAvailable || !hasOpenSlots) busy.push(day.date)
+          if (day.isAvailable && hasOpenSlots) {
+            availableSet.add(day.date)
+          }
         })
+
+        // 2. Với mọi ngày trong khoảng 90 ngày tới, nếu không có slot trống thì mờ đi (disabled)
+        const today = new Date()
+        for (let i = 0; i < 90; i++) {
+          const future = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i)
+          const year = future.getFullYear()
+          const month = String(future.getMonth() + 1).padStart(2, '0')
+          const dayVal = String(future.getDate()).padStart(2, '0')
+          const iso = `${year}-${month}-${dayVal}`
+          
+          if (!availableSet.has(iso)) {
+            busy.push(iso)
+          }
+        }
+        
         setBusyDates(busy)
       })
       .catch((err) => {

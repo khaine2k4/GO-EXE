@@ -11,6 +11,58 @@ interface ChatMessage {
 
 const formatMarkdown = (text: string): string => {
   let formatted = text;
+  
+  // Table parser: Find markdown table blocks and convert them to HTML <table> without \n
+  const lines = formatted.split(/\r?\n/);
+  let inTable = false;
+  let tableHtml = '';
+  let newLines: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('|') && line.endsWith('|')) {
+      if (!inTable) {
+        inTable = true;
+        tableHtml = '<div class="overflow-x-auto my-3 rounded-xl border border-slate-200 bg-white shadow-sm"><table class="min-w-full divide-y divide-slate-100 text-left text-[11px] bg-white">';
+      }
+      
+      const cells = line.split('|').map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const isSeparator = cells.every(c => c.match(/^:?-+:?$/));
+      
+      if (isSeparator) {
+        continue;
+      }
+      
+      const isHeader = tableHtml.includes('<thead>') === false && !tableHtml.includes('<tbody>');
+      if (isHeader) {
+        tableHtml += '<thead class="bg-indigo-50/50 font-black text-indigo-700"><tr>';
+        cells.forEach(c => {
+          tableHtml += `<th class="px-2.5 py-1.5 border-b border-slate-200 font-extrabold text-[11px]">${c}</th>`;
+        });
+        tableHtml += '</tr></thead><tbody class="divide-y divide-slate-100 text-slate-700">';
+      } else {
+        tableHtml += '<tr class="hover:bg-slate-50/50 transition-colors">';
+        cells.forEach(c => {
+          tableHtml += `<td class="px-2.5 py-1.5 font-medium whitespace-nowrap">${c}</td>`;
+        });
+        tableHtml += '</tr>';
+      }
+    } else {
+      if (inTable) {
+        tableHtml += '</tbody></table></div>';
+        newLines.push(tableHtml);
+        inTable = false;
+        tableHtml = '';
+      }
+      newLines.push(lines[i]);
+    }
+  }
+  if (inTable) {
+    tableHtml += '</tbody></table></div>';
+    newLines.push(tableHtml);
+  }
+  formatted = newLines.join('\n');
+
   // 1. Dấu gạch ngang phân cách (horizontal rule)
   formatted = formatted.replace(/---\s*(?:\r?\n|$)/g, '<hr class="my-3 border-slate-200/60" />');
   
@@ -28,8 +80,8 @@ const formatMarkdown = (text: string): string => {
   // 5. Xuống dòng thông thường
   formatted = formatted.replace(/\r?\n/g, '<br />');
   
-  // 6. Dọn dẹp các thẻ br thừa sau các block tag
-  formatted = formatted.replace(/(<\/h2>|<\/h3>|<\/h4>|<hr class="my-3 border-slate-200\/60" \/>)<br \/>/g, '$1');
+  // 6. Dọn dẹp các thẻ br thừa sau các block tag (kể cả div bao table)
+  formatted = formatted.replace(/(<\/h2>|<\/h3>|<\/h4>|<hr class="my-3 border-slate-200\/60" \/>|<\/div>)<br \/>/g, '$1');
   
   return formatted;
 };
