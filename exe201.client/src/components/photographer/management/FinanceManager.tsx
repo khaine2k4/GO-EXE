@@ -65,6 +65,7 @@ export default function FinanceManager() {
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [bankCode, setBankCode] = useState('VCB')
   const [accountNumber, setAccountNumber] = useState('')
+  const [accountName, setAccountName] = useState(currentUser?.name || '')
   const [withdrawDesc, setWithdrawDesc] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
 
@@ -133,6 +134,16 @@ export default function FinanceManager() {
       return
     }
 
+    const normalizedAccountName = removeSign4VietnameseString(accountName)
+    if (!normalizedAccountName || normalizedAccountName.length < 2) {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi nhập liệu',
+        message: 'Vui lòng nhập tên chủ tài khoản ngân hàng.'
+      })
+      return
+    }
+
     const amt = Number(withdrawAmount)
     if (isNaN(amt) || amt < 10000) {
       toast.push({
@@ -186,6 +197,16 @@ export default function FinanceManager() {
       return
     }
 
+    const normalizedAccountName = removeSign4VietnameseString(accountName)
+    if (!normalizedAccountName || normalizedAccountName.length < 2) {
+      toast.push({
+        type: 'error',
+        title: 'Lỗi nhập liệu',
+        message: 'Vui lòng nhập tên chủ tài khoản ngân hàng.'
+      })
+      return
+    }
+
     const amt = Number(withdrawAmount)
     if (isNaN(amt) || amt < 10000) {
       toast.push({
@@ -216,11 +237,12 @@ export default function FinanceManager() {
 
     setWithdrawLoading(true)
     try {
-      const sanitizedName = removeSign4VietnameseString(currentUser?.name || '')
+      const sanitizedName = removeSign4VietnameseString(accountName)
       await createWithdrawal(
         amt,
         bankCode,
         accountNumber,
+        accountName.trim(),
         withdrawDesc.trim() || `Studio rut tien ve tai khoan ${bankCode}`,
         otpCode.trim()
       )
@@ -231,6 +253,7 @@ export default function FinanceManager() {
       })
       setWithdrawAmount('')
       setAccountNumber('')
+      setAccountName(currentUser?.name || '')
       setWithdrawDesc('')
       setOtpCode('')
       setOtpSent(false)
@@ -300,7 +323,7 @@ export default function FinanceManager() {
               Chế độ bảo mật cao
             </div>
             <p>
-              Tên thụ hưởng nhận tiền phải trùng khớp 100% với tên hồ sơ pháp lý đã xác minh của bạn nhằm mục đích phòng chống gian lận.
+              Tên thụ hưởng phải trùng với tên chủ tài khoản ngân hàng. Bạn có thể chỉnh tên này khi tên Google hoặc hồ sơ chưa đúng với ngân hàng.
             </p>
           </div>
 
@@ -352,13 +375,21 @@ export default function FinanceManager() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-1.5">
-                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Tên Thụ Hưởng (Đã Khóa)</span>
+                <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase">Tên chủ tài khoản</span>
                 <input
                   type="text"
-                  value={removeSign4VietnameseString(currentUser?.name || '')}
-                  disabled
-                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-400 cursor-not-allowed select-none"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  disabled={otpSent}
+                  placeholder="Nhập đúng tên trên tài khoản ngân hàng"
+                  required
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/20 px-3 text-xs font-semibold text-slate-900 outline-none focus:bg-white focus:border-indigo-500 transition disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
+                {accountName && (
+                  <p className="px-1 text-[9px] font-bold text-indigo-600">
+                    Chuẩn hóa: {removeSign4VietnameseString(accountName)}
+                  </p>
+                )}
               </label>
 
               <label className="block space-y-1.5">
