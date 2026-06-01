@@ -31,6 +31,8 @@ namespace EXE201.Server.DTOs
         public string? Description { get; set; }
         public string? ThumbnailUrl { get; set; }
         public string? City { get; set; }
+        public decimal? Lat { get; set; }
+        public decimal? Lng { get; set; }
         public bool IsActive { get; set; }
         public decimal? MinPrice { get; set; }
         public decimal? MaxPrice { get; set; }
@@ -150,6 +152,8 @@ namespace EXE201.Server.DTOs
         public string? City { get; set; }
         public string? District { get; set; }
         public string? AddressLine { get; set; }
+        public decimal? Lat { get; set; }
+        public decimal? Lng { get; set; }
         public string? LogoUrl { get; set; }
         public string? CoverUrl { get; set; }
         public decimal Rating { get; set; }
@@ -167,6 +171,8 @@ namespace EXE201.Server.DTOs
         public string? City { get; set; }
         public string? District { get; set; }
         public string? AddressLine { get; set; }
+        public decimal? Lat { get; set; }
+        public decimal? Lng { get; set; }
         public string? LogoUrl { get; set; }
         public string? CoverUrl { get; set; }
         public decimal Rating { get; set; }

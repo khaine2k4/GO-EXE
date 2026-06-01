@@ -1,5 +1,17 @@
 # AI Audit Log
 
+## 2026-06-01 - Map MVP Integration
+
+- Added shared MapLibre-based map components for reusable app maps, studio markers, booking location picker, and booking detail location display.
+- Extended booking data with `shooting_lat` and `shooting_lng` across DTOs, EF model mapping, create booking workflow, SQL schema script, and live database migration.
+- Exposed studio `lat/lng` in catalog responses so Gallery can render studios on a map.
+- Updated booking flow to keep the existing address field and add a draggable/clickable marker picker, then save both address text and coordinates.
+- Updated customer and photographer booking detail pages to show the shooting location map and Google Maps deep link.
+- Added Gallery list/map toggle with studio markers and popup/sidebar navigation.
+- Verification:
+  - `npm.cmd run build` in `exe201.client` succeeded; Vite reported the existing large chunk warning.
+  - `dotnet build .\EXE201.Server\EXE201.Server.csproj -o .\.build\server-map-check` succeeded with 0 errors and 0 warnings because the running server process locks the default Debug output.
+
 ## 2026-05-31 - Secure Email Verification Flow for Registration
 
 - **Database & Model Configuration**:
