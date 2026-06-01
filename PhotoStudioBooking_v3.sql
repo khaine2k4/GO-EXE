@@ -1007,7 +1007,7 @@ GO
 -- ----------------------------------------------------------------
 CREATE OR ALTER TRIGGER trg_reviews_check_completed
 ON reviews
-INSTEAD OF INSERT
+AFTER INSERT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -1021,17 +1021,9 @@ BEGIN
     )
     BEGIN
         RAISERROR(N'Reviews can only be submitted for COMPLETED bookings.', 16, 1);
+        ROLLBACK TRANSACTION;
         RETURN;
     END;
-
-    -- Proceed with the insert
-    INSERT INTO reviews (
-        booking_id, customer_id, studio_id, rating, comment,
-        is_hidden, created_at, updated_at
-    )
-    SELECT booking_id, customer_id, studio_id, rating, comment,
-           0, SYSUTCDATETIME(), SYSUTCDATETIME()
-    FROM inserted;
 
     -- Auto-update studio rating
     DECLARE @studio_id BIGINT;

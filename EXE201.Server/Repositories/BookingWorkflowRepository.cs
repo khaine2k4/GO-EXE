@@ -110,7 +110,7 @@ namespace EXE201.Server.Repositories
         // ── Booking ──────────────────────────────────────────────────────────
 
         public async Task<Booking?> GetFullBookingAsync(long bookingId)
-            => await BookingQuery().FirstOrDefaultAsync(b => b.BookingId == bookingId);
+            => await BookingQuery().AsNoTracking().FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
         public async Task<Booking?> GetBookingForUpdateAsync(long bookingId)
             => await _context.Bookings
