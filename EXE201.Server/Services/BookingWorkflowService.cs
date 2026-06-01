@@ -463,6 +463,8 @@ namespace EXE201.Server.Services
             var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
             if (completedId == null) return null;
 
+            var oldStatus = booking.Status.StatusName;
+
             booking.StatusId = completedId.Value;
             booking.CompletedAt = DateTime.UtcNow;
             booking.UpdatedAt = DateTime.UtcNow;
@@ -476,7 +478,7 @@ namespace EXE201.Server.Services
                 booking.BookingId,
                 $"Studio revenue from Booking #{booking.BookingCode}");
 
-            AddBookingLogEntry(booking.BookingId, booking.Status.StatusName, BookingCompleted, customerId, "Customer confirmed final photos received");
+            AddBookingLogEntry(booking.BookingId, oldStatus, BookingCompleted, customerId, "Customer confirmed final photos received");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
