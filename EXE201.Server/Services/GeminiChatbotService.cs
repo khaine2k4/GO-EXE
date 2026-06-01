@@ -69,25 +69,60 @@ DƯỚI ĐÂY LÀ 10 VAI TRÒ & TRÁCH NHIỆM CỦA BẠN (CẦN TUÂN THỦ 10
    - Giúp người dùng tìm được thợ ảnh hoàn hảo nhất, giảm thiểu rào cản giao tiếp, tăng tỷ lệ đặt lịch thành công và làm cho nền tảng GO! có cảm giác thông minh, cá nhân hóa vượt trội.
 
 --------------------------------------------------
-MỌI GỢI Ý STUDIO BẮT BUỘC PHẢI CHÈN THẺ TƯƠNG TÁC (VISUAL CARDS) & ĐA DẠNG HÓA LỰA CHỌN (RECOMMEND TỪ 2-3 OPTION):
-- Quy tắc số lượng lựa chọn khi gợi ý/recommend:
-  + Khi khách hàng tìm kiếm hoặc yêu cầu gợi ý/recommend studio, dịch vụ: Nếu trong danh sách dữ liệu thực tế bên dưới có từ 2 studio/dịch vụ trở lên khớp với yêu cầu của họ, bạn BẮT BUỘC phải giới thiệu từ 2 đến 3 studio/dịch vụ khác nhau (mỗi studio đi kèm 1 thẻ [CARD: ...] riêng biệt ngay sau đoạn giới thiệu ngắn của nó) để khách hàng có thể so sánh và đối chiếu.
-  + Tuyệt đối KHÔNG được chỉ gợi ý duy nhất 1 studio nếu trong dữ liệu thực tế vẫn còn các studio/dịch vụ khác phù hợp.
-  + Chỉ gợi ý duy nhất 1 studio khi và chỉ khi trong cơ sở dữ liệu thực tế CHỈ CÓ ĐÚNG 1 kết quả khớp, hoặc khách hàng chỉ định/hỏi đích danh duy nhất 1 studio cụ thể.
+QUY TẮC SO SÁNH & GỢI Ý TƯỜNG MINH (BẮT BUỘC TUÂN THỦ):
+Khi khách hàng hỏi tìm kiếm dịch vụ, hoặc khi họ yêu cầu so sánh các thợ ảnh/studio, bạn BẮT BUỘC phải trả lời theo cấu trúc 4 bước rõ ràng sau đây để thông tin luôn rành mạch và trực quan:
 
-- Quy tắc định dạng thẻ tương tác (Bắt buộc):
-  Mỗi khi bạn giới thiệu hoặc gợi ý bất kỳ studio/photographer nào từ danh sách thực tế bên dưới, bạn BẮT BUỘC phải chèn một thẻ card tương tác đặc biệt ở một dòng riêng biệt ngay sau đoạn giới thiệu của studio đó để giao diện hiển thị hình ảnh, giá cả và nút bấm trực quan.
-  Cú pháp thẻ card bắt buộc (Viết liền trong cặp ngoặc vuông, viết hoa chữ CARD, điền MÃ_ID_STUDIO dưới dạng số nguyên thực tế từ danh sách bên dưới, TUYỆT ĐỐI không tự viết chữ như 'hung-camera' hay 'Nam_studio'):
-  [CARD: studioId=MÃ_ID_STUDIO_DẠNG_SỐ_Ở_BÊN_DƯỚI | name=TÊN_STUDIO_Ở_ĐÂY | serviceName=TÊN_DỊCH_VỤ_Ở_ĐÂY | rating=ĐIỂM_RATING_Ở_ĐÂY | priceRange=KHOẢNG_GIÁ_Ở_ĐÂY | thumbnail=URL_ẢNH_THUMBNAIL_Ở_ĐÂY]
+Bước 1: 🎯 Phân tích nhu cầu
+- Tóm tắt ngắn gọn 1-2 câu xem bạn hiểu khách hàng đang tìm kiếm gì (vibe gì, ngân sách tầm bao nhiêu, thời gian nào).
 
-Ví dụ minh họa khi có nhiều studio phù hợp:
-Dạ em tìm thấy một số studio chụp ảnh cưới cực đẹp tại Đà Nẵng để anh/chị tham khảo ạ:
+Bước 2: 📸 Danh sách đề xuất (Recommend 2-3 Studio kèm Visual Cards)
+- Giới thiệu từ 2 đến 3 studio/dịch vụ khác nhau (không được chỉ giới thiệu 1 cái trừ khi dữ liệu thực tế chỉ có 1).
+- Mỗi studio giới thiệu xong BẮT BUỘC chèn ngay 1 thẻ Visual Card ở dòng riêng biệt theo đúng cú pháp bên dưới để hiển thị ảnh và nút bấm.
 
-1. **Hùng Camera** - Studio nổi tiếng với phong cách chụp tự nhiên, ánh sáng ấm áp.
+Bước 3: 📊 Bảng so sánh chi tiết (Bắt buộc dùng Markdown Table)
+- Bạn phải tạo ra một bảng so sánh Markdown trực quan so sánh các studio được chọn theo các tiêu chí:
+  | Tiêu chí | [Tên Studio 1] | [Tên Studio 2] | [Tên Studio 3] |
+  | --- | --- | --- | --- |
+  | **Khoảng giá** | Mức giá của gói chụp | Mức giá của gói chụp | Mức giá của gói chụp |
+  | **Đánh giá** | Điểm sao (Ví dụ: ⭐ 4.8) | Điểm sao (Ví dụ: ⭐ 4.9) | Điểm sao (Ví dụ: ⭐ 4.7) |
+  | **Thế mạnh** | Phong cách chính/Điểm nổi bật | Phong cách chính/Điểm nổi bật | Phong cách chính/Điểm nổi bật |
+  | **Khu vực** | Địa chỉ hoạt động | Địa chỉ hoạt động | Địa chỉ hoạt động |
+  | **Khung giờ trống** | Ngày/giờ trống gần nhất | Ngày/giờ trống gần nhất | Ngày/giờ trống gần nhất |
+
+Bước 4: 💡 Lời khuyên từ GO! Assistant
+- Đưa ra lời tư vấn cá nhân hóa (Ví dụ: 'Nếu anh/chị ưu tiên chi phí hợp lý và thích phong cách tự nhiên, hãy chọn Studio A. Nếu anh/chị cần gói chụp luxury cao cấp hơn, Studio B sẽ là lựa chọn hoàn hảo...').
+
+--------------------------------------------------
+CÚ PHÁP THẺ TƯƠNG TÁC (VISUAL CARDS):
+Mỗi khi bạn giới thiệu bất kỳ studio/photographer nào từ danh sách thực tế bên dưới, bạn BẮT BUỘC phải chèn một thẻ card tương tác đặc biệt ở một dòng riêng biệt ngay sau đoạn giới thiệu của studio đó.
+Cú pháp thẻ card bắt buộc (Viết liền trong cặp ngoặc vuông, viết hoa chữ CARD, điền MÃ_ID_STUDIO dưới dạng số nguyên thực tế từ danh sách bên dưới, TUYỆT ĐỐI không tự bịa mã chữ):
+[CARD: studioId=MÃ_ID_STUDIO_DẠNG_SỐ_Ở_BÊN_DƯỚI | name=TÊN_STUDIO_Ở_ĐÂY | serviceName=TÊN_DỊCH_VỤ_Ở_ĐÂY | rating=ĐIỂM_RATING_Ở_ĐÂY | priceRange=KHOẢNG_GIÁ_Ở_ĐÂY | thumbnail=URL_ẢNH_THUMBNAIL_Ở_ĐÂY]
+
+Ví dụ minh họa khi đề xuất:
+Dạ, em đã phân tích nhu cầu của anh/chị và tìm thấy các lựa chọn hoàn hảo sau đây ạ:
+
+### 🎯 Phân tích nhu cầu
+Anh/chị đang cần tìm gói chụp ngoại cảnh tự nhiên tại Đà Nẵng với chi phí tối ưu.
+
+### 📸 Danh sách đề xuất
+
+1. **Hùng Camera** - Chuyên chụp ngoại cảnh tự nhiên phong cách ấm áp.
 [CARD: studioId=2 | name=Hùng Camera | serviceName=Chụp Ngoại Cảnh Đà Nẵng | rating=4.8 | priceRange=3,500,000đ - 5,000,000đ | thumbnail=https://images.unsplash.com/photo-1542038784456-1ea8e935640e]
 
-2. **Mai Wedding** - Studio chuyên nghiệp với nhiều gói dịch vụ cưới trọn gói sang trọng.
+2. **Mai Wedding** - Gói chụp cao cấp với nhiều concept cưới sang trọng.
 [CARD: studioId=3 | name=Mai Wedding | serviceName=Gói cưới Luxury | rating=4.9 | priceRange=8,000,000đ - 15,000,000đ | thumbnail=https://images.unsplash.com/photo-1519741497674-611481863552]
+
+### 📊 Bảng so sánh chi tiết
+| Tiêu chí | Hùng Camera | Mai Wedding |
+| --- | --- | --- |
+| **Khoảng giá** | 3.500.000đ - 5.000.000đ | 8.000.000đ - 15.000.000đ |
+| **Đánh giá** | ⭐ 4.8 (12 review) | ⭐ 4.9 (45 review) |
+| **Thế mạnh** | Chụp ngoại cảnh tự nhiên, chụp đôi | Gói cưới trọn gói, váy cưới luxury |
+| **Khu vực** | Hải Châu, Đà Nẵng | Thanh Khê, Đà Nẵng |
+| **Lịch trống** | Trống ngày 24/05 | Trống ngày 25/05 |
+
+### 💡 Lời khuyên từ GO! Assistant
+Nếu anh/chị muốn tiết kiệm chi phí và thích nét diễn tự nhiên thì nên chọn Hùng Camera. Còn nếu anh/chị muốn trải nghiệm một dịch vụ cưới hoành tráng trọn gói từ váy cưới đến makeup cao cấp thì Mai Wedding là lựa chọn tuyệt vời nhất ạ!
 
 --------------------------------------------------
 DỮ LIỆU THỰC TẾ TRÊN HỆ THỐNG GO! (REAL-TIME DATABASE CONTEXT):
@@ -115,22 +150,41 @@ Hãy CHỈ dựa vào danh sách các dịch vụ và gói chụp thực tế d�
 
             try
             {
-                // 1. Phân tích ý định người dùng (Simple C# Intent & Keyword Extraction) để truy vấn RAG
-                string? searchQuery = null;
+                // 1. Lấy tất cả dịch vụ đang hoạt động trên hệ thống để đối chiếu tên Studio được nhắc đến
+                var allActiveServices = await _catalogRepo.SearchServicesAsync(null, null, null, null, null, null, false);
                 string normalizedMsg = userMessage.ToLowerInvariant();
 
-                if (normalizedMsg.Contains("ngoại cảnh") || normalizedMsg.Contains("ngoai canh")) searchQuery = "ngoại cảnh";
-                else if (normalizedMsg.Contains("cưới") || normalizedMsg.Contains("cuoi") || normalizedMsg.Contains("đám cưới")) searchQuery = "cưới";
-                else if (normalizedMsg.Contains("studio") || normalizedMsg.Contains("phòng")) searchQuery = "studio";
-                else if (normalizedMsg.Contains("kỷ yếu") || normalizedMsg.Contains("ky yeu") || normalizedMsg.Contains("tốt nghiệp")) searchQuery = "kỷ yếu";
-                else if (normalizedMsg.Contains("chân dung") || normalizedMsg.Contains("chan dung")) searchQuery = "chân dung";
-                else if (normalizedMsg.Contains("nghệ thuật") || normalizedMsg.Contains("nghe thuat")) searchQuery = "nghệ thuật";
-                else if (normalizedMsg.Contains("fashion") || normalizedMsg.Contains("thời trang") || normalizedMsg.Contains("thoi trang")) searchQuery = "thời trang";
-                else if (normalizedMsg.Contains("sự kiện") || normalizedMsg.Contains("su kien")) searchQuery = "sự kiện";
-                else if (normalizedMsg.Contains("sản phẩm") || normalizedMsg.Contains("san pham")) searchQuery = "sản phẩm";
+                // 2. Phát hiện các Studio cụ thể được người dùng nhắn đích danh trong tin nhắn
+                var mentionedStudioNames = allActiveServices
+                    .Select(s => s.StudioName)
+                    .Distinct()
+                    .Where(name => !string.IsNullOrEmpty(name) && normalizedMsg.Contains(name.ToLowerInvariant()))
+                    .ToList();
 
-                // 2. Truy vấn dữ liệu thực tế từ Database thông qua Repository
-                var services = await _catalogRepo.SearchServicesAsync(searchQuery, null, null, null, null, null, false);
+                List<ServiceSummaryResponse> services;
+                if (mentionedStudioNames.Count > 0)
+                {
+                    // Lọc chính xác các dịch vụ thuộc về các Studio được nhắc đến để làm ngữ cảnh RAG
+                    services = allActiveServices
+                        .Where(s => mentionedStudioNames.Contains(s.StudioName))
+                        .ToList();
+                }
+                else
+                {
+                    // Nếu không nhắc đích danh Studio, tiến hành lọc theo từ khóa danh mục như bình thường
+                    string? searchQuery = null;
+                    if (normalizedMsg.Contains("ngoại cảnh") || normalizedMsg.Contains("ngoai canh")) searchQuery = "ngoại cảnh";
+                    else if (normalizedMsg.Contains("cưới") || normalizedMsg.Contains("cuoi") || normalizedMsg.Contains("đám cưới")) searchQuery = "cưới";
+                    else if (normalizedMsg.Contains("studio") || normalizedMsg.Contains("phòng")) searchQuery = "studio";
+                    else if (normalizedMsg.Contains("kỷ yếu") || normalizedMsg.Contains("ky yeu") || normalizedMsg.Contains("tốt nghiệp")) searchQuery = "kỷ yếu";
+                    else if (normalizedMsg.Contains("chân dung") || normalizedMsg.Contains("chan dung")) searchQuery = "chân dung";
+                    else if (normalizedMsg.Contains("nghệ thuật") || normalizedMsg.Contains("nghe thuat")) searchQuery = "nghệ thuật";
+                    else if (normalizedMsg.Contains("fashion") || normalizedMsg.Contains("thời trang") || normalizedMsg.Contains("thoi trang")) searchQuery = "thời trang";
+                    else if (normalizedMsg.Contains("sự kiện") || normalizedMsg.Contains("su kien")) searchQuery = "sự kiện";
+                    else if (normalizedMsg.Contains("sản phẩm") || normalizedMsg.Contains("san pham")) searchQuery = "sản phẩm";
+
+                    services = await _catalogRepo.SearchServicesAsync(searchQuery, null, null, null, null, null, false);
+                }
                 
                 if (services.Count > 8)
                 {
