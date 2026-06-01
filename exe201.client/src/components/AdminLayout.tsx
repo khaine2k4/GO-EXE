@@ -18,6 +18,11 @@ export default function AdminLayout() {
     return () => clearInterval(timer)
   }, [])
 
+  // Scroll to top on every route change
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   const pendingApprovalsCount = state.photographers.filter((item) => item.status === 'PENDING').length
   const openDisputesCount = state.disputes.filter((item) => item.status === 'open').length
   const totalNotifications = pendingApprovalsCount + openDisputesCount
@@ -60,6 +65,13 @@ export default function AdminLayout() {
     navigate('/login')
   }
 
+  function handleLogoClick(event: React.MouseEvent) {
+    if (location.pathname === '/admin/dashboard') {
+      event.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-fog)] text-[var(--color-ink)]">
       <button
@@ -76,11 +88,13 @@ export default function AdminLayout() {
         className="fixed bottom-0 left-0 top-0 z-40 hidden flex-col border-r border-[var(--color-border)] bg-white text-slate-700 md:flex"
       >
         <div className="flex h-16 items-center gap-3 border-b border-[var(--color-border)] px-5">
-          <img
-            src={logoImg}
-            alt="Logo"
-            className="h-12 w-auto shrink-0 object-contain transition-all hover:scale-105"
-          />
+          <Link to="/admin/dashboard" onClick={handleLogoClick} className="flex shrink-0 items-center">
+            <img
+              src={logoImg}
+              alt="Logo"
+              className="h-12 w-auto shrink-0 object-contain transition-all hover:scale-105"
+            />
+          </Link>
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-[var(--color-ink)]">PhotoMarket</div>
@@ -132,11 +146,13 @@ export default function AdminLayout() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-slate-950/50 md:hidden" />
             <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} className="fixed bottom-0 left-0 top-0 z-50 w-72 border-r border-slate-200 bg-white p-4 text-slate-700 md:hidden">
               <div className="mb-5 flex items-center gap-3">
-                <img
-                  src={logoImg}
-                  alt="Logo"
-                  className="h-12 w-auto object-contain transition-all hover:scale-105"
-                />
+                <Link to="/admin/dashboard" onClick={(e) => { handleLogoClick(e); setMobileOpen(false); }} className="flex shrink-0 items-center">
+                  <img
+                    src={logoImg}
+                    alt="Logo"
+                    className="h-12 w-auto object-contain transition-all hover:scale-105"
+                  />
+                </Link>
                 <div>
                   <div className="text-sm font-semibold text-slate-950">PhotoMarket</div>
                   <div className="text-xs text-slate-400">Admin Console</div>
