@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, MapPin, MessageCircle, RotateCcw, Send, Star } from 'lucide-react'
 import { cancelBooking, confirmCompletion, createBookingReview, disputeBooking, getBooking, submitPhotoFeedback, type BookingDto } from '../services/bookingApi'
 import { useToast } from '../components/Toast'
+import BookingLocationMap from '../components/map/BookingLocationMap'
+import ReasonDialog from '../components/ReasonDialog'
 
 function formatVnd(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value) + ' đ'
@@ -39,6 +41,7 @@ export default function CustomerBookingDetailPage() {
   const [reportReason, setReportReason] = useState('')
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
 
   async function refreshBooking() {
     if (!id) return
@@ -55,13 +58,13 @@ export default function CustomerBookingDetailPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  async function handleCancel() {
+  async function handleCancel(reason: string) {
     if (!booking) return
-    const reason = window.prompt('Nhập lý do hủy booking') || 'Khách hàng hủy booking'
     setActioning(true)
     try {
-      const updated = await cancelBooking(booking.id, reason)
+      const updated = await cancelBooking(booking.id, reason.trim() || 'Khách hàng hủy booking')
       setBooking(updated)
+      setCancelDialogOpen(false)
       toast.push({ type: 'info', title: 'Đã hủy booking', message: 'Slot đã được giải phóng.' })
     } catch {
       toast.push({ type: 'error', title: 'Không thể hủy booking', message: 'Chỉ có thể tự hủy trước khi Studio xác nhận.' })
@@ -150,7 +153,7 @@ export default function CustomerBookingDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={booking.status} />
             {booking.canCancel && (
-              <button type="button" onClick={handleCancel} disabled={actioning} className="inline-flex h-11 items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 text-xs font-black uppercase tracking-widest text-rose-700 disabled:opacity-50">
+              <button type="button" onClick={() => setCancelDialogOpen(true)} disabled={actioning} className="inline-flex h-11 items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 text-xs font-black uppercase tracking-widest text-rose-700 disabled:opacity-50">
                 <RotateCcw className="h-4 w-4" /> Hủy booking
               </button>
             )}
@@ -170,6 +173,15 @@ export default function CustomerBookingDetailPage() {
           <Info icon={<MapPin className="h-4 w-4" />} label="Địa điểm" value={booking.shootingLocation || 'Chưa nhập'} />
           <Info icon={<CircleDollarSign className="h-4 w-4" />} label="Thanh toán" value={booking.latestPayment ? `${booking.latestPayment.status} - ${booking.latestPayment.methodName}` : 'Chưa có'} />
           <Info icon={<Clock className="h-4 w-4" />} label="Hạn giữ slot" value={booking.paymentExpiresAt ? new Date(booking.paymentExpiresAt).toLocaleString('vi-VN') : 'Không áp dụng'} />
+        </div>
+
+        <div className="mt-6">
+          <BookingLocationMap
+            lat={booking.shootingLat}
+            lng={booking.shootingLng}
+            address={booking.shootingLocation}
+            subtitle={`${formatDate(booking.shootingDate)} - ${booking.startTime} - ${booking.endTime}`}
+          />
         </div>
 
         <div className="mt-8 rounded-2xl bg-slate-50 p-5">
@@ -247,6 +259,19 @@ export default function CustomerBookingDetailPage() {
       <Link to="/photosets" className="primary-pill mt-6 h-12 px-6 text-xs font-black uppercase tracking-widest">
         Đặt thêm dịch vụ
       </Link>
+      <ReasonDialog
+        open={cancelDialogOpen}
+        title="Hủy booking"
+        description="Lý do hủy sẽ được lưu lại để studio và admin nắm tình trạng booking."
+        label="Lý do hủy"
+        placeholder="Ví dụ: Tôi muốn đổi lịch chụp hoặc chọn gói khác..."
+        defaultReason="Khách hàng hủy booking"
+        confirmText="Hủy booking"
+        danger
+        loading={actioning}
+        onCancel={() => setCancelDialogOpen(false)}
+        onSubmit={handleCancel}
+      />
     </div>
   )
 }

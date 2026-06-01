@@ -9,6 +9,8 @@ import { useToast } from './Toast'
 import type { Photographer, Photoset } from '../types'
 import type { ServiceDetail } from '../services/catalogTypes'
 import { getStudioDays } from '../services/scheduleApi'
+import LocationPickerMap from './map/LocationPickerMap'
+import { DA_NANG_CENTER, hasCoordinate, type MapCoordinate } from './map/mapConstants'
 import {
   createBooking,
   getStudioSlots,
@@ -43,6 +45,7 @@ export default function BookingModal({
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(service?.packages[0]?.id ?? null)
   const [shootingLocation, setShootingLocation] = useState('')
+  const [shootingCoordinate, setShootingCoordinate] = useState<MapCoordinate>(getInitialShootingCoordinate(service))
   const [note, setNote] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PAYOS')
   const [submitting, setSubmitting] = useState(false)
@@ -58,6 +61,7 @@ export default function BookingModal({
     setSelectedSlotId(null)
     setSelectedPackageId(service?.packages[0]?.id ?? null)
     setShootingLocation('')
+    setShootingCoordinate(getInitialShootingCoordinate(service))
     setNote('')
     setPaymentMethod('PAYOS')
     setSubmitting(false)
@@ -169,6 +173,8 @@ export default function BookingModal({
           packageId: selectedPackageId,
           slotId: selectedSlotId,
           shootingLocation: shootingLocation.trim(),
+          shootingLat: shootingCoordinate.lat,
+          shootingLng: shootingCoordinate.lng,
           note: note.trim() || undefined,
         })
 
@@ -391,6 +397,10 @@ export default function BookingModal({
                               placeholder="Ví dụ: Bãi biển Mỹ Khê, Đà Nẵng"
                               className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm font-bold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
                             />
+                            <LocationPickerMap value={shootingCoordinate} onChange={setShootingCoordinate} className="h-64 w-full" />
+                            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+                              Tọa độ đã chọn: <span className="text-slate-900">{shootingCoordinate.lat.toFixed(5)}, {shootingCoordinate.lng.toFixed(5)}</span>
+                            </div>
                             <textarea
                               value={note}
                               onChange={(event) => setNote(event.target.value)}
@@ -419,6 +429,7 @@ export default function BookingModal({
                               <SummaryRow label="Ngày" value={date || 'Chưa chọn'} />
                               <SummaryRow label="Giờ" value={selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : apiMode ? 'Chưa chọn' : 'Theo ngày đã chọn'} />
                               <SummaryRow label="Địa điểm" value={shootingLocation || 'Chưa nhập'} />
+                              <SummaryRow label="Tọa độ" value={`${shootingCoordinate.lat.toFixed(5)}, ${shootingCoordinate.lng.toFixed(5)}`} />
                             </div>
                             <div className="mt-5 border-t border-slate-200 pt-4">
                               <div className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tạm tính</div>
@@ -529,6 +540,14 @@ function PaymentNote({ method }: { method: PaymentMethod }) {
       Bạn sẽ thanh toán tiền mặt trực tiếp tại studio khi đến chụp. Slot sẽ được giữ theo luồng booking hiện tại.
     </div>
   )
+}
+
+function getInitialShootingCoordinate(service?: ServiceDetail): MapCoordinate {
+  if (hasCoordinate(service)) {
+    return { lat: service.lat, lng: service.lng }
+  }
+
+  return DA_NANG_CENTER
 }
 
 function formatVnd(value: number) {

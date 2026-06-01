@@ -168,7 +168,7 @@ export default function RegisterPage() {
                                         />
                                     </div>
                                     <p className="mt-1.5 text-[10px] font-bold text-amber-600 leading-relaxed px-1">
-                                        ⚠️ Vui lòng nhập đúng **Họ tên thật** trùng khớp thẻ ngân hàng. Tên này sẽ được khóa cố định để đối soát rút tiền an toàn về sau.
+                                        ⚠️ Nên nhập họ tên thật để đối soát dễ hơn. Khi rút tiền, bạn vẫn có thể nhập riêng tên chủ tài khoản ngân hàng.
                                     </p>
                                 </div>
 

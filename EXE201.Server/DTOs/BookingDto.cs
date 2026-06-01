@@ -67,6 +67,8 @@ namespace EXE201.Server.DTOs
         public long PackageId { get; set; }
         public long SlotId { get; set; }
         public string? ShootingLocation { get; set; }
+        public decimal? ShootingLat { get; set; }
+        public decimal? ShootingLng { get; set; }
         public string? Note { get; set; }
     }
 
@@ -85,6 +87,8 @@ namespace EXE201.Server.DTOs
         public string StartTime { get; set; } = null!;
         public string EndTime { get; set; } = null!;
         public string? ShootingLocation { get; set; }
+        public decimal? ShootingLat { get; set; }
+        public decimal? ShootingLng { get; set; }
         public string? Note { get; set; }
         public string Status { get; set; } = null!;
         public decimal TotalPrice { get; set; }
