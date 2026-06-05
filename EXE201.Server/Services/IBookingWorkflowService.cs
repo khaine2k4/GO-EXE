@@ -16,6 +16,7 @@ namespace EXE201.Server.Services
         Task<BookingResponse?> CreateBookingAsync(long customerId, CreateBookingRequest request);
         Task<List<BookingResponse>> GetBookingsForUserAsync(long userId, string role, string? status);
         Task<BookingResponse?> GetBookingForUserAsync(long userId, string role, long bookingId);
+        Task<string?> GetCustomerPhotoPreviewUrlAsync(long customerId, long bookingId, string deliveryType, int photoIndex);
         Task<BookingResponse?> ConfirmBookingAsync(long ownerId, long bookingId);
         Task<BookingResponse?> RejectBookingAsync(long ownerId, long bookingId, string? reason);
         Task<BookingResponse?> MarkInProgressAsync(long ownerId, long bookingId);

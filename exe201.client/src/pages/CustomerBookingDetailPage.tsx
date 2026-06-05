@@ -1,10 +1,11 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, MapPin, MessageCircle, RotateCcw, Send, Star } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, MapPin, MessageCircle, RotateCcw, Send, Star, X } from 'lucide-react'
 import { cancelBooking, confirmCompletion, createBookingReview, disputeBooking, getBooking, submitPhotoFeedback, type BookingDto } from '../services/bookingApi'
 import { useToast } from '../components/Toast'
 import BookingLocationMap from '../components/map/BookingLocationMap'
 import ReasonDialog from '../components/ReasonDialog'
+import WatermarkImage from '../components/WatermarkImage'
 
 function formatVnd(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value) + ' đ'
@@ -42,6 +43,7 @@ export default function CustomerBookingDetailPage() {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string; locked: boolean } | null>(null)
 
   async function refreshBooking() {
     if (!id) return
@@ -197,8 +199,20 @@ export default function CustomerBookingDetailPage() {
         </div>
 
         <div className="mt-8 grid gap-5 lg:grid-cols-2">
-          <PhotoDeliveryPanel title="Ảnh demo" urls={booking.demoPhotoUrls ?? []} emptyText="Studio chưa gửi ảnh demo." />
-          <PhotoDeliveryPanel title="Ảnh final" urls={booking.finalPhotoUrls ?? []} emptyText="Studio chưa gửi ảnh final." />
+          <PhotoDeliveryPanel
+            title="Ảnh demo"
+            urls={booking.demoPhotoUrls ?? []}
+            emptyText="Studio chưa gửi ảnh demo."
+            locked
+            onPreview={(url) => setPreviewPhoto({ url, title: 'Ảnh demo', locked: true })}
+          />
+          <PhotoDeliveryPanel
+            title="Ảnh final"
+            urls={booking.finalPhotoUrls ?? []}
+            emptyText="Studio chưa gửi ảnh final."
+            locked={booking.status !== 'COMPLETED'}
+            onPreview={(url, locked) => setPreviewPhoto({ url, title: 'Ảnh final', locked })}
+          />
         </div>
 
         {booking.status === 'DEMO_UPLOADED' && (
@@ -272,24 +286,99 @@ export default function CustomerBookingDetailPage() {
         onCancel={() => setCancelDialogOpen(false)}
         onSubmit={handleCancel}
       />
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div className="relative w-full max-w-6xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between gap-3 text-white">
+              <div>
+                <div className="text-xs font-black uppercase tracking-widest text-white/60">{previewPhoto.title}</div>
+                {previewPhoto.locked && <div className="mt-1 text-sm font-semibold text-white/80">Bản xem trước có watermark</div>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewPhoto(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
+                aria-label="Đóng xem ảnh"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <WatermarkImage
+              src={previewPhoto.url}
+              alt={previewPhoto.title}
+              isLocked={previewPhoto.locked}
+              label="GO! DEMO"
+              className="max-h-[78vh] w-full rounded-2xl"
+              fit="contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function PhotoDeliveryPanel({ title, urls, emptyText }: { title: string; urls: string[]; emptyText: string }) {
+function PhotoDeliveryPanel({
+  title,
+  urls,
+  emptyText,
+  locked = false,
+  onPreview,
+}: {
+  title: string
+  urls: string[]
+  emptyText: string
+  locked?: boolean
+  onPreview?: (url: string, locked: boolean) => void
+}) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-      <div className="text-xs font-black uppercase tracking-widest text-slate-400">{title}</div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-black uppercase tracking-widest text-slate-400">{title}</div>
+        {locked && urls.length > 0 && (
+          <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            Watermark
+          </span>
+        )}
+      </div>
       {urls.length === 0 ? (
         <div className="mt-3 text-sm font-semibold text-slate-500">{emptyText}</div>
       ) : (
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {urls.map((url) => (
-            <a key={url} href={url} target="_blank" rel="noreferrer" className="group overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <img src={url} alt={title} className="aspect-video w-full object-cover transition group-hover:scale-105" />
-              <div className="truncate px-3 py-2 text-xs font-bold text-slate-500">{url}</div>
-            </a>
-          ))}
+          {urls.map((url, index) => {
+            const image = (
+              <WatermarkImage
+                src={url}
+                alt={`${title} ${index + 1}`}
+                isLocked={locked}
+                label="GO! DEMO"
+                className="aspect-video w-full"
+              />
+            )
+
+            if (locked) {
+              return (
+                <div key={url} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <button type="button" onClick={() => onPreview?.(url, locked)} className="block w-full text-left">
+                    {image}
+                  </button>
+                  <div className="px-3 py-2 text-xs font-bold text-slate-500">Chỉ xem trước, không tải file gốc</div>
+                </div>
+              )
+            }
+
+            return (
+              <button key={url} type="button" onClick={() => onPreview?.(url, locked)} className="group overflow-hidden rounded-xl border border-slate-200 bg-white text-left">
+                {image}
+                <div className="truncate px-3 py-2 text-xs font-bold text-slate-500">{url}</div>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
