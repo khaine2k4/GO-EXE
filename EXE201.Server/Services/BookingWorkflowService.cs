@@ -312,7 +312,7 @@ namespace EXE201.Server.Services
                 bookings = new List<Booking>();
             }
 
-            return bookings.Select(MapBooking).ToList();
+            return bookings.Select(booking => MapBooking(booking, role)).ToList();
         }
 
         public async Task<BookingResponse?> GetBookingForUserAsync(long userId, string role, long bookingId)
@@ -320,7 +320,26 @@ namespace EXE201.Server.Services
             var booking = await _repo.GetFullBookingAsync(bookingId);
             if (booking == null) return null;
             if (!await CanAccessBookingAsync(userId, role, booking)) return null;
-            return MapBooking(booking);
+            return MapBooking(booking, role);
+        }
+
+        public async Task<string?> GetCustomerPhotoPreviewUrlAsync(long customerId, long bookingId, string deliveryType, int photoIndex)
+        {
+            if (photoIndex < 0) return null;
+
+            var booking = await _repo.GetFullBookingAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+
+            var normalizedType = deliveryType.Trim().ToUpperInvariant();
+            var urls = normalizedType switch
+            {
+                "DEMO" => ParseDeliveryUrls(booking.BookingLogs, BookingDemoUploaded),
+                "FINAL" when booking.Status.StatusName != BookingCompleted => ParseDeliveryUrls(booking.BookingLogs, BookingFinalDelivered),
+                _ => new List<string>()
+            };
+
+            if (photoIndex >= urls.Count) return null;
+            return ToCloudinaryWatermarkedPreviewUrl(urls[photoIndex]);
         }
 
         public async Task<BookingResponse?> ConfirmBookingAsync(long ownerId, long bookingId)
@@ -1080,7 +1099,7 @@ namespace EXE201.Server.Services
             return hasActiveBooking && slot.Status == SlotOpen ? SlotBooked : slot.Status;
         }
 
-        private static BookingResponse MapBooking(Booking b)
+        private BookingResponse MapBooking(Booking b, string role)
         {
             var status = IsDisputed(b) ? "DISPUTED" : b.Status.StatusName;
             var review = b.Review == null ? null : new BookingReviewResponse
@@ -1090,6 +1109,22 @@ namespace EXE201.Server.Services
                 Comment = b.Review.Comment,
                 CreatedAt = b.Review.CreatedAt.ToString("O")
             };
+            var demoPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingDemoUploaded);
+            var finalPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingFinalDelivered);
+
+            if (role == "CUSTOMER")
+            {
+                demoPhotoUrls = demoPhotoUrls
+                    .Select((_, index) => $"/api/bookings/{b.BookingId}/photo-preview/demo/{index}")
+                    .ToList();
+
+                if (status != BookingCompleted)
+                {
+                    finalPhotoUrls = finalPhotoUrls
+                        .Select((_, index) => $"/api/bookings/{b.BookingId}/photo-preview/final/{index}")
+                        .ToList();
+                }
+            }
 
             return new BookingResponse
             {
@@ -1115,14 +1150,58 @@ namespace EXE201.Server.Services
                 StudioRevenue = b.StudioRevenue,
                 PaymentExpiresAt = b.PaymentExpiresAt?.ToString("O"),
                 CanCancel = status is BookingPendingPayment or BookingPendingConfirmation,
-                DemoPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingDemoUploaded),
-                FinalPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingFinalDelivered),
+                DemoPhotoUrls = demoPhotoUrls,
+                FinalPhotoUrls = finalPhotoUrls,
                 CustomerFeedback = ParseCustomerFeedback(b.BookingLogs),
                 CanReview = status == BookingCompleted && review == null,
                 Review = review,
                 CreatedAt = b.CreatedAt.ToString("O"),
                 LatestPayment = b.Payments.OrderByDescending(p => p.CreatedAt).Select(MapPayment).FirstOrDefault()
             };
+        }
+
+        private string ToCloudinaryWatermarkedPreviewUrl(string url)
+        {
+            const string uploadSegment = "/image/upload/";
+            var uploadIndex = url.IndexOf(uploadSegment, StringComparison.OrdinalIgnoreCase);
+            if (uploadIndex < 0) return url;
+
+            var insertIndex = uploadIndex + uploadSegment.Length;
+            var previewTransform = BuildCloudinaryPreviewTransform();
+
+            if (url[insertIndex..].StartsWith(previewTransform, StringComparison.OrdinalIgnoreCase))
+            {
+                return url;
+            }
+
+            return url.Insert(insertIndex, previewTransform);
+        }
+
+        private string BuildCloudinaryPreviewTransform()
+        {
+            var watermarkPublicId = _configuration["Cloudinary:WatermarkPublicId"]?.Trim();
+            if (string.IsNullOrWhiteSpace(watermarkPublicId))
+            {
+                watermarkPublicId = "exe201/brand/go-watermark-full-50";
+            }
+
+            var overlayPublicId = NormalizeCloudinaryOverlayPublicId(watermarkPublicId);
+            return $"c_limit,w_1400,q_auto:good/l_{overlayPublicId},fl_relative,c_fill,w_1.0,h_1.0,g_center/fl_layer_apply/";
+        }
+
+        private static string NormalizeCloudinaryOverlayPublicId(string publicId)
+        {
+            var normalized = publicId.Replace('\\', '/').Trim();
+            foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".webp", ".svg" })
+            {
+                if (normalized.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized = normalized[..^extension.Length];
+                    break;
+                }
+            }
+
+            return Uri.EscapeDataString(normalized.Replace('/', ':')).Replace("%3A", ":", StringComparison.OrdinalIgnoreCase);
         }
 
         private sealed record PhotoDeliveryLog(List<string> PhotoUrls, string? Note);

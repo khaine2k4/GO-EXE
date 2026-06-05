@@ -1,5 +1,19 @@
 # AI Audit Log
 
+## 2026-06-05 - Booking Photo Watermark Preview
+
+- Updated booking photo delivery previews so customer-facing demo photo URLs are converted to Cloudinary watermarked preview URLs in `BookingWorkflowService` before being returned by booking APIs. The Cloudinary transform now supports `Cloudinary:WatermarkPublicId` for transparent logo overlays and falls back to text if no logo asset is configured.
+- Added customer-only preview proxy endpoint `GET /api/bookings/{id}/photo-preview/{type}/{index}` so the frontend receives first-party API image URLs for locked previews while the backend fetches the Cloudinary watermarked asset server-side.
+- Kept final photo URLs watermarked for Customers until the booking reaches `COMPLETED`; Studio owners still receive the original uploaded URLs for delivery management.
+- Rebuilt `WatermarkImage` with a repeated GO! logo overlay, locked right-click/drag behavior, and a contain mode for large previews.
+- Updated `CustomerBookingDetailPage` so delivered photos open in a large modal while preserving the watermark and no-download UI for locked previews.
+- Fixed `ChatPage` SignalR startup by using `accessTokenFactory`, ignoring cleanup-triggered negotiation aborts, and stopping connections only when needed.
+- Fixed `Stepper` to import motion primitives from the project-standard `framer-motion` package.
+- Added Vite dev proxy entries for `/api` and `/hubs` to support first-party API image preview URLs and SignalR during local development.
+- Verification:
+  - `npm run build` in `exe201.client` succeeded; Vite reported the existing large chunk warning.
+  - `dotnet build EXE201.Server\exe201.Server.csproj -p:UseAppHost=false -o C:\tmp\exe201-server-watermark-build` succeeded with 0 errors and 0 warnings because the running API process locked the default Debug executable.
+
 ## 2026-06-01 - Map MVP Integration
 
 - Added shared MapLibre-based map components for reusable app maps, studio markers, booking location picker, and booking detail location display.

@@ -22,6 +22,7 @@ namespace EXE201.Server
             // Add services to the container.
             builder.Services.AddControllers();
             builder.Services.AddMemoryCache();
+            builder.Services.AddHttpClient();
             builder.Services.AddProblemDetails();
             builder.Services.AddDataProtection()
                 .PersistKeysToFileSystem(new DirectoryInfo(
