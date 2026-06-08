@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
+import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
 import { Send, MessageCircle, ChevronLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
@@ -138,10 +138,14 @@ export default function ChatPage() {
   // ── Kết nối SignalR ───────────────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('token')
+    if (!token) return
+
+    let disposed = false
     const hubBaseUrl = import.meta.env.DEV ? 'http://localhost:5289' : ''
     const conn = new HubConnectionBuilder()
-      .withUrl(`${hubBaseUrl}/hubs/chat?access_token=${token}`, {
-        withCredentials: true
+      .withUrl(`${hubBaseUrl}/hubs/chat`, {
+        accessTokenFactory: () => localStorage.getItem('token') ?? '',
+        withCredentials: true,
       })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
@@ -164,14 +168,30 @@ export default function ChatPage() {
     })
 
     conn.start().then(() => {
+      if (disposed) {
+        void conn.stop()
+        return
+      }
+
       connectionRef.current = conn
       // Auto join if activeConv is already selected
       if (activeConvRef.current) {
         conn.invoke('JoinConversation', String(activeConvRef.current.conversationId)).catch(console.error)
       }
-    }).catch(console.error)
+    }).catch((error) => {
+      if (disposed || error?.name === 'AbortError') return
+      console.error(error)
+    })
 
-    return () => { conn.stop() }
+    return () => {
+      disposed = true
+      if (connectionRef.current === conn) {
+        connectionRef.current = null
+      }
+      if (conn.state !== HubConnectionState.Disconnected) {
+        void conn.stop()
+      }
+    }
   }, [])
 
   // ── Khi chọn conversation: load lịch sử + join room ──────────────────────

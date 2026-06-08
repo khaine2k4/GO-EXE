@@ -9,6 +9,13 @@
 - Refactored C# interfaces and implementation to reflect provider change: introduced `IChatbotService` and `DeepSeekChatbotService` while clean deleting `IGeminiChatbotService` and `GeminiChatbotService`.
 - Upgraded the API client payload schema to standard OpenAI Chat Completions compatibility.
 
+## 2026-06-05
+
+- Added protected customer photo preview behavior for booking delivery: customer-facing demo images now use Cloudinary watermarked preview URLs instead of raw original URLs, and final photos stay watermarked until booking completion. Cloudinary image-logo overlays are supported through `Cloudinary:WatermarkPublicId`, with text fallback when no logo asset is configured.
+- Added a customer booking photo preview modal so customers can open delivered photos larger while retaining the GO! watermark overlay and locked-download UI.
+- Added customer-only booking photo preview proxy routes so locked photo previews render through `/api/bookings/{id}/photo-preview/...` instead of exposing Cloudinary URLs in the frontend DOM.
+- Fixed chat SignalR startup cleanup so development-mode unmounts no longer surface negotiation abort errors.
+
 ## 2026-05-27
 
 - Refreshed the customer marketplace UI around a white/blue/orange palette (`#004aad`, `#ff751f`), including shared theme tokens, GO! navigation, and a fuller marketplace footer.

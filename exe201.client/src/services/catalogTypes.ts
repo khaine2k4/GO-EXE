@@ -17,6 +17,8 @@ export type ServiceSummary = {
   description?: string
   thumbnailUrl?: string
   city?: string
+  lat?: number
+  lng?: number
   isActive: boolean
   minPrice?: number
   maxPrice?: number
@@ -73,6 +75,8 @@ export type StudioDetail = {
   city?: string
   district?: string
   addressLine?: string
+  lat?: number
+  lng?: number
   logoUrl?: string
   coverUrl?: string
   rating: number
@@ -89,6 +93,8 @@ export type StudioSummary = {
   city?: string
   district?: string
   addressLine?: string
+  lat?: number
+  lng?: number
   logoUrl?: string
   coverUrl?: string
   rating: number

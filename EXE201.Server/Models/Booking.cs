@@ -23,6 +23,10 @@ public partial class Booking
 
     public string? ShootingLocation { get; set; }
 
+    public decimal? ShootingLat { get; set; }
+
+    public decimal? ShootingLng { get; set; }
+
     public string? Note { get; set; }
 
     public decimal TotalPrice { get; set; }

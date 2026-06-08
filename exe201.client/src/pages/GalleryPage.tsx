@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Search, SlidersHorizontal, Star, X } from 'lucide-react'
+import { Camera, List, Map as MapIcon, Search, SlidersHorizontal, Star, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import AppMap from '../components/map/AppMap'
+import { DA_NANG_CENTER } from '../components/map/mapConstants'
+import { studioToMapMarker, type StudioMapMarker } from '../components/map/StudioMapMarker'
 import { getCategories } from '../services/categoryApi'
 import { getStudios, type StudioSearchParams } from '../services/studioApi'
 import type { Category, StudioSummary } from '../services/catalogTypes'
@@ -22,6 +25,8 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [visibleCount, setVisibleCount] = useState(9)
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+  const [selectedStudioId, setSelectedStudioId] = useState<number | null>(null)
 
   async function load(nextFilters = filters) {
     setLoading(true)
@@ -46,6 +51,10 @@ export default function GalleryPage() {
 
   const hasFilter = useMemo(() => Boolean(filters.keyword || filters.categoryId), [filters])
   const visibleStudios = studios.slice(0, visibleCount)
+  const mapMarkers = useMemo(
+    () => studios.map(studioToMapMarker).filter((marker): marker is StudioMapMarker => Boolean(marker)),
+    [studios],
+  )
 
   function applyFilters() {
     setVisibleCount(9)
@@ -88,7 +97,25 @@ export default function GalleryPage() {
               </button>
             )}
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <div className="flex h-12 rounded-full bg-[var(--color-fog)] p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`inline-flex items-center gap-2 rounded-full px-4 text-sm font-bold transition ${viewMode === 'list' ? 'bg-white text-[var(--color-azure)] shadow-sm' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'}`}
+              >
+                <List className="h-4 w-4" />
+                Danh sách
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('map')}
+                className={`inline-flex items-center gap-2 rounded-full px-4 text-sm font-bold transition ${viewMode === 'map' ? 'bg-white text-[var(--color-azure)] shadow-sm' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'}`}
+              >
+                <MapIcon className="h-4 w-4" />
+                Bản đồ
+              </button>
+            </div>
             <button type="button" onClick={() => setShowFilters((value) => !value)} className="secondary-pill h-12 gap-2 px-5 text-sm font-semibold">
               <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
             </button>
@@ -121,6 +148,33 @@ export default function GalleryPage() {
         <StateBox text={error} />
       ) : studios.length === 0 ? (
         <StateBox text="Không có studio phù hợp với bộ lọc." />
+      ) : viewMode === 'map' ? (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <AppMap
+            center={mapMarkers[0] ? { lat: mapMarkers[0].lat, lng: mapMarkers[0].lng } : DA_NANG_CENTER}
+            zoom={12}
+            markers={mapMarkers}
+            selectedMarkerId={selectedStudioId}
+            fitToMarkers
+            openSelectedPopup
+            onMarkerClick={(markerId) => setSelectedStudioId(Number(markerId))}
+            className="h-[620px] w-full"
+          />
+          <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1">
+            {mapMarkers.length === 0 ? (
+              <StateBox text="Chưa có studio nào có tọa độ để hiển thị trên bản đồ." />
+            ) : null}
+            {studios.map((studio) => (
+              <MapStudioCard
+                key={studio.id}
+                studio={studio}
+                active={selectedStudioId === studio.id}
+                onFocus={() => setSelectedStudioId(studio.id)}
+                onOpen={() => nav(`/photographers/${studio.id}`)}
+              />
+            ))}
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -140,6 +194,59 @@ export default function GalleryPage() {
         </>
       )}
     </div>
+  )
+}
+
+function MapStudioCard({
+  studio,
+  active,
+  onFocus,
+  onOpen,
+}: {
+  studio: StudioSummary
+  active: boolean
+  onFocus: () => void
+  onOpen: () => void
+}) {
+  const hasLocation = typeof studio.lat === 'number' && typeof studio.lng === 'number'
+  const location = [studio.district, studio.city].filter(Boolean).join(', ') || studio.addressLine || 'Chưa có địa chỉ'
+
+  return (
+    <article className={`rounded-3xl border bg-white p-3 shadow-sm transition ${active ? 'border-[var(--color-azure)] shadow-[0_16px_34px_rgba(0,74,173,0.14)]' : 'border-[var(--color-border)]'}`}>
+      <button
+        type="button"
+        onClick={onFocus}
+        disabled={!hasLocation}
+        className="flex w-full gap-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        <img
+          src={studio.coverUrl || FALLBACK_COVER}
+          alt={studio.name}
+          className="h-20 w-20 shrink-0 rounded-2xl object-cover"
+          loading="lazy"
+          onError={(event) => { event.currentTarget.src = FALLBACK_COVER }}
+        />
+        <div className="min-w-0 flex-1">
+          <h2 className="line-clamp-2 text-sm font-black text-[var(--color-ink)]">{studio.name || 'Studio đang cập nhật'}</h2>
+          <p className="mt-1 line-clamp-1 text-xs font-semibold text-[var(--color-graphite)]">{location}</p>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-[var(--color-orange)]">
+              <Star className="h-3.5 w-3.5 fill-[var(--color-orange)]" />
+              {Number(studio.rating ?? 0).toFixed(1)}
+            </span>
+            <span className="truncate text-xs font-black text-[var(--color-azure)]">{formatVnd(studio.minPrice)}</span>
+          </div>
+        </div>
+      </button>
+      <div className="mt-3 flex items-center justify-between border-t border-[var(--color-soft-border)] pt-3">
+        <span className={`text-xs font-bold ${hasLocation ? 'text-emerald-600' : 'text-slate-400'}`}>
+          {hasLocation ? 'Có tọa độ' : 'Chưa có tọa độ'}
+        </span>
+        <button type="button" onClick={onOpen} className="primary-pill h-9 px-4 text-xs font-bold">
+          Xem studio
+        </button>
+      </div>
+    </article>
   )
 }
 

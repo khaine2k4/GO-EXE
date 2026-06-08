@@ -78,7 +78,7 @@ namespace EXE201.Server.Services
         // PAYOS DIRECT PAYOUTS & ADMIN APPROVAL WORKFLOW
         // ================================================================
 
-        public async Task<PayoutRequest> CreatePayoutRequestAsync(long userId, string ownerType, decimal amount, string bankCode, string accountNumber, string description = "")
+        public async Task<PayoutRequest> CreatePayoutRequestAsync(long userId, string ownerType, decimal amount, string bankCode, string accountNumber, string accountName, string description = "")
         {
             // 1. Get corresponding wallet
             Wallet wallet;
@@ -108,14 +108,10 @@ namespace EXE201.Server.Services
             if (string.IsNullOrWhiteSpace(accountNumber) || !Regex.IsMatch(accountNumber, @"^\d+$"))
                 throw new ArgumentException("Số tài khoản chỉ được chứa chữ số.");
 
-            // 4. Retrieve and strict-normalize account holder name from User Profile
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null)
-                throw new InvalidOperationException("Không tìm thấy thông tin người dùng trên hệ thống.");
-
-            string accountName = RemoveSign4VietnameseString(user.FullName ?? "");
-            if (string.IsNullOrWhiteSpace(accountName))
-                throw new InvalidOperationException("Họ tên trên hồ sơ không hợp lệ để chuẩn hóa tài khoản ngân hàng.");
+            // 4. Normalize the bank account holder name supplied for this withdrawal.
+            var normalizedAccountName = RemoveSign4VietnameseString(accountName);
+            if (string.IsNullOrWhiteSpace(normalizedAccountName) || normalizedAccountName.Length < 2)
+                throw new InvalidOperationException("Tên chủ tài khoản ngân hàng không hợp lệ.");
 
             // 5. Freeze wallet balance (deduct immediately)
             wallet.Balance -= amount;
@@ -131,7 +127,7 @@ namespace EXE201.Server.Services
                 Status = "PENDING",
                 BankCode = bankCode.Trim().ToUpperInvariant(),
                 AccountNumber = accountNumber.Trim(),
-                AccountName = accountName,
+                AccountName = normalizedAccountName,
                 Description = string.IsNullOrWhiteSpace(description) ? $"Rút tiền về TK {accountNumber}" : description.Trim(),
                 ReferenceId = refId,
                 CreatedAt = DateTime.UtcNow,

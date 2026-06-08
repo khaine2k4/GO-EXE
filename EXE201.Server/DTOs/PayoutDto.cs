@@ -26,6 +26,7 @@ namespace EXE201.Server.DTOs
         public decimal Amount { get; set; }
         public string BankCode { get; set; } = null!;
         public string AccountNumber { get; set; } = null!;
+        public string AccountName { get; set; } = null!;
         public string? Description { get; set; }
         public string OtpCode { get; set; } = null!;
     }

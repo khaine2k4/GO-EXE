@@ -19,6 +19,32 @@
 - **Xác thực**:
   - Chạy `dotnet build` biên dịch dự án Backend thành công **0 lỗi / 0 cảnh báo**.
   - Kiểm tra TypeScript biên dịch client thành công **0 lỗi**.
+## 2026-06-05 - Booking Photo Watermark Preview
+
+- Updated booking photo delivery previews so customer-facing demo photo URLs are converted to Cloudinary watermarked preview URLs in `BookingWorkflowService` before being returned by booking APIs. The Cloudinary transform now supports `Cloudinary:WatermarkPublicId` for transparent logo overlays and falls back to text if no logo asset is configured.
+- Added customer-only preview proxy endpoint `GET /api/bookings/{id}/photo-preview/{type}/{index}` so the frontend receives first-party API image URLs for locked previews while the backend fetches the Cloudinary watermarked asset server-side.
+- Kept final photo URLs watermarked for Customers until the booking reaches `COMPLETED`; Studio owners still receive the original uploaded URLs for delivery management.
+- Rebuilt `WatermarkImage` with a repeated GO! logo overlay, locked right-click/drag behavior, and a contain mode for large previews.
+- Updated `CustomerBookingDetailPage` so delivered photos open in a large modal while preserving the watermark and no-download UI for locked previews.
+- Fixed `ChatPage` SignalR startup by using `accessTokenFactory`, ignoring cleanup-triggered negotiation aborts, and stopping connections only when needed.
+- Fixed `Stepper` to import motion primitives from the project-standard `framer-motion` package.
+- Added Vite dev proxy entries for `/api` and `/hubs` to support first-party API image preview URLs and SignalR during local development.
+- Verification:
+  - `npm run build` in `exe201.client` succeeded; Vite reported the existing large chunk warning.
+  - `dotnet build EXE201.Server\exe201.Server.csproj -p:UseAppHost=false -o C:\tmp\exe201-server-watermark-build` succeeded with 0 errors and 0 warnings because the running API process locked the default Debug executable.
+
+## 2026-06-01 - Map MVP Integration
+
+- Added shared MapLibre-based map components for reusable app maps, studio markers, booking location picker, and booking detail location display.
+- Extended booking data with `shooting_lat` and `shooting_lng` across DTOs, EF model mapping, create booking workflow, SQL schema script, and live database migration.
+- Exposed studio `lat/lng` in catalog responses so Gallery can render studios on a map.
+- Updated booking flow to keep the existing address field and add a draggable/clickable marker picker, then save both address text and coordinates.
+- Updated customer and photographer booking detail pages to show the shooting location map and Google Maps deep link.
+- Added Gallery list/map toggle with studio markers and popup/sidebar navigation.
+- Verification:
+  - `npm.cmd run build` in `exe201.client` succeeded; Vite reported the existing large chunk warning.
+  - `dotnet build .\EXE201.Server\EXE201.Server.csproj -o .\.build\server-map-check` succeeded with 0 errors and 0 warnings because the running server process locks the default Debug output.
+
 
 ## 2026-05-31 - Secure Email Verification Flow for Registration
 

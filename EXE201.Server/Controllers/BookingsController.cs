@@ -12,10 +12,12 @@ namespace EXE201.Server.Controllers
     public class BookingsController : ControllerBase
     {
         private readonly IBookingWorkflowService _bookingService;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public BookingsController(IBookingWorkflowService bookingService)
+        public BookingsController(IBookingWorkflowService bookingService, IHttpClientFactory httpClientFactory)
         {
             _bookingService = bookingService;
+            _httpClientFactory = httpClientFactory;
         }
 
         [HttpGet]
@@ -29,6 +31,25 @@ namespace EXE201.Server.Controllers
         {
             var booking = await _bookingService.GetBookingForUserAsync(GetCurrentUserId(), GetCurrentRole(), id);
             return booking == null ? NotFound() : Ok(booking);
+        }
+
+        [HttpGet("{id:long}/photo-preview/{type}/{index:int}")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> GetPhotoPreview(long id, string type, int index)
+        {
+            var previewUrl = await _bookingService.GetCustomerPhotoPreviewUrlAsync(GetCurrentUserId(), id, type, index);
+            if (previewUrl == null) return NotFound();
+
+            var client = _httpClientFactory.CreateClient();
+            using var response = await client.GetAsync(previewUrl, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode);
+
+            var contentType = response.Content.Headers.ContentType?.ToString() ?? "image/jpeg";
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+            Response.Headers.CacheControl = "no-store, no-cache, max-age=0";
+            Response.Headers.Pragma = "no-cache";
+            Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return File(bytes, contentType);
         }
 
         [HttpPost]

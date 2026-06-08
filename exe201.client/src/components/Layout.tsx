@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import logoImg from '../assets/GO - EXE logo.png'
 import { ChevronDown, LogOut, Menu, X, MessageCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -61,6 +61,11 @@ export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
 
+  // Scroll to top on every route change
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   const user = state.currentUser
   const role = String(user?.role ?? 'USER')
   const links = user ? NAV[role] ?? NAV.USER : GUEST_NAV
@@ -82,11 +87,18 @@ export default function Layout() {
     return location.pathname === to
   }
 
+  function handleLogoClick(event: React.MouseEvent) {
+    if (location.pathname === homePath) {
+      event.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-white/86 backdrop-blur-xl">
         <div className="page-shell relative flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-          <Link to={homePath} className="flex shrink-0 items-center">
+          <Link to={homePath} onClick={handleLogoClick} className="flex shrink-0 items-center">
             <img
               src={logoImg}
               alt="GO! Logo"
