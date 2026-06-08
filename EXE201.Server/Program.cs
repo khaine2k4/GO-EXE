@@ -65,7 +65,7 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Services.IStudioRevenueService, EXE201.Server.Services.StudioRevenueService>();
             builder.Services.AddHostedService<EXE201.Server.Services.BookingExpiryWorker>();
             builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiModerationService, EXE201.Server.Services.GeminiModerationService>();
-            builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiChatbotService, EXE201.Server.Services.GeminiChatbotService>();
+            builder.Services.AddHttpClient<EXE201.Server.Services.IChatbotService, EXE201.Server.Services.DeepSeekChatbotService>();
             builder.Services.AddScoped<EXE201.Server.Repositories.IWalletRepository, EXE201.Server.Repositories.WalletRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IWalletService, EXE201.Server.Services.WalletService>();
             builder.Services.AddScoped<EXE201.Server.Services.IEmailService, EXE201.Server.Services.EmailService>();

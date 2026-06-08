@@ -23,7 +23,7 @@ const formatMarkdown = (text: string): string => {
     if (line.startsWith('|') && line.endsWith('|')) {
       if (!inTable) {
         inTable = true;
-        tableHtml = '<div class="overflow-x-auto my-3 rounded-xl border border-slate-200 bg-white shadow-sm"><table class="min-w-full divide-y divide-slate-100 text-left text-[11px] bg-white">';
+        tableHtml = '<div class="overflow-x-auto my-3 rounded-xl border border-slate-200 bg-white shadow-sm hover:ring-2 hover:ring-indigo-500/30 transition-all cursor-zoom-in relative group" title="Nhấp đúp để phóng to bảng"><table class="min-w-full divide-y divide-slate-100 text-left text-[11px] bg-white">';
       }
       
       const cells = line.split('|').map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
@@ -99,6 +99,18 @@ export default function AIChatbot() {
   const [isLoading, setIsLoading] = useState(false)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const [modalTableHtml, setModalTableHtml] = useState<string | null>(null)
+
+  const handleTableDoubleClick = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement
+    const tableDiv = target.closest('.overflow-x-auto')
+    if (tableDiv) {
+      const table = tableDiv.querySelector('table')
+      if (table) {
+        setModalTableHtml(table.outerHTML)
+      }
+    }
+  }
 
   // Tự động cuộn xuống dưới cùng khi có tin nhắn mới (cuộn cục bộ, tránh trôi trang chính)
   useEffect(() => {
@@ -162,7 +174,7 @@ export default function AIChatbot() {
 
   // Hàm chuyển đổi nội dung tin nhắn và tự động bóc tách Thẻ Tương Tác (Visual Card) kèm hình ảnh thực tế
   const renderMessageContent = (content: string) => {
-    const cardRegex = /\[CARD:\s*studioId=(.*?)\s*\|\s*name=(.*?)\s*\|\s*serviceName=(.*?)\s*\|\s*rating=(.*?)\s*\|\s*priceRange=(.*?)\s*\|\s*thumbnail=(.*?)\s*\]/g;
+    const cardRegex = /\[CARD:\s*(.*?)\s*\]/g;
     
     const parts: { type: 'text' | 'card'; content?: string; data?: any }[] = []
     let lastIndex = 0
@@ -177,15 +189,28 @@ export default function AIChatbot() {
         })
       }
 
+      const cardContent = match[1];
+      const pairs = cardContent.split('|').map(p => p.trim());
+      const cardData: any = {};
+      pairs.forEach(pair => {
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx !== -1) {
+          const key = pair.substring(0, eqIdx).trim();
+          const val = pair.substring(eqIdx + 1).trim();
+          cardData[key] = val;
+        }
+      });
+
       parts.push({
         type: 'card',
         data: {
-          studioId: match[1],
-          name: match[2].trim(),
-          serviceName: match[3].trim(),
-          rating: match[4].trim(),
-          priceRange: match[5].trim(),
-          thumbnail: match[6].trim()
+          studioId: cardData.studioId || '',
+          serviceId: cardData.serviceId || '',
+          name: (cardData.name || '').trim(),
+          serviceName: (cardData.serviceName || '').trim(),
+          rating: (cardData.rating || '').trim(),
+          priceRange: (cardData.priceRange || '').trim(),
+          thumbnail: (cardData.thumbnail || '').trim()
         }
       })
 
@@ -201,7 +226,13 @@ export default function AIChatbot() {
 
     if (parts.length === 0) {
       let formatted = formatMarkdown(content)
-      return <span dangerouslySetInnerHTML={{ __html: formatted }} className="text-[14px] leading-relaxed block w-full text-left" />
+      return (
+        <span 
+          dangerouslySetInnerHTML={{ __html: formatted }} 
+          className="text-[14px] leading-relaxed block w-full text-left" 
+          onDoubleClick={handleTableDoubleClick}
+        />
+      )
     }
 
     return (
@@ -209,7 +240,14 @@ export default function AIChatbot() {
         {parts.map((part, pIdx) => {
           if (part.type === 'text') {
             let formatted = formatMarkdown(part.content!)
-            return <p key={pIdx} dangerouslySetInnerHTML={{ __html: formatted }} className="text-[14px] leading-relaxed" />
+            return (
+              <p 
+                key={pIdx} 
+                dangerouslySetInnerHTML={{ __html: formatted }} 
+                className="text-[14px] leading-relaxed" 
+                onDoubleClick={handleTableDoubleClick}
+              />
+            )
           } else {
             const card = part.data
             const defaultThumbnail = "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=400&auto=format&fit=crop"
@@ -238,17 +276,33 @@ export default function AIChatbot() {
                     <h5 className="font-extrabold text-xs text-slate-800 tracking-wide truncate">{card.serviceName}</h5>
                     <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">📷 Studio: {card.name}</p>
                   </div>
-                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
-                    <span className="text-[11px] font-extrabold text-pink-600">{card.priceRange}</span>
-                    <button
-                      onClick={() => {
-                        navigate(`/photographers/${card.studioId}`)
-                        setIsOpen(false)
-                      }}
-                      className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-[10px] font-bold text-white transition-all shadow-sm active:scale-95 hover:shadow-[0_4px_10px_rgba(79,70,229,0.3)]"
-                    >
-                      Xem Hồ Sơ 📸
-                    </button>
+                  <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-500">Giá tham khảo:</span>
+                      <span className="text-[11px] font-extrabold text-pink-600">{card.priceRange}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          navigate(`/photographers/${card.studioId}`)
+                          setIsOpen(false)
+                        }}
+                        className="flex-1 rounded-lg border border-indigo-200 hover:border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 px-2 py-1.5 text-[9px] font-bold text-indigo-700 text-center transition-all active:scale-95"
+                      >
+                        Hồ Sơ Studio 🏢
+                      </button>
+                      {card.serviceId && (
+                        <button
+                          onClick={() => {
+                            navigate(`/photosets/${card.serviceId}`)
+                            setIsOpen(false)
+                          }}
+                          className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-2 py-1.5 text-[9px] font-bold text-white text-center transition-all shadow-sm active:scale-95 hover:shadow-[0_4px_10px_rgba(79,70,229,0.25)]"
+                        >
+                          Xem Dịch Vụ 📸
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -433,6 +487,133 @@ export default function AIChatbot() {
                 </span>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal phóng to bảng */}
+      <AnimatePresence>
+        {modalTableHtml && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md"
+            onClick={() => setModalTableHtml(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+              className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-slate-100 bg-white p-7 shadow-[0_25px_60px_rgba(0,0,0,0.18)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-5 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 font-bold text-lg shadow-sm">
+                    📊
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-800">
+                      Bảng So Sánh Dịch Vụ
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-medium">Đối chiếu các tiêu chí và thế mạnh dịch vụ để chọn photographer phù hợp</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setModalTableHtml(null)}
+                  className="rounded-full bg-slate-50 hover:bg-slate-100 p-2.5 text-slate-400 hover:text-slate-600 transition duration-200"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Styled Table Style Block */}
+              <style dangerouslySetInnerHTML={{ __html: `
+                .modal-table-container::-webkit-scrollbar {
+                  height: 8px;
+                  width: 8px;
+                }
+                .modal-table-container::-webkit-scrollbar-track {
+                  background: transparent;
+                }
+                .modal-table-container::-webkit-scrollbar-thumb {
+                  background: #cbd5e1;
+                  border-radius: 9999px;
+                }
+                .modal-table-container::-webkit-scrollbar-thumb:hover {
+                  background: #94a3b8;
+                }
+                .modal-table-container table {
+                  width: 100%;
+                  border-collapse: separate;
+                  border-spacing: 0;
+                  font-size: 13px;
+                  background-color: #ffffff;
+                  border-radius: 16px;
+                  overflow: hidden;
+                  border: 1px solid #e2e8f0;
+                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+                }
+                .modal-table-container th {
+                  background-color: #f0f5ff;
+                  color: #004aad;
+                  font-weight: 800;
+                  text-transform: uppercase;
+                  font-size: 11px;
+                  letter-spacing: 0.05em;
+                  padding: 14px 18px;
+                  border-bottom: 2px solid #cbd5e1;
+                  border-right: 1px solid #e2e8f0;
+                }
+                .modal-table-container th:last-child {
+                  border-right: none;
+                }
+                .modal-table-container td {
+                  padding: 14px 18px;
+                  border-bottom: 1px solid #f1f5f9;
+                  border-right: 1px solid #f1f5f9;
+                  color: #334155;
+                  font-weight: 600;
+                  line-height: 1.6;
+                  vertical-align: middle;
+                }
+                .modal-table-container td:last-child {
+                  border-right: none;
+                }
+                .modal-table-container tr:last-child td {
+                  border-bottom: none;
+                }
+                /* First column (Criteria name) */
+                .modal-table-container td:first-child {
+                  background-color: #f8fafc;
+                  color: #475569;
+                  font-weight: 800;
+                  text-align: left;
+                  width: 16%;
+                  white-space: nowrap;
+                }
+                .modal-table-container tr:hover td {
+                  background-color: #f8fafc;
+                }
+                .modal-table-container tr:hover td:first-child {
+                  background-color: #f1f5f9;
+                }
+              `}} />
+
+              {/* Table Container */}
+              <div 
+                className="modal-table-container overflow-x-auto rounded-2xl bg-slate-50/50 p-3"
+                dangerouslySetInnerHTML={{ __html: modalTableHtml }}
+              />
+
+              {/* Footer hint */}
+              <p className="mt-4 text-center text-[10px] text-slate-400 font-medium">
+                Nhấp chuột ngoài vùng bảng hoặc bấm nút đóng để quay lại hội thoại
+              </p>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

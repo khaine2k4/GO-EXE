@@ -1,5 +1,24 @@
 # AI Audit Log
 
+## 2026-06-08 - Tích hợp DeepSeek Chatbot API & Cải tiến Điều hướng Visual Cards
+
+- **Bổ sung serviceId vào Visual Card**:
+  - Cập nhật `SystemPromptTemplate` và khối ngữ cảnh thực tế (Database Context) trong [DeepSeekChatbotService.cs](file:///d:/PRN212/EXE201/exe201.Server/Services/DeepSeekChatbotService.cs) để cung cấp thuộc tính `serviceId` (Mã ID Dịch vụ) cho chatbot, cho phép AI điền mã ID dịch vụ thực tế từ DB vào trong thẻ card khuyến nghị dạng `[CARD: studioId=X | serviceId=Y | ...]`.
+- **Tái cấu trúc Frontend AIChatbot**:
+  - Cải tiến bộ phân tách Regex trong [AIChatbot.tsx](file:///d:/PRN212/EXE201/exe201.client/src/components/AIChatbot.tsx) thành dạng parser cặp khóa-giá trị (key-value) linh hoạt, chống lỗi định dạng thứ tự truyền tham số trong thẻ card.
+  - Thiết kế lại phần chân thẻ Card với 2 nút tương tác chuyên nghiệp: "Hồ Sơ Studio" (dẫn tới trang thông tin nhiếp ảnh gia `/photographers/:id`) và "Xem Dịch Vụ" (dẫn trực tiếp tới trang chi tiết gói chụp/dịch vụ cụ thể `/photosets/:id` nếu chatbot có trả về `serviceId`).
+  - Hỗ trợ sự kiện nhấp đúp (`onDoubleClick`) trên các bảng dữ liệu trong chat để mở một **Modal phóng to toàn màn hình** (backdrop-blur và hiệu ứng scale spring), giúp xem các thông tin bảng so sánh chật hẹp một cách cực kỳ thoải mái và rõ ràng. Khách hàng cũng được gợi ý bằng thuộc tính tooltip và hiệu ứng hover viền tinh tế.
+- **Cấu hình & Tích hợp**:
+  - Bổ sung cấu hình khóa API `ApiKey` mới `sk-5034f0e31c744be2a3b52320e8301359`, model `deepseek-chat` và `BaseUrl` vào [appsettings.json](file:///d:/PRN212/EXE201/exe201.Server/appsettings.json).
+- **Tái cấu trúc Backend**:
+  - Xóa bỏ các file triển khai cũ liên quan đến Gemini: `IGeminiChatbotService.cs` và `GeminiChatbotService.cs`.
+  - Tạo mới interface [IChatbotService.cs](file:///d:/PRN212/EXE201/exe201.Server/Services/IChatbotService.cs) và file triển khai [DeepSeekChatbotService.cs](file:///d:/PRN212/EXE201/exe201.Server/Services/DeepSeekChatbotService.cs).
+  - Tích hợp cấu trúc RAG tự động nhận diện thương hiệu Studio được nhắc đến từ hội thoại để lọc ngữ cảnh, đọc lịch trống 7 ngày, khoảng giá, và trả về định dạng bảng so sánh Markdown kèm Visual Cards.
+  - Chuyển đổi payload giao tiếp qua chuẩn OpenAI Chat Completions tương thích với DeepSeek API (`/chat/completions`).
+  - Đăng ký Dependency Injection trong [Program.cs](file:///d:/PRN212/EXE201/exe201.Server/Program.cs) và cập nhật tiêm phụ thuộc trong [ChatController.cs](file:///d:/PRN212/EXE201/exe201.Server/Controllers/ChatController.cs).
+- **Xác thực**:
+  - Chạy `dotnet build` biên dịch dự án Backend thành công **0 lỗi / 0 cảnh báo**.
+  - Kiểm tra TypeScript biên dịch client thành công **0 lỗi**.
 ## 2026-06-05 - Booking Photo Watermark Preview
 
 - Updated booking photo delivery previews so customer-facing demo photo URLs are converted to Cloudinary watermarked preview URLs in `BookingWorkflowService` before being returned by booking APIs. The Cloudinary transform now supports `Cloudinary:WatermarkPublicId` for transparent logo overlays and falls back to text if no logo asset is configured.
@@ -25,6 +44,7 @@
 - Verification:
   - `npm.cmd run build` in `exe201.client` succeeded; Vite reported the existing large chunk warning.
   - `dotnet build .\EXE201.Server\EXE201.Server.csproj -o .\.build\server-map-check` succeeded with 0 errors and 0 warnings because the running server process locks the default Debug output.
+
 
 ## 2026-05-31 - Secure Email Verification Flow for Registration
 
