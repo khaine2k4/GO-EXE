@@ -23,7 +23,7 @@ const formatMarkdown = (text: string): string => {
     if (line.startsWith('|') && line.endsWith('|')) {
       if (!inTable) {
         inTable = true;
-        tableHtml = '<div class="overflow-x-auto my-3 rounded-xl border border-slate-200 bg-white shadow-sm"><table class="min-w-full divide-y divide-slate-100 text-left text-[11px] bg-white">';
+        tableHtml = '<div class="overflow-x-auto my-3 rounded-xl border border-slate-200 bg-white shadow-sm hover:ring-2 hover:ring-indigo-500/30 transition-all cursor-zoom-in relative group" title="Nhấp đúp để phóng to bảng"><table class="min-w-full divide-y divide-slate-100 text-left text-[11px] bg-white">';
       }
       
       const cells = line.split('|').map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
@@ -99,6 +99,18 @@ export default function AIChatbot() {
   const [isLoading, setIsLoading] = useState(false)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const [modalTableHtml, setModalTableHtml] = useState<string | null>(null)
+
+  const handleTableDoubleClick = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement
+    const tableDiv = target.closest('.overflow-x-auto')
+    if (tableDiv) {
+      const table = tableDiv.querySelector('table')
+      if (table) {
+        setModalTableHtml(table.outerHTML)
+      }
+    }
+  }
 
   // Tự động cuộn xuống dưới cùng khi có tin nhắn mới (cuộn cục bộ, tránh trôi trang chính)
   useEffect(() => {
@@ -214,7 +226,13 @@ export default function AIChatbot() {
 
     if (parts.length === 0) {
       let formatted = formatMarkdown(content)
-      return <span dangerouslySetInnerHTML={{ __html: formatted }} className="text-[14px] leading-relaxed block w-full text-left" />
+      return (
+        <span 
+          dangerouslySetInnerHTML={{ __html: formatted }} 
+          className="text-[14px] leading-relaxed block w-full text-left" 
+          onDoubleClick={handleTableDoubleClick}
+        />
+      )
     }
 
     return (
@@ -222,7 +240,14 @@ export default function AIChatbot() {
         {parts.map((part, pIdx) => {
           if (part.type === 'text') {
             let formatted = formatMarkdown(part.content!)
-            return <p key={pIdx} dangerouslySetInnerHTML={{ __html: formatted }} className="text-[14px] leading-relaxed" />
+            return (
+              <p 
+                key={pIdx} 
+                dangerouslySetInnerHTML={{ __html: formatted }} 
+                className="text-[14px] leading-relaxed" 
+                onDoubleClick={handleTableDoubleClick}
+              />
+            )
           } else {
             const card = part.data
             const defaultThumbnail = "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=400&auto=format&fit=crop"
@@ -462,6 +487,57 @@ export default function AIChatbot() {
                 </span>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal phóng to bảng */}
+      <AnimatePresence>
+        {modalTableHtml && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md"
+            onClick={() => setModalTableHtml(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+              className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold">
+                    📊
+                  </span>
+                  <h3 className="text-base font-black text-slate-800">
+                    Bảng So Sánh Chi Tiết
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setModalTableHtml(null)}
+                  className="rounded-full bg-slate-50 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Table Container */}
+              <div 
+                className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/50 p-2 [&_table]:min-w-full [&_table]:divide-y [&_table]:divide-slate-200 [&_table]:bg-white [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:text-xs [&_th]:font-extrabold [&_th]:text-indigo-700 [&_th]:bg-indigo-50/70 [&_td]:px-4 [&_td]:py-3 [&_td]:text-xs [&_td]:font-semibold [&_td]:text-slate-600 [&_tr]:hover:bg-slate-50/60 [&_tr]:transition-colors"
+                dangerouslySetInnerHTML={{ __html: modalTableHtml }}
+              />
+
+              {/* Footer hint */}
+              <p className="mt-4 text-center text-[10px] text-slate-400 font-medium">
+                Nhấp chuột ngoài vùng bảng hoặc bấm nút đóng để quay lại hội thoại
+              </p>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

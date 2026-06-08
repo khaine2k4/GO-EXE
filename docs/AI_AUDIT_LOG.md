@@ -7,6 +7,7 @@
 - **Tái cấu trúc Frontend AIChatbot**:
   - Cải tiến bộ phân tách Regex trong [AIChatbot.tsx](file:///d:/PRN212/EXE201/exe201.client/src/components/AIChatbot.tsx) thành dạng parser cặp khóa-giá trị (key-value) linh hoạt, chống lỗi định dạng thứ tự truyền tham số trong thẻ card.
   - Thiết kế lại phần chân thẻ Card với 2 nút tương tác chuyên nghiệp: "Hồ Sơ Studio" (dẫn tới trang thông tin nhiếp ảnh gia `/photographers/:id`) và "Xem Dịch Vụ" (dẫn trực tiếp tới trang chi tiết gói chụp/dịch vụ cụ thể `/photosets/:id` nếu chatbot có trả về `serviceId`).
+  - Hỗ trợ sự kiện nhấp đúp (`onDoubleClick`) trên các bảng dữ liệu trong chat để mở một **Modal phóng to toàn màn hình** (backdrop-blur và hiệu ứng scale spring), giúp xem các thông tin bảng so sánh chật hẹp một cách cực kỳ thoải mái và rõ ràng. Khách hàng cũng được gợi ý bằng thuộc tính tooltip và hiệu ứng hover viền tinh tế.
 - **Cấu hình & Tích hợp**:
   - Bổ sung cấu hình khóa API `ApiKey` mới `sk-5034f0e31c744be2a3b52320e8301359`, model `deepseek-chat` và `BaseUrl` vào [appsettings.json](file:///d:/PRN212/EXE201/exe201.Server/appsettings.json).
 - **Tái cấu trúc Backend**:

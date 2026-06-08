@@ -4,6 +4,7 @@
 
 - Enhanced AI Chatbot visual cards to support direct service details navigation. Added `serviceId` support on the chatbot card template and RAG database context.
 - Refactored `AIChatbot.tsx` with robust key-value parsing to handle card attributes dynamically, and introduced double-action buttons: "Hồ Sơ Studio" (navigates to studio profile) and "Xem Dịch Vụ" (navigates directly to the specific photoset/service page).
+- Integrated a premium double-click zoom overlay modal for comparative tables in the chatbot, resolving visibility constraint issues on narrow screens.
 - Migrated AI Chatbot from Gemini API to DeepSeek API using model `deepseek-chat` and API key `sk-5034f0e31c744be2a3b52320e8301359`.
 - Refactored C# interfaces and implementation to reflect provider change: introduced `IChatbotService` and `DeepSeekChatbotService` while clean deleting `IGeminiChatbotService` and `GeminiChatbotService`.
 - Upgraded the API client payload schema to standard OpenAI Chat Completions compatibility.
