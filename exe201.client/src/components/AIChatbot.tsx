@@ -498,7 +498,7 @@ export default function AIChatbot() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md"
             onClick={() => setModalTableHtml(null)}
           >
             <motion.div
@@ -506,30 +506,106 @@ export default function AIChatbot() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-slate-100 bg-white p-7 shadow-[0_25px_60px_rgba(0,0,0,0.18)]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-5 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 font-bold text-lg shadow-sm">
                     📊
-                  </span>
-                  <h3 className="text-base font-black text-slate-800">
-                    Bảng So Sánh Chi Tiết
-                  </h3>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-800">
+                      Bảng So Sánh Dịch Vụ
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-medium">Đối chiếu các tiêu chí và thế mạnh dịch vụ để chọn photographer phù hợp</p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setModalTableHtml(null)}
-                  className="rounded-full bg-slate-50 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                  className="rounded-full bg-slate-50 hover:bg-slate-100 p-2.5 text-slate-400 hover:text-slate-600 transition duration-200"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
+              {/* Styled Table Style Block */}
+              <style dangerouslySetInnerHTML={{ __html: `
+                .modal-table-container::-webkit-scrollbar {
+                  height: 8px;
+                  width: 8px;
+                }
+                .modal-table-container::-webkit-scrollbar-track {
+                  background: transparent;
+                }
+                .modal-table-container::-webkit-scrollbar-thumb {
+                  background: #cbd5e1;
+                  border-radius: 9999px;
+                }
+                .modal-table-container::-webkit-scrollbar-thumb:hover {
+                  background: #94a3b8;
+                }
+                .modal-table-container table {
+                  width: 100%;
+                  border-collapse: separate;
+                  border-spacing: 0;
+                  font-size: 13px;
+                  background-color: #ffffff;
+                  border-radius: 16px;
+                  overflow: hidden;
+                  border: 1px solid #e2e8f0;
+                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+                }
+                .modal-table-container th {
+                  background-color: #f0f5ff;
+                  color: #004aad;
+                  font-weight: 800;
+                  text-transform: uppercase;
+                  font-size: 11px;
+                  letter-spacing: 0.05em;
+                  padding: 14px 18px;
+                  border-bottom: 2px solid #cbd5e1;
+                  border-right: 1px solid #e2e8f0;
+                }
+                .modal-table-container th:last-child {
+                  border-right: none;
+                }
+                .modal-table-container td {
+                  padding: 14px 18px;
+                  border-bottom: 1px solid #f1f5f9;
+                  border-right: 1px solid #f1f5f9;
+                  color: #334155;
+                  font-weight: 600;
+                  line-height: 1.6;
+                  vertical-align: middle;
+                }
+                .modal-table-container td:last-child {
+                  border-right: none;
+                }
+                .modal-table-container tr:last-child td {
+                  border-bottom: none;
+                }
+                /* First column (Criteria name) */
+                .modal-table-container td:first-child {
+                  background-color: #f8fafc;
+                  color: #475569;
+                  font-weight: 800;
+                  text-align: left;
+                  width: 16%;
+                  white-space: nowrap;
+                }
+                .modal-table-container tr:hover td {
+                  background-color: #f8fafc;
+                }
+                .modal-table-container tr:hover td:first-child {
+                  background-color: #f1f5f9;
+                }
+              `}} />
+
               {/* Table Container */}
               <div 
-                className="overflow-x-auto rounded-xl border border-slate-100 bg-slate-50/50 p-2 [&_table]:min-w-full [&_table]:divide-y [&_table]:divide-slate-200 [&_table]:bg-white [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:text-xs [&_th]:font-extrabold [&_th]:text-indigo-700 [&_th]:bg-indigo-50/70 [&_td]:px-4 [&_td]:py-3 [&_td]:text-xs [&_td]:font-semibold [&_td]:text-slate-600 [&_tr]:hover:bg-slate-50/60 [&_tr]:transition-colors"
+                className="modal-table-container overflow-x-auto rounded-2xl bg-slate-50/50 p-3"
                 dangerouslySetInnerHTML={{ __html: modalTableHtml }}
               />
 
