@@ -18,14 +18,14 @@ namespace EXE201.Server.Controllers
         private readonly IStudioRepository _studioRepo;
         private readonly IHubContext<ChatHub> _hubContext;
         private readonly Services.IGeminiModerationService _moderationService;
-        private readonly Services.IGeminiChatbotService _chatbotService;
+        private readonly Services.IChatbotService _chatbotService;
 
         public ChatController(
             IChatRepository chatRepo, 
             IStudioRepository studioRepo, 
             IHubContext<ChatHub> hubContext,
             Services.IGeminiModerationService moderationService,
-            Services.IGeminiChatbotService chatbotService)
+            Services.IChatbotService chatbotService)
         {
             _chatRepo = chatRepo;
             _studioRepo = studioRepo;

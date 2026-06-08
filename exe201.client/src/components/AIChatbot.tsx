@@ -162,7 +162,7 @@ export default function AIChatbot() {
 
   // Hàm chuyển đổi nội dung tin nhắn và tự động bóc tách Thẻ Tương Tác (Visual Card) kèm hình ảnh thực tế
   const renderMessageContent = (content: string) => {
-    const cardRegex = /\[CARD:\s*studioId=(.*?)\s*\|\s*name=(.*?)\s*\|\s*serviceName=(.*?)\s*\|\s*rating=(.*?)\s*\|\s*priceRange=(.*?)\s*\|\s*thumbnail=(.*?)\s*\]/g;
+    const cardRegex = /\[CARD:\s*(.*?)\s*\]/g;
     
     const parts: { type: 'text' | 'card'; content?: string; data?: any }[] = []
     let lastIndex = 0
@@ -177,15 +177,28 @@ export default function AIChatbot() {
         })
       }
 
+      const cardContent = match[1];
+      const pairs = cardContent.split('|').map(p => p.trim());
+      const cardData: any = {};
+      pairs.forEach(pair => {
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx !== -1) {
+          const key = pair.substring(0, eqIdx).trim();
+          const val = pair.substring(eqIdx + 1).trim();
+          cardData[key] = val;
+        }
+      });
+
       parts.push({
         type: 'card',
         data: {
-          studioId: match[1],
-          name: match[2].trim(),
-          serviceName: match[3].trim(),
-          rating: match[4].trim(),
-          priceRange: match[5].trim(),
-          thumbnail: match[6].trim()
+          studioId: cardData.studioId || '',
+          serviceId: cardData.serviceId || '',
+          name: (cardData.name || '').trim(),
+          serviceName: (cardData.serviceName || '').trim(),
+          rating: (cardData.rating || '').trim(),
+          priceRange: (cardData.priceRange || '').trim(),
+          thumbnail: (cardData.thumbnail || '').trim()
         }
       })
 
@@ -238,17 +251,33 @@ export default function AIChatbot() {
                     <h5 className="font-extrabold text-xs text-slate-800 tracking-wide truncate">{card.serviceName}</h5>
                     <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">📷 Studio: {card.name}</p>
                   </div>
-                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
-                    <span className="text-[11px] font-extrabold text-pink-600">{card.priceRange}</span>
-                    <button
-                      onClick={() => {
-                        navigate(`/photographers/${card.studioId}`)
-                        setIsOpen(false)
-                      }}
-                      className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-[10px] font-bold text-white transition-all shadow-sm active:scale-95 hover:shadow-[0_4px_10px_rgba(79,70,229,0.3)]"
-                    >
-                      Xem Hồ Sơ 📸
-                    </button>
+                  <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-500">Giá tham khảo:</span>
+                      <span className="text-[11px] font-extrabold text-pink-600">{card.priceRange}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          navigate(`/photographers/${card.studioId}`)
+                          setIsOpen(false)
+                        }}
+                        className="flex-1 rounded-lg border border-indigo-200 hover:border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 px-2 py-1.5 text-[9px] font-bold text-indigo-700 text-center transition-all active:scale-95"
+                      >
+                        Hồ Sơ Studio 🏢
+                      </button>
+                      {card.serviceId && (
+                        <button
+                          onClick={() => {
+                            navigate(`/photosets/${card.serviceId}`)
+                            setIsOpen(false)
+                          }}
+                          className="flex-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-2 py-1.5 text-[9px] font-bold text-white text-center transition-all shadow-sm active:scale-95 hover:shadow-[0_4px_10px_rgba(79,70,229,0.25)]"
+                        >
+                          Xem Dịch Vụ 📸
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

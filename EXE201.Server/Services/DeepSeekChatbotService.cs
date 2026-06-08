@@ -11,11 +11,12 @@ using System.Threading.Tasks;
 
 namespace EXE201.Server.Services
 {
-    public class GeminiChatbotService : IGeminiChatbotService
+    public class DeepSeekChatbotService : IChatbotService
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
         private readonly string _model;
+        private readonly string _baseUrl;
         private readonly ICatalogRepository _catalogRepo;
         private readonly IBookingWorkflowRepository _workflowRepo;
 
@@ -96,7 +97,7 @@ Bước 4: 💡 Lời khuyên từ GO! Assistant
 CÚ PHÁP THẺ TƯƠNG TÁC (VISUAL CARDS):
 Mỗi khi bạn giới thiệu bất kỳ studio/photographer nào từ danh sách thực tế bên dưới, bạn BẮT BUỘC phải chèn một thẻ card tương tác đặc biệt ở một dòng riêng biệt ngay sau đoạn giới thiệu của studio đó.
 Cú pháp thẻ card bắt buộc (Viết liền trong cặp ngoặc vuông, viết hoa chữ CARD, điền MÃ_ID_STUDIO dưới dạng số nguyên thực tế từ danh sách bên dưới, TUYỆT ĐỐI không tự bịa mã chữ):
-[CARD: studioId=MÃ_ID_STUDIO_DẠNG_SỐ_Ở_BÊN_DƯỚI | name=TÊN_STUDIO_Ở_ĐÂY | serviceName=TÊN_DỊCH_VỤ_Ở_ĐÂY | rating=ĐIỂM_RATING_Ở_ĐÂY | priceRange=KHOẢNG_GIÁ_Ở_ĐÂY | thumbnail=URL_ẢNH_THUMBNAIL_Ở_ĐÂY]
+[CARD: studioId=MÃ_ID_STUDIO_DẠNG_SỐ_Ở_BÊN_DƯỚI | serviceId=MÃ_ID_DỊCH_VỤ_DẠNG_SỐ_Ở_BÊN_DƯỚI | name=TÊN_STUDIO_Ở_ĐÂY | serviceName=TÊN_DỊCH_VỤ_Ở_ĐÂY | rating=ĐIỂM_RATING_Ở_ĐÂY | priceRange=KHOẢNG_GIÁ_Ở_ĐÂY | thumbnail=URL_ẢNH_THUMBNAIL_Ở_ĐÂY]
 
 Ví dụ minh họa khi đề xuất:
 Dạ, em đã phân tích nhu cầu của anh/chị và tìm thấy các lựa chọn hoàn hảo sau đây ạ:
@@ -107,10 +108,10 @@ Anh/chị đang cần tìm gói chụp ngoại cảnh tự nhiên tại Đà N�
 ### 📸 Danh sách đề xuất
 
 1. **Hùng Camera** - Chuyên chụp ngoại cảnh tự nhiên phong cách ấm áp.
-[CARD: studioId=2 | name=Hùng Camera | serviceName=Chụp Ngoại Cảnh Đà Nẵng | rating=4.8 | priceRange=3,500,000đ - 5,000,000đ | thumbnail=https://images.unsplash.com/photo-1542038784456-1ea8e935640e]
+[CARD: studioId=2 | serviceId=12 | name=Hùng Camera | serviceName=Chụp Ngoại Cảnh Đà Nẵng | rating=4.8 | priceRange=3,500,000đ - 5,000,000đ | thumbnail=https://images.unsplash.com/photo-1542038784456-1ea8e935640e]
 
 2. **Mai Wedding** - Gói chụp cao cấp với nhiều concept cưới sang trọng.
-[CARD: studioId=3 | name=Mai Wedding | serviceName=Gói cưới Luxury | rating=4.9 | priceRange=8,000,000đ - 15,000,000đ | thumbnail=https://images.unsplash.com/photo-1519741497674-611481863552]
+[CARD: studioId=3 | serviceId=15 | name=Mai Wedding | serviceName=Gói cưới Luxury | rating=4.9 | priceRange=8,000,000đ - 15,000,000đ | thumbnail=https://images.unsplash.com/photo-1519741497674-611481863552]
 
 ### 📊 Bảng so sánh chi tiết
 | Tiêu chí | Hùng Camera | Mai Wedding |
@@ -131,12 +132,12 @@ Hãy CHỈ dựa vào danh sách các dịch vụ và gói chụp thực tế d�
 {0}
 --------------------------------------------------";
 
-        public GeminiChatbotService(HttpClient httpClient, IConfiguration configuration, ICatalogRepository catalogRepo, IBookingWorkflowRepository workflowRepo)
+        public DeepSeekChatbotService(HttpClient httpClient, IConfiguration configuration, ICatalogRepository catalogRepo, IBookingWorkflowRepository workflowRepo)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["Jwt:Key"] != null ? (configuration["Gemini:ApiKey"] ?? "") : (configuration["Gemini:ApiKey"] ?? ""); // Keep robust check
-            _apiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini:ApiKey is not configured.");
-            _model = configuration["Gemini:Model"] ?? "gemini-3.1-flash-lite";
+            _apiKey = configuration["DeepSeek:ApiKey"] ?? throw new ArgumentNullException("DeepSeek:ApiKey is not configured.");
+            _model = configuration["DeepSeek:Model"] ?? "deepseek-chat";
+            _baseUrl = configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/v1";
             _catalogRepo = catalogRepo;
             _workflowRepo = workflowRepo;
         }
@@ -185,7 +186,7 @@ Hãy CHỈ dựa vào danh sách các dịch vụ và gói chụp thực tế d�
 
                     services = await _catalogRepo.SearchServicesAsync(searchQuery, null, null, null, null, null, false);
                 }
-                
+
                 if (services.Count > 8)
                 {
                     services = services.Take(8).ToList();
@@ -200,14 +201,14 @@ Hãy CHỈ dựa vào danh sách các dịch vụ và gói chụp thực tế d�
                     dataContext.AppendLine("Danh sách Dịch vụ & Gói chụp thực tế:");
                     foreach (var s in services)
                     {
-                        dataContext.AppendLine($"- Studio: **{s.StudioName}** (Mã ID Studio: **{s.StudioId}** | Đánh giá: {s.Rating}/5 sao | {s.ReviewCount} đánh giá | Khu vực: {s.City ?? "Đà Nẵng"})");
+                        dataContext.AppendLine($"- Studio: **{s.StudioName}** (Mã ID Studio: **{s.StudioId}** | Mã ID Dịch vụ: **{s.Id}** | Đánh giá: {s.Rating}/5 sao | {s.ReviewCount} đánh giá | Khu vực: {s.City ?? "Đà Nẵng"})");
                         dataContext.AppendLine($"  + Tên dịch vụ: **{s.Name}** (Danh mục: {s.CategoryName})");
                         dataContext.AppendLine($"  + Khoảng giá dịch vụ: {s.MinPrice:N0}đ - {s.MaxPrice:N0}đ");
                         if (!string.IsNullOrWhiteSpace(s.Description))
                         {
                             dataContext.AppendLine($"  + Mô tả: {s.Description}");
                         }
-                        
+
                         var packages = await _catalogRepo.GetPackagesAsync(s.Id, s.StudioId, false);
                         if (packages != null && packages.Count > 0)
                         {
@@ -239,7 +240,7 @@ Hãy CHỈ dựa vào danh sách các dịch vụ và gói chụp thực tế d�
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[GeminiChatbot] Error fetching schedule: {ex.Message}");
+                            Console.WriteLine($"[DeepSeekChatbot] Error fetching schedule: {ex.Message}");
                         }
                     }
                 }
@@ -260,67 +261,61 @@ Hãy CHỈ dựa vào danh sách các dịch vụ và gói chụp thực tế d�
                 // 4. Lồng ghép dữ liệu thực tế vào System Prompt
                 string formattedSystemPrompt = string.Format(SystemPromptTemplate, dataContext.ToString());
 
-                // 5. Thiết lập danh sách contents cho Gemini API (bao gồm cả lịch sử cuộc trò chuyện)
-                var requestContents = new List<object>();
+                // 5. Thiết lập danh sách tin nhắn gửi đến DeepSeek (OpenAI-compatible chat completions)
+                var messages = new List<object>
+                {
+                    new { role = "system", content = formattedSystemPrompt }
+                };
 
                 if (history != null && history.Count > 0)
                 {
                     foreach (var h in history)
                     {
-                        var role = h.Sender.ToLowerInvariant() == "user" ? "user" : "model";
-                        requestContents.Add(new
-                        {
-                            role = role,
-                            parts = new[] { new { text = h.Content } }
-                        });
+                        var role = h.Sender.ToLowerInvariant() == "user" ? "user" : "assistant";
+                        messages.Add(new { role = role, content = h.Content });
                     }
                 }
 
-                requestContents.Add(new
-                {
-                    role = "user",
-                    parts = new[] { new { text = userMessage } }
-                });
+                messages.Add(new { role = "user", content = userMessage });
 
                 var requestBody = new
                 {
-                    systemInstruction = new
-                    {
-                        parts = new[] { new { text = formattedSystemPrompt } }
-                    },
-                    contents = requestContents
+                    model = _model,
+                    messages = messages,
+                    stream = false
                 };
 
-                // 6. Gửi request đến Gemini API
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+                // 6. Gửi request đến DeepSeek API
+                var url = _baseUrl.TrimEnd('/') + "/chat/completions";
                 var jsonRequest = JsonSerializer.Serialize(requestBody);
-                var httpContent = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
+                request.Content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
 
-                Console.WriteLine($"[GeminiChatbot] Sending RAG request | Model={_model} | MsgLen={userMessage.Length} | HistoryCount={history?.Count ?? 0} | ResultsFetched={services?.Count ?? 0}");
-                var response = await _httpClient.PostAsync(url, httpContent);
+                Console.WriteLine($"[DeepSeekChatbot] Sending RAG request | Model={_model} | MsgLen={userMessage.Length} | HistoryCount={history?.Count ?? 0} | ResultsFetched={services?.Count ?? 0}");
+                var response = await _httpClient.SendAsync(request);
                 var jsonResponse = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"[GeminiChatbot] Error response: {jsonResponse}");
+                    Console.WriteLine($"[DeepSeekChatbot] Error response: {jsonResponse}");
                     return "Dạ, kết nối giữa em và hệ thống đang gặp gián đoạn một chút ạ. Anh/chị thử lại sau giây lát nha. Em xin lỗi vì sự bất tiện này! 🙏";
                 }
 
                 using var doc = JsonDocument.Parse(jsonResponse);
                 var root = doc.RootElement;
-                
+
                 var botResponse = root
-                    .GetProperty("candidates")[0]
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
                     .GetProperty("content")
-                    .GetProperty("parts")[0]
-                    .GetProperty("text")
                     .GetString();
 
                 return botResponse ?? "Dạ, em chưa hiểu ý anh/chị lắm ạ. Anh/chị có thể nói chi tiết hơn được không ạ? 📸";
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GeminiChatbot] Exception: {ex.Message}");
+                Console.WriteLine($"[DeepSeekChatbot] Exception: {ex.Message}");
                 return "Dạ, hệ thống đang bận xử lý dữ liệu một chút ạ. Anh/chị hỏi lại giùm em nha! 📸";
             }
         }
