@@ -134,13 +134,17 @@ namespace EXE201.Server.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> PayOsReturn([FromQuery] long orderCode, [FromQuery] string status)
         {
-            // Process the return URL parameters, query PayOS API for verification, and update database state
+            // Resolve the real bookingId from ProviderRef (orderCode = PaymentId in new flow)
+            // Fallback to orderCode itself for old bookings created before this change
+            var bookingByRef = await _repo.GetBookingByProviderRefAsync(orderCode.ToString());
+            var bookingId = bookingByRef?.BookingId ?? orderCode;
+
             var success = await _bookingService.ProcessPayOsReturnAsync(orderCode, status);
             var paymentStatus = success ? "success" : "fail";
-            
-            // Dùng relative path để tự động chạy đúng cả ở localhost và domain thật gophotostudio.uk
-            return Redirect($"/customer/bookings/{orderCode}?paymentStatus={paymentStatus}");
+
+            return Redirect($"/customer/bookings/{bookingId}?paymentStatus={paymentStatus}");
         }
+
 
         [HttpPost("payos-webhook")]
         [AllowAnonymous]

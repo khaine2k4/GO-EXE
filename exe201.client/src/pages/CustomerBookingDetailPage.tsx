@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, MapPin, MessageCircle, RotateCcw, Send, Star, X } from 'lucide-react'
-import { cancelBooking, confirmCompletion, createBookingReview, disputeBooking, getBooking, submitPhotoFeedback, type BookingDto } from '../services/bookingApi'
+import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, CreditCard, MapPin, MessageCircle, RotateCcw, Send, Star, X } from 'lucide-react'
+import { cancelBooking, confirmCompletion, createBookingReview, disputeBooking, getBooking, payosCreatePaymentUrl, submitPhotoFeedback, type BookingDto } from '../services/bookingApi'
 import { useToast } from '../components/Toast'
 import BookingLocationMap from '../components/map/BookingLocationMap'
 import ReasonDialog from '../components/ReasonDialog'
@@ -37,6 +37,7 @@ export default function CustomerBookingDetailPage() {
   const [booking, setBooking] = useState<BookingDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [actioning, setActioning] = useState(false)
+  const [payingNow, setPayingNow] = useState(false)
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
   const [reportReason, setReportReason] = useState('')
@@ -59,6 +60,23 @@ export default function CustomerBookingDetailPage() {
       .catch(() => setError('Không tìm thấy booking.'))
       .finally(() => setLoading(false))
   }, [id])
+
+  async function handlePayNow() {
+    if (!booking) return
+    setPayingNow(true)
+    try {
+      const res = await payosCreatePaymentUrl(booking.id)
+      if (res?.paymentUrl) {
+        window.location.href = res.paymentUrl
+      } else {
+        toast.push({ type: 'error', title: 'Không tạo được link thanh toán', message: 'Vui lòng thử lại sau.' })
+      }
+    } catch {
+      toast.push({ type: 'error', title: 'Lỗi thanh toán', message: 'Không kết nối được cổng PayOS. Vui lòng thử lại.' })
+    } finally {
+      setPayingNow(false)
+    }
+  }
 
   async function handleCancel(reason: string) {
     if (!booking) return
@@ -154,6 +172,17 @@ export default function CustomerBookingDetailPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={booking.status} />
+            {booking.status === 'PENDING_PAYMENT' && (
+              <button
+                type="button"
+                onClick={handlePayNow}
+                disabled={payingNow}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--color-azure)] px-5 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-sky-200 transition hover:bg-sky-600 active:scale-95 disabled:opacity-60"
+              >
+                <CreditCard className="h-4 w-4" />
+                {payingNow ? 'Đang chuyển hướng...' : 'Thanh toán ngay'}
+              </button>
+            )}
             {booking.canCancel && (
               <button type="button" onClick={() => setCancelDialogOpen(true)} disabled={actioning} className="inline-flex h-11 items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-4 text-xs font-black uppercase tracking-widest text-rose-700 disabled:opacity-50">
                 <RotateCcw className="h-4 w-4" /> Hủy booking
