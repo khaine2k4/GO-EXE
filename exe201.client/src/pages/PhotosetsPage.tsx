@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { getCategories } from '../services/categoryApi'
 import { getServices, type ServiceSearchParams } from '../services/serviceApi'
@@ -340,13 +340,19 @@ function Dropdown({
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen((state) => !state)} className="flex h-11 w-full items-center justify-between gap-3 rounded-full border border-[var(--color-border)] bg-white px-4 text-left text-sm font-medium text-[var(--color-ink)] transition focus:border-[var(--color-azure)]">
+      <button
+        type="button"
+        onClick={() => setOpen((state) => !state)}
+        className="flex h-11 w-full items-center justify-between gap-2 rounded-full border border-[var(--color-border)] bg-white px-4 text-left text-sm font-medium text-[var(--color-ink)] transition focus:border-[var(--color-azure)] hover:border-[var(--color-azure)]"
+      >
         <span className="truncate">{selected?.label ?? placeholder}</span>
-        <span className="text-xs text-slate-500">⌄</span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white p-1 shadow-xl">
-          <button type="button" onClick={() => { onChange(''); setOpen(false) }} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-[var(--color-fog)]">
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white p-1 shadow-xl">
+          <button type="button" onClick={() => { onChange(''); setOpen(false) }} className="block w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-500 hover:bg-[var(--color-fog)]">
             {placeholder}
           </button>
           {options.map((option) => (

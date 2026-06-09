@@ -404,7 +404,7 @@ export default function HomePage() {
           <p className="mt-4 max-w-lg text-base font-medium leading-7 text-[var(--color-graphite)]">
             GO! giúp khách đặt lịch nhanh hơn, còn studio quản lý yêu cầu, lịch chụp và doanh thu rõ ràng hơn.
           </p>
-          <Link to="/register" className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--color-azure)] px-5 text-sm font-black text-white transition hover:bg-[var(--color-azure-dark)]">
+          <Link to={isLoggedIn ? primaryHref : "/register"} className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--color-azure)] px-5 text-sm font-black text-white transition hover:bg-[var(--color-azure-dark)]">
             Bắt đầu với GO! <ArrowRight className="h-4 w-4" />
           </Link>
         </motion.div>
