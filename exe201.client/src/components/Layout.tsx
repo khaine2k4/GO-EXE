@@ -114,7 +114,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${showHeader ? '' : 'header-hidden'}`}>
       <header className={`sticky top-0 z-40 border-b border-[var(--color-border)] bg-white/86 backdrop-blur-xl transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="page-shell relative flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
           <Link to={homePath} onClick={handleLogoClick} className="flex shrink-0 items-center">

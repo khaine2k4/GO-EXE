@@ -73,14 +73,14 @@ export default function GalleryPage() {
       <section className="surface-card p-8 text-center">
         <div className="mx-auto max-w-2xl">
           <div className="text-sm font-semibold uppercase text-[var(--color-azure)]">Studio</div>
-          <h1 className="mt-3 text-4xl font-bold text-[var(--color-ink)] md:text-5xl">Khám phá studio đã được duyệt</h1>
+          <h1 className="mt-3 text-4xl font-bold text-[var(--color-ink)] md:text-5xl">Khám phá Studio chụp ảnh uy tín tại Đà Nẵng</h1>
           <p className="mt-4 text-[var(--color-graphite)]">
             So sánh dịch vụ, portfolio, đánh giá và khoảng giá trước khi gửi yêu cầu đặt lịch.
           </p>
         </div>
       </section>
 
-      <section className="sticky top-20 z-20 rounded-[28px] border border-[var(--color-border)] bg-white/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+      <section className="sticky-search-bar sticky z-20 rounded-[28px] border border-[var(--color-border)] bg-white/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <label className="flex h-12 flex-1 items-center gap-3 rounded-full bg-[var(--color-fog)] px-4">
             <Search className="h-5 w-5 shrink-0 text-[var(--color-graphite)]" />
