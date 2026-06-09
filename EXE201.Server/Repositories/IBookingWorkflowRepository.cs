@@ -45,6 +45,7 @@ namespace EXE201.Server.Repositories
         Task<List<Booking>> GetBookingsByStudioAsync(long studioId, string? status);
         void AddBooking(Booking booking);
         Task<Booking?> GetBookingByPaymentCodeAsync(string paymentCode);
+        Task<Booking?> GetBookingByProviderRefAsync(string providerRef);
 
         // ── Booking Status ───────────────────────────────────────────────────
         Task<long?> GetBookingStatusIdAsync(string statusName);

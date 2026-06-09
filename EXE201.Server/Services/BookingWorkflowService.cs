@@ -1237,17 +1237,39 @@ namespace EXE201.Server.Services
                 ?? throw new InvalidOperationException("Payment method PAYOS was not found.");
 
             // Get or create pending payment for PAYOS
-            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()
-                ?? await CreatePendingPaymentAsync(booking, "PAYOS");
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+
+            if (payment != null && payment.PaymentStatus.StatusName == PaymentPending)
+            {
+                // Cancel the old PayOS order via its stored ProviderRef (best-effort — ignore if already gone)
+                if (!string.IsNullOrEmpty(payment.ProviderRef) &&
+                    long.TryParse(payment.ProviderRef, out var oldOrderCode))
+                {
+                    await _payOsService.CancelPaymentLinkAsync(oldOrderCode);
+                }
+
+                // Reset the payment record for reuse
+                payment.PaymentCode = $"PAY-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+                payment.ProviderRef = null;
+                payment.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (payment == null)
+            {
+                payment = await CreatePendingPaymentAsync(booking, "PAYOS");
+            }
 
             payment.MethodId = payosMethod.MethodId;
             payment.Method = payosMethod;
             payment.PaymentProvider = "PAYOS";
 
+            // Generate a truly unique orderCode using Unix timestamp (seconds) * 100 + random 2-digit suffix.
+            // PayOS rejects ANY previously used orderCode (even after cancel), so we must never reuse one.
+            // This gives a 12-digit number, well within int64 range, unique to the millisecond.
+            var orderCode = DateTimeOffset.UtcNow.ToUnixTimeSeconds() * 100L + new Random().Next(10, 99);
+            payment.ProviderRef = orderCode.ToString();
+
             await _repo.SaveChangesAsync();
 
-            // Create payment link via payOS
-            var orderCode = booking.BookingId; // Must be unique numeric code
             var amount = (int)payment.Amount;
             var description = $"Thanh toan BK{booking.BookingId}";
             if (description.Length > 25) description = description.Substring(0, 25);
@@ -1273,8 +1295,8 @@ namespace EXE201.Server.Services
                 var verifiedData = await _payOsService.VerifyWebhookDataAsync(webhookBodyJson);
                 if (verifiedData == null) return false;
 
-                var bookingId = verifiedData.OrderCode;
-                return await MarkBookingPaidAsync(bookingId, verifiedData.Reference);
+                // orderCode = PaymentId stored in payment.ProviderRef
+                return await MarkBookingPaidByOrderCodeAsync(verifiedData.OrderCode, verifiedData.Reference);
             }
             catch (Exception ex)
             {
@@ -1283,41 +1305,59 @@ namespace EXE201.Server.Services
             }
         }
 
-        public async Task<bool> ProcessPayOsReturnAsync(long bookingId, string status)
+        public async Task<bool> ProcessPayOsReturnAsync(long orderCode, string status)
         {
             try
             {
-                // Retrieve actual status directly from payOS API using the order code (bookingId)
-                var paymentInfo = await _payOsService.GetPaymentLinkInformationAsync(bookingId);
+                // Retrieve actual status directly from payOS API
+                var paymentInfo = await _payOsService.GetPaymentLinkInformationAsync(orderCode);
                 if (paymentInfo == null) return false;
 
                 var payOsStatus = paymentInfo.Status.ToString();
                 if (IsPayOsPaidStatus(payOsStatus) || IsPayOsPaidStatus(status))
                 {
-                    // Find the latest transaction reference if available
                     string? transactionRef = null;
                     if (paymentInfo.Transactions != null && paymentInfo.Transactions.Count > 0)
                     {
-                        var latestTx = paymentInfo.Transactions.LastOrDefault();
-                        transactionRef = latestTx?.Reference;
+                        transactionRef = paymentInfo.Transactions.LastOrDefault()?.Reference;
                     }
-
-                    return await MarkBookingPaidAsync(bookingId, transactionRef);
+                    return await MarkBookingPaidByOrderCodeAsync(orderCode, transactionRef);
                 }
 
                 if (IsPayOsFailedStatus(payOsStatus) || IsPayOsFailedStatus(status))
                 {
-                    return await MarkBookingPaymentFailedAsync(bookingId, $"Payment {payOsStatus} via payOS");
+                    return await MarkBookingFailedByOrderCodeAsync(orderCode, $"Payment {payOsStatus} via payOS");
                 }
 
                 return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing PayOS Return for booking {bookingId}: {ex.Message}");
+                Console.WriteLine($"Error processing PayOS Return for orderCode {orderCode}: {ex.Message}");
                 return false;
             }
         }
+
+        /// <summary>Look up a booking via payment.ProviderRef = orderCode, then mark it paid.</summary>
+        private async Task<bool> MarkBookingPaidByOrderCodeAsync(long orderCode, string? transactionCode)
+        {
+            // Try ProviderRef first (new flow: orderCode = PaymentId)
+            var booking = await _repo.GetBookingByProviderRefAsync(orderCode.ToString());
+            // Fallback: old bookings where orderCode == bookingId
+            if (booking == null) booking = await _repo.GetBookingForUpdateAsync(orderCode);
+            if (booking == null) return false;
+            return await MarkBookingPaidAsync(booking.BookingId, transactionCode);
+        }
+
+        /// <summary>Look up a booking via payment.ProviderRef = orderCode, then mark payment failed.</summary>
+        private async Task<bool> MarkBookingFailedByOrderCodeAsync(long orderCode, string reason)
+        {
+            var booking = await _repo.GetBookingByProviderRefAsync(orderCode.ToString());
+            if (booking == null) booking = await _repo.GetBookingForUpdateAsync(orderCode);
+            if (booking == null) return false;
+            return await MarkBookingPaymentFailedAsync(booking.BookingId, reason);
+        }
+
 
         private async Task<bool> MarkBookingPaidAsync(long bookingId, string? transactionCode)
         {
