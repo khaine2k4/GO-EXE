@@ -4,6 +4,7 @@ using EXE201.Server.Services;
 using EXE201.Server.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace EXE201.Server.Controllers
 {
@@ -14,11 +15,13 @@ namespace EXE201.Server.Controllers
     {
         private readonly IBookingWorkflowService _bookingService;
         private readonly IBookingWorkflowRepository _repo;
+        private readonly IConfiguration _config;
 
-        public PaymentsController(IBookingWorkflowService bookingService, IBookingWorkflowRepository repo)
+        public PaymentsController(IBookingWorkflowService bookingService, IBookingWorkflowRepository repo, IConfiguration config)
         {
             _bookingService = bookingService;
             _repo = repo;
+            _config = config;
         }
 
         [HttpGet]
@@ -86,8 +89,13 @@ namespace EXE201.Server.Controllers
             var success = await _bookingService.ProcessVnPayReturnAsync(vnpayParams);
             var status = success ? "success" : "fail";
 
+            var frontendUrl = _config["PayOS:FrontendUrl"] ?? _config["SePay:FrontendBaseUrl"] ?? "";
+            if (!string.IsNullOrEmpty(frontendUrl))
+            {
+                return Redirect($"{frontendUrl}/#/customer/bookings/{bookingId}?paymentStatus={status}");
+            }
             // Dùng relative path để tự động chạy đúng cả ở localhost và domain thật gophotostudio.uk
-            return Redirect($"/customer/bookings/{bookingId}?paymentStatus={status}");
+            return Redirect($"/#/customer/bookings/{bookingId}?paymentStatus={status}");
         }
 
         [HttpGet("vnpay-ipn")]
@@ -142,7 +150,12 @@ namespace EXE201.Server.Controllers
             var success = await _bookingService.ProcessPayOsReturnAsync(orderCode, status);
             var paymentStatus = success ? "success" : "fail";
 
-            return Redirect($"/customer/bookings/{bookingId}?paymentStatus={paymentStatus}");
+            var frontendUrl = _config["PayOS:FrontendUrl"] ?? _config["SePay:FrontendBaseUrl"] ?? "";
+            if (!string.IsNullOrEmpty(frontendUrl))
+            {
+                return Redirect($"{frontendUrl}/#/customer/bookings/{bookingId}?paymentStatus={paymentStatus}");
+            }
+            return Redirect($"/#/customer/bookings/{bookingId}?paymentStatus={paymentStatus}");
         }
 
 

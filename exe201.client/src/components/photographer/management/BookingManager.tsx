@@ -443,16 +443,16 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[880px] text-left">
+                <table className="w-full min-w-[760px] text-left">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50 text-xs font-black uppercase tracking-widest text-slate-400">
                       <th className="pl-6 pr-3 py-4 whitespace-nowrap">Mã Booking</th>
-                      <th className="px-3 py-4 whitespace-nowrap">Khách hàng</th>
-                      <th className="px-3 py-4 whitespace-nowrap">Gói chụp</th>
+                      <th className="px-3 py-4 w-[180px]">Khách hàng</th>
+                      <th className="px-3 py-4 w-[180px]">Gói chụp</th>
                       <th className="px-3 py-4 whitespace-nowrap">Lịch hẹn chụp</th>
                       <th className="px-3 py-4 whitespace-nowrap">Thu nhập</th>
                       <th className="px-3 py-4 whitespace-nowrap">Trạng thái</th>
-                      <th className="pl-3 pr-6 py-4 text-right whitespace-nowrap w-44">Thao tác</th>
+                      <th className="pl-3 pr-6 py-4 text-right whitespace-nowrap w-36">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -464,18 +464,18 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                           </div>
                           <div className="mt-1 text-[10px] text-slate-400">ID: {item.id}</div>
                         </td>
-                        <td className="px-3 py-4 whitespace-nowrap">
+                        <td className="px-3 py-4">
                           <div className="text-sm font-black text-slate-900">
                             {item.customerName}
                           </div>
                           <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
                             <MapPin className="h-3 w-3 shrink-0" />
-                            <span className="truncate max-w-[180px]">
+                            <span className="truncate max-w-[140px]">
                               {item.shootingLocation || 'Tại Studio'}
                             </span>
                           </div>
                         </td>
-                        <td className="px-3 py-4 whitespace-nowrap">
+                        <td className="px-3 py-4">
                           <div className="text-sm font-bold text-slate-800">{item.packageName}</div>
                           <div className="mt-1 text-xs text-slate-400">
                             Tổng: {formatVnd(item.totalPrice)}
@@ -500,7 +500,7 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                             {STATUS_LABEL[item.status] ?? item.status}
                           </span>
                         </td>
-                        <td className="pl-3 pr-6 py-4 whitespace-nowrap w-44">
+                        <td className="pl-3 pr-6 py-4 whitespace-nowrap w-36">
                           <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
@@ -519,6 +519,7 @@ export default function BookingManager({ initialBooking, onChanged }: { initialB
                               onReject={() => handleReject(item.id)}
                               onStart={() => handleStart(item.id)}
                               onComplete={() => handleComplete(item.id)}
+                              size="sm"
                             />
                           </div>
                         </td>

@@ -220,11 +220,11 @@ export default function CustomerBookingDetailPage() {
             <span className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tiền</span>
             <span className="text-3xl font-black text-[var(--color-azure)]">{formatVnd(booking.totalPrice)}</span>
           </div>
-          <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-600">
-            <div>Phí nền tảng: {formatVnd(booking.commissionAmount)}</div>
-            <div>Studio nhận dự kiến: {formatVnd(booking.studioRevenue)}</div>
-            {booking.note && <div>Ghi chú: {booking.note}</div>}
-          </div>
+          {booking.note && (
+            <div className="mt-3 border-t border-slate-200/60 pt-3 text-sm font-semibold text-slate-600">
+              Ghi chú đặt lịch: {booking.note}
+            </div>
+          )}
         </div>
 
         <div className="mt-8 grid gap-5 lg:grid-cols-2">

@@ -279,7 +279,7 @@ export default function Layout() {
       )}
 
       <main className="page-shell min-h-[calc(100vh-8rem)] px-4 py-8 sm:px-6">
-        <Outlet />
+        <Outlet context={{ showHeader }} />
       </main>
 
       <footer className="border-t border-[var(--color-border)] bg-white pt-12 pb-8">

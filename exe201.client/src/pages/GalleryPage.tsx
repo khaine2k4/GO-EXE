@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { Camera, List, Map as MapIcon, Search, SlidersHorizontal, Star, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import AppMap from '../components/map/AppMap'
@@ -18,6 +18,7 @@ function formatVnd(value?: number) {
 
 export default function GalleryPage() {
   const nav = useNavigate()
+  const { showHeader } = useOutletContext<{ showHeader: boolean }>()
   const [studios, setStudios] = useState<StudioSummary[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [filters, setFilters] = useState<StudioSearchParams>({ keyword: '', categoryId: '' })
@@ -80,7 +81,10 @@ export default function GalleryPage() {
         </div>
       </section>
 
-      <section className="sticky-search-bar sticky z-20 rounded-[28px] border border-[var(--color-border)] bg-white/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+      <section 
+        style={{ top: showHeader ? '80px' : '16px' }}
+        className="sticky z-20 rounded-[28px] border border-[var(--color-border)] bg-white/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-[top] duration-300"
+      >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <label className="flex h-12 flex-1 items-center gap-3 rounded-full bg-[var(--color-fog)] px-4">
             <Search className="h-5 w-5 shrink-0 text-[var(--color-graphite)]" />
