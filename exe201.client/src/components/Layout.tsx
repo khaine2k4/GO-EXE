@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import logoImg from '../assets/GO - EXE logo.png'
-import { ChevronDown, LogOut, Menu, X, MessageCircle } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, X, MessageCircle, Mail, Phone, MapPin } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import AIChatbot from './AIChatbot'
@@ -60,11 +60,30 @@ export default function Layout() {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [showHeader, setShowHeader] = useState(true)
 
   // Scroll to top on every route change
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [location.pathname])
+
+  // Smart Header Scroll Handling (Hide on scroll down, show on scroll up)
+  useEffect(() => {
+    let lastScrollY = window.scrollY
+    
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      if (currentScrollY > lastScrollY && currentScrollY > 80) {
+        setShowHeader(false)
+      } else {
+        setShowHeader(true)
+      }
+      lastScrollY = currentScrollY
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const user = state.currentUser
   const role = String(user?.role ?? 'USER')
@@ -96,7 +115,7 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
-      <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-white/86 backdrop-blur-xl">
+      <header className={`sticky top-0 z-40 border-b border-[var(--color-border)] bg-white/86 backdrop-blur-xl transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="page-shell relative flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
           <Link to={homePath} onClick={handleLogoClick} className="flex shrink-0 items-center">
             <img
@@ -263,19 +282,95 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-[var(--color-border)] bg-white">
-        <div className="page-shell grid gap-6 px-4 py-8 text-sm text-[var(--color-graphite)] sm:px-6 md:grid-cols-[1.2fr_1fr_1fr]">
-          <div>
-            <div className="text-xl font-black text-[var(--color-ink)]">GO<span className="text-[var(--color-orange)]">!</span></div>
-            <p className="mt-2 max-w-md leading-6">Marketplace đặt lịch studio tại Đà Nẵng: tìm kiếm, so sánh, gửi yêu cầu booking, chờ studio xác nhận và đánh giá sau khi hoàn thành.</p>
+      <footer className="border-t border-[var(--color-border)] bg-white pt-12 pb-8">
+        <div className="page-shell px-4 sm:px-6">
+          <div className="grid gap-8 pb-8 md:grid-cols-[1.5fr_1fr_1fr_1.2fr]">
+            {/* Column 1: Brand Info */}
+            <div className="space-y-4">
+              <Link to={homePath} onClick={handleLogoClick} className="inline-block">
+                <img
+                  src={logoImg}
+                  alt="GO! Logo"
+                  className="h-10 w-auto object-contain transition-all hover:scale-105"
+                />
+              </Link>
+              <p className="max-w-xs text-sm leading-6 text-[var(--color-graphite)]">
+                Nền tảng đặt lịch chụp ảnh & studio hàng đầu tại Đà Nẵng. Kết nối khách hàng và các studio chuyên nghiệp một cách nhanh chóng, minh bạch và an toàn.
+              </p>
+            </div>
+
+            {/* Column 2: Navigation Links */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-black uppercase tracking-wider text-[var(--color-ink)]">Khám phá</h4>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <Link to="/" className="text-[var(--color-graphite)] hover:text-[var(--color-azure)] transition-colors">Trang chủ</Link>
+                </li>
+                <li>
+                  <Link to="/photosets" className="text-[var(--color-graphite)] hover:text-[var(--color-azure)] transition-colors">Dịch vụ chụp ảnh</Link>
+                </li>
+                <li>
+                  <Link to="/gallery" className="text-[var(--color-graphite)] hover:text-[var(--color-azure)] transition-colors">Danh sách Studio</Link>
+                </li>
+                <li>
+                  <Link to="/faq" className="text-[var(--color-graphite)] hover:text-[var(--color-azure)] transition-colors">Câu hỏi thường gặp</Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 3: Booking Workflow */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-black uppercase tracking-wider text-[var(--color-ink)]">Quy trình</h4>
+              <ul className="space-y-2.5 text-sm text-[var(--color-graphite)]">
+                <li className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-[var(--color-azure)]">1</span>
+                  <span>Tìm kiếm & So sánh</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-[var(--color-azure)]">2</span>
+                  <span>Đặt lịch & Đặt cọc</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-[var(--color-azure)]">3</span>
+                  <span>Studio xác nhận</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-[var(--color-azure)]">4</span>
+                  <span>Nhận ảnh & Đánh giá</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Column 4: Contact info */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-black uppercase tracking-wider text-[var(--color-ink)]">Liên hệ & Hỗ trợ</h4>
+              <ul className="space-y-3.5 text-sm text-[var(--color-graphite)]">
+                <li className="flex items-start gap-2.5">
+                  <MapPin className="h-4 w-4 shrink-0 text-[var(--color-azure)] mt-0.5" />
+                  <span>Khu đô thị FPT City, Ngũ Hành Sơn, TP. Đà Nẵng, Việt Nam</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Phone className="h-4 w-4 shrink-0 text-[var(--color-azure)]" />
+                  <span>(0236) 730 0999 (08:00 - 21:00)</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <Mail className="h-4 w-4 shrink-0 text-[var(--color-azure)]" />
+                  <span>support@goexe.vn</span>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div>
-            <div className="font-bold text-[var(--color-ink)]">Quy trình</div>
-            <p className="mt-2 leading-6">Tìm kiếm {'->'} So sánh {'->'} Đặt lịch {'->'} Studio xác nhận {'->'} Đánh giá</p>
-          </div>
-          <div>
-            <div className="font-bold text-[var(--color-ink)]">Hỗ trợ</div>
-            <p className="mt-2 leading-6">Booking, báo cáo ảnh, ví tiền và quản lý studio trong một hệ thống.</p>
+
+          {/* Bottom copyright and legal links */}
+          <div className="mt-8 border-t border-[var(--color-border)] pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-400">
+            <div>
+              © 2026 GO! Studio Marketplace. Tất cả quyền được bảo lưu.
+            </div>
+            <div className="flex gap-4">
+              <a href="#" className="hover:text-[var(--color-azure)] transition-colors">Điều khoản dịch vụ</a>
+              <a href="#" className="hover:text-[var(--color-azure)] transition-colors">Chính sách bảo mật</a>
+              <a href="#" className="hover:text-[var(--color-azure)] transition-colors">Giải quyết khiếu nại</a>
+            </div>
           </div>
         </div>
       </footer>
