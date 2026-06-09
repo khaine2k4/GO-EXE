@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, Search, SlidersHorizontal, X, GitCompare, Trash2, Tag, MapPin, Star, Wallet, FileText, ExternalLink, Plus } from 'lucide-react'
+import { ChevronDown, Search, SlidersHorizontal, X, GitCompare, Tag, MapPin, Star, Wallet, FileText, ExternalLink, Plus } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useToast } from '../components/Toast'
 import { getCategories } from '../services/categoryApi'
