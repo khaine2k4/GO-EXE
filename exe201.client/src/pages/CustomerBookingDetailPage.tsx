@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, CreditCard, MapPin, MessageCircle, RotateCcw, Send, Star, X } from 'lucide-react'
 import { cancelBooking, confirmCompletion, createBookingReview, disputeBooking, getBooking, payosCreatePaymentUrl, submitPhotoFeedback, type BookingDto } from '../services/bookingApi'
@@ -34,6 +34,8 @@ export default function CustomerBookingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
   const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paymentStatus = searchParams.get('paymentStatus')
   const [booking, setBooking] = useState<BookingDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [actioning, setActioning] = useState(false)
@@ -60,6 +62,22 @@ export default function CustomerBookingDetailPage() {
       .catch(() => setError('Không tìm thấy booking.'))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (paymentStatus === 'success') {
+      toast.push({
+        type: 'success',
+        title: 'Thành công',
+        message: 'Thanh toán đơn hàng thành công!',
+      })
+    } else if (paymentStatus === 'cancel') {
+      toast.push({
+        type: 'error',
+        title: 'Thanh toán thất bại',
+        message: 'Giao dịch thanh toán đã bị hủy.',
+      })
+    }
+  }, [paymentStatus, toast])
 
   async function handlePayNow() {
     if (!booking) return
@@ -146,7 +164,7 @@ export default function CustomerBookingDetailPage() {
       setReportReason('')
       toast.push({ type: 'success', title: 'Đã gửi báo cáo', message: 'Admin sẽ kiểm tra vấn đề ảnh/booking này.' })
     } catch {
-      toast.push({ type: 'error', title: 'Không thể báo cáo', message: 'Hiện tại chỉ báo cáo được khi booking đang trong quá trình chụp/xử lý.' })
+      toast.push({ type: 'error', title: 'Không thể báo cáo', message: 'Yêu cầu báo cáo thất bại. Booking phải đang trong quá trình xử lý hoặc giao ảnh và chưa hoàn thành.' })
     } finally {
       setActioning(false)
     }
@@ -155,13 +173,61 @@ export default function CustomerBookingDetailPage() {
   if (loading) return <StateBox text="Đang tải chi tiết booking..." />
   if (error || !booking) return <StateBox text={error || 'Không tìm thấy booking.'} />
 
-  const canReport = booking.status === 'IN_PROGRESS'
+  const canReport = ['IN_PROGRESS', 'DEMO_UPLOADED', 'EDITING', 'FINAL_DELIVERED', 'AWAITING_CUSTOMER'].includes(booking.status)
 
   return (
     <div className="mx-auto max-w-5xl pb-20">
       <button onClick={() => nav('/customer/bookings')} className="mb-8 inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-950">
         <ArrowLeft className="h-4 w-4" /> Quay lại danh sách
       </button>
+
+      {/* Success Alert Banner */}
+      {paymentStatus === 'success' && (
+        <div className="mb-6 rounded-3xl border border-emerald-100 bg-emerald-50/50 p-6 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-black text-emerald-950">Đặt lịch & Thanh toán thành công!</h3>
+            <p className="mt-1 text-sm font-semibold text-emerald-800 leading-relaxed">
+              Cảm ơn bạn! Lịch hẹn của bạn đã được thanh toán thành công. Studio đã nhận được thông báo đặt lịch và sẽ liên hệ xác nhận buổi chụp với bạn trong thời gian sớm nhất.
+            </p>
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setSearchParams({}, { replace: true })}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-emerald-700 active:scale-95 transition-all"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel/Failure Alert Banner */}
+      {paymentStatus === 'cancel' && (
+        <div className="mb-6 rounded-3xl border border-rose-100 bg-rose-50/50 p-6 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-lg shadow-rose-500/20">
+            <X className="h-6 w-6" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-black text-rose-950">Thanh toán không thành công</h3>
+            <p className="mt-1 text-sm font-semibold text-rose-800 leading-relaxed">
+              Giao dịch thanh toán đã bị hủy bỏ hoặc gặp lỗi. Bạn có thể bấm nút "Thanh toán ngay" ở góc trên bên phải để thử thanh toán lại.
+            </p>
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setSearchParams({}, { replace: true })}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-rose-700 active:scale-95 transition-all"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 md:flex-row md:items-start md:justify-between">

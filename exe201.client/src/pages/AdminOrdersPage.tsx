@@ -5,6 +5,7 @@ import { AlertTriangle, Calendar, ChevronDown, CircleDollarSign, Eye, Filter, Re
 import api from '../api/axios'
 import { useToast } from '../components/Toast'
 import CustomDialog from '../components/CustomDialog'
+import { useSearchParams } from 'react-router-dom'
 
 type BookingStatus = 'ALL' | 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'DISPUTED'
 type PaymentStatus = 'ALL' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUND_PENDING' | 'REFUNDED' | 'DISPUTED'
@@ -134,8 +135,53 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: value.includes('T') ? 'short' : undefined })
 }
 
+function renderLogNote(note?: string) {
+  if (!note) return null
+  const trimmed = note.trim()
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      const photoUrls = parsed.PhotoUrls || parsed.photoUrls || []
+      const textNote = parsed.Note || parsed.note || ''
+
+      return (
+        <div className="mt-2 space-y-2.5">
+          {textNote && (
+            <p className="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 text-xs font-semibold text-slate-600 leading-relaxed">
+              📝 {textNote}
+            </p>
+          )}
+          {photoUrls.length > 0 && (
+            <div className="grid gap-2 grid-cols-4 sm:grid-cols-6 mt-2">
+              {photoUrls.map((url: string, index: number) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group relative block aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
+                >
+                  <img src={url} alt={`Photo ${index + 1}`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition duration-200 flex items-center justify-center text-[10px] font-black text-white uppercase tracking-wider">
+                    Xem
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    } catch {
+      // Fallback
+    }
+  }
+  return <p className="mt-2 text-xs font-semibold text-slate-500 leading-relaxed">{note}</p>
+}
+
 export default function AdminOrdersPage() {
   const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const bookingIdParam = searchParams.get('bookingId')
   const [bookings, setBookings] = useState<AdminBookingDto[]>([])
   const [allBookings, setAllBookings] = useState<AdminBookingDto[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -225,6 +271,13 @@ export default function AdminOrdersPage() {
     const response = await api.get<AdminBookingDetail>(`/admin/bookings/${id}`)
     setDetail(response.data)
   }
+
+  useEffect(() => {
+    if (bookingIdParam) {
+      openDetail(Number(bookingIdParam))
+      setSearchParams({}, { replace: true })
+    }
+  }, [bookingIdParam, setSearchParams])
 
   async function cancelSelectedBooking() {
     if (!detail) return
@@ -488,8 +541,17 @@ function BookingDetailModal({
   const isDisputed = booking.status === 'DISPUTED'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-      <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.98 }} className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+    >
+      <motion.div
+        onClick={(event) => event.stopPropagation()}
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 16, scale: 0.98 }}
+        className="max-h-[92vh] w-full max-w-5xl overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
           <div>
             <div className="font-mono text-xs font-semibold text-slate-500">#{booking.bookingCode}</div>
@@ -502,8 +564,8 @@ function BookingDetailModal({
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="grid gap-5 p-5 lg:grid-cols-[1fr_340px]">
-          <div className="space-y-5">
+        <div className="grid gap-5 p-5 lg:grid-cols-[1fr_340px] items-start">
+          <div className="space-y-5 min-w-0">
             <div className="grid gap-3 md:grid-cols-2">
               <Info label="Khách hàng" value={`${booking.customer.name} · ${booking.customer.email}`} />
               <Info label="Studio" value={`${booking.studio.studioName} · ${booking.studio.email}`} />
@@ -516,14 +578,16 @@ function BookingDetailModal({
             </div>
 
             {(booking.dispute || booking.cancelReason || booking.rejectReason) && (
-              <section className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-900">
-                  <AlertTriangle className="h-4 w-4" />
+              <section className="rounded-2xl border border-amber-200 bg-amber-50/30 p-5">
+                <div className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-amber-800">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
                   Ghi chú nghiệp vụ
                 </div>
-                {booking.dispute?.reason && <p className="text-sm text-amber-800">Khiếu nại: {booking.dispute.reason}</p>}
-                {booking.cancelReason && <p className="mt-1 text-sm text-amber-800">Lý do hủy: {booking.cancelReason}</p>}
-                {booking.rejectReason && <p className="mt-1 text-sm text-amber-800">Lý do từ chối: {booking.rejectReason}</p>}
+                <div className="space-y-2 text-sm font-semibold text-amber-900/90 leading-relaxed">
+                  {booking.dispute?.reason && <p>🚨 Khiếu nại: {booking.dispute.reason}</p>}
+                  {booking.cancelReason && <p>🚫 Lý do hủy: {booking.cancelReason}</p>}
+                  {booking.rejectReason && <p>❌ Lý do từ chối: {booking.rejectReason}</p>}
+                </div>
               </section>
             )}
 
@@ -551,7 +615,7 @@ function BookingDetailModal({
                   <div key={log.id} className="p-4 text-sm">
                     <div className="font-semibold text-slate-900">{log.oldStatus || 'START'} {'->'} {log.newStatus || '-'}</div>
                     <div className="mt-1 text-xs text-slate-500">{formatDate(log.changedAt)} · {log.changedByName || `User ${log.changedBy ?? '-'}`}</div>
-                    {log.note && <div className="mt-2 text-sm text-slate-600">{log.note}</div>}
+                    {renderLogNote(log.note)}
                   </div>
                 ))}
                 {booking.logs.length === 0 && <div className="p-4 text-sm text-slate-500">Chưa có lịch sử.</div>}
@@ -559,7 +623,7 @@ function BookingDetailModal({
             </section>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="space-y-4 lg:sticky lg:top-5">
             <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
               <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-950">
                 <ShieldCheck className="h-4 w-4" />
@@ -569,18 +633,33 @@ function BookingDetailModal({
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ghi chú Admin</span>
                 <textarea value={adminNote} onChange={(event) => setAdminNote(event.target.value)} rows={4} className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
               </label>
-              <div className="mt-4 grid gap-2">
+              <div className="mt-4 grid gap-2.5">
                 {canAdminCancel && (
-                  <button type="button" onClick={onCancel} disabled={actionLoading} className="h-10 rounded-lg border border-rose-200 bg-white px-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60">
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    disabled={actionLoading}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white hover:bg-rose-50 text-xs font-black uppercase tracking-wider text-rose-600 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Hủy booking có vấn đề
                   </button>
                 )}
                 {isDisputed && (
                   <>
-                    <button type="button" onClick={() => onResolve('REFUND')} disabled={actionLoading} className="h-10 rounded-lg bg-rose-600 px-3 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60">
+                    <button
+                      type="button"
+                      onClick={() => onResolve('REFUND')}
+                      disabled={actionLoading}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-rose-600/10 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Hoàn tiền cho khách
                     </button>
-                    <button type="button" onClick={() => onResolve('RELEASE')} disabled={actionLoading} className="h-10 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+                    <button
+                      type="button"
+                      onClick={() => onResolve('RELEASE')}
+                      disabled={actionLoading}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-emerald-600/10 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       Giải ngân cho Studio
                     </button>
                   </>
@@ -651,9 +730,9 @@ function PaymentBadge({ status }: { status?: string }) {
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-      <div className="text-xs font-medium text-slate-500">{label}</div>
-      <div className="mt-1 break-words text-sm font-semibold text-slate-900">{value}</div>
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm">
+      <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</div>
+      <div className="mt-2 break-words text-sm font-extrabold text-slate-900">{value}</div>
     </div>
   )
 }

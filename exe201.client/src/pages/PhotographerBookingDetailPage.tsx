@@ -13,7 +13,9 @@ import {
   Send,
   XCircle,
   Download,
-  ExternalLink
+  ExternalLink,
+  X,
+  Loader2
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import {
@@ -53,6 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
   COMPLETED: 'Hoàn thành',
   CANCELLED: 'Đã hủy',
   REJECTED: 'Từ chối',
+  DISPUTED: 'Bị khiếu nại',
 }
 
 export default function PhotographerBookingDetailPage() {
@@ -188,46 +191,7 @@ export default function PhotographerBookingDetailPage() {
             </div>
           )}
 
-          {/* Photo Delivery Form */}
-          {deliveryForm && (
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/40 p-6 animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-                <div>
-                  <h2 className="text-base font-black text-slate-900">
-                    {deliveryForm.type === 'demo' ? '⚡ Tải lên bộ ảnh mẫu (Demo)' : '⚡ Giao bộ ảnh hoàn thiện (Final)'}
-                  </h2>
-                  <p className="mt-1 text-xs font-semibold text-slate-400">Tải ảnh chất lượng cao lên hệ thống để bàn giao cho khách hàng xem duyệt.</p>
-                </div>
-                <button type="button" onClick={() => setDeliveryForm(null)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 active:scale-95 transition-all">
-                  Hủy
-                </button>
-              </div>
 
-              <div className="mt-4">
-                <MultiImageUploader
-                  label={deliveryForm.type === 'demo' ? 'Ảnh mẫu (Demo)' : 'Ảnh hoàn thiện (Final)'}
-                  folder={deliveryForm.type === 'demo' ? 'exe201/bookings/demo' : 'exe201/bookings/final'}
-                  onUrlsChanged={(urls) => setDeliveryForm((prev) => prev ? { ...prev, urls } : null)}
-                  maxFiles={50}
-                />
-              </div>
-
-              <input
-                value={deliveryForm.note}
-                onChange={(event) => setDeliveryForm((prev) => prev ? { ...prev, note: event.target.value } : null)}
-                placeholder="Nhập ghi chú giao ảnh hoặc liên kết Drive/Fshare đính kèm (nếu có)..."
-                className="mt-4 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition"
-              />
-              <button
-                type="button"
-                disabled={actioning || deliveryForm.urls.length === 0}
-                onClick={submitDelivery}
-                className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="h-4 w-4" /> Bàn giao bộ ảnh ({deliveryForm.urls.length})
-              </button>
-            </div>
-          )}
         </section>
 
         {/* Sidebar Actions */}
@@ -266,6 +230,11 @@ export default function PhotographerBookingDetailPage() {
                   ⏳ Đang chờ khách hàng xác nhận hoàn tất.
                 </div>
               )}
+              {booking.status === 'DISPUTED' && (
+                <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-4 text-xs font-black uppercase tracking-wider text-rose-700 text-center leading-relaxed animate-pulse">
+                  ⚠️ Đơn hàng đang bị khiếu nại. Admin đang xử lý tranh chấp.
+                </div>
+              )}
               {booking.status === 'COMPLETED' && (
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 text-xs font-black uppercase tracking-wider text-emerald-700 text-center leading-relaxed">
                   🟢 Đơn đặt lịch đã hoàn thành xuất sắc!
@@ -293,6 +262,79 @@ export default function PhotographerBookingDetailPage() {
           </div>
         </aside>
       </div>
+      {/* Dialog Bàn giao ảnh (Demo / Final) */}
+      {deliveryForm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+          <section className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 md:p-8 shadow-2xl shadow-slate-950/15 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200 animate-out fade-out zoom-out-95">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  {deliveryForm.type === 'demo' ? '⚡ Bàn giao bộ ảnh mẫu (Demo)' : '⚡ Bàn giao bộ ảnh hoàn thiện (Final)'}
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-slate-400">
+                  Tải ảnh chất lượng cao lên hệ thống để bàn giao cho khách hàng xem duyệt.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeliveryForm(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 active:scale-95"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <MultiImageUploader
+                label={deliveryForm.type === 'demo' ? 'Tải ảnh mẫu (Demo)' : 'Tải ảnh hoàn thiện (Final)'}
+                folder={deliveryForm.type === 'demo' ? 'exe201/bookings/demo' : 'exe201/bookings/final'}
+                onUrlsChanged={(urls) => setDeliveryForm((prev) => prev ? { ...prev, urls } : null)}
+                maxFiles={50}
+              />
+            </div>
+
+            <div className="mt-6">
+              <span className="mb-2 block text-xs font-black uppercase tracking-widest text-slate-400">
+                Ghi chú hoặc Liên kết đính kèm
+              </span>
+              <input
+                value={deliveryForm.note}
+                onChange={(event) => setDeliveryForm((prev) => prev ? { ...prev, note: event.target.value } : null)}
+                placeholder="Nhập ghi chú giao ảnh hoặc liên kết Drive/Fshare đính kèm (nếu có)..."
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-50 transition"
+              />
+            </div>
+
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end border-t border-slate-100 pt-5">
+              <button
+                type="button"
+                onClick={() => setDeliveryForm(null)}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-xs font-black uppercase tracking-wider text-slate-600 transition hover:bg-slate-50 active:scale-95"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={actioning || deliveryForm.urls.length === 0}
+                onClick={submitDelivery}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actioning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Đang giao ảnh...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" /> Bàn giao bộ ảnh ({deliveryForm.urls.length})
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       <ReasonDialog
         open={rejectDialogOpen}
         title="Từ chối nhận đơn đặt lịch"
@@ -315,11 +357,13 @@ function StatusBadge({ status }: { status: string }) {
     ? 'border-slate-200 bg-slate-50 text-slate-500'
     : status === 'COMPLETED'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100/10'
-      : status === 'FINAL_DELIVERED'
-        ? 'border-teal-200 bg-teal-50 text-teal-700 shadow-sm shadow-teal-100/10'
-        : status === 'DEMO_UPLOADED' || status === 'EDITING'
-          ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100/10'
-          : 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/10'
+      : status === 'DISPUTED'
+        ? 'border-rose-200 bg-rose-50 text-rose-700 shadow-sm shadow-rose-100/10 animate-pulse'
+        : status === 'FINAL_DELIVERED'
+          ? 'border-teal-200 bg-teal-50 text-teal-700 shadow-sm shadow-teal-100/10'
+          : status === 'DEMO_UPLOADED' || status === 'EDITING'
+            ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100/10'
+            : 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/10'
 
   return (
     <span className={`inline-flex rounded-2xl border px-4 py-2 text-xs font-black uppercase tracking-wider ${color}`}>

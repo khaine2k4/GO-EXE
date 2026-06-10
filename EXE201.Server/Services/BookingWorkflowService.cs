@@ -686,7 +686,16 @@ namespace EXE201.Server.Services
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
-            if (booking.Status.StatusName != BookingInProgress) return null;
+            
+            var currentStatus = booking.Status.StatusName;
+            if (currentStatus != BookingInProgress && 
+                currentStatus != BookingDemoUploaded && 
+                currentStatus != BookingEditing && 
+                currentStatus != BookingFinalDelivered && 
+                currentStatus != "AWAITING_CUSTOMER")
+            {
+                return null;
+            }
             if (IsDisputed(booking)) return null;
 
             booking.DisputedAt = DateTime.UtcNow;
@@ -694,7 +703,7 @@ namespace EXE201.Server.Services
             booking.UpdatedAt = DateTime.UtcNow;
             booking.UpdatedBy = customerId;
 
-            AddBookingLogEntry(booking.BookingId, BookingInProgress, "DISPUTED", customerId, reason.Trim());
+            AddBookingLogEntry(booking.BookingId, currentStatus, "DISPUTED", customerId, reason.Trim());
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 

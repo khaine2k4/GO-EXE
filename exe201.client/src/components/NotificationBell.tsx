@@ -95,7 +95,7 @@ export default function NotificationBell() {
       navigate('/chat')
     } else if (notif.refType === 'BOOKING' && notif.refId) {
       if (isAdmin) {
-        navigate('/admin/orders')
+        navigate(`/admin/orders?bookingId=${notif.refId}`)
       } else if (isPhotographer) {
         navigate(`/photographer/bookings/${notif.refId}`)
       } else {
