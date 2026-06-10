@@ -111,5 +111,23 @@ namespace EXE201.Server.Repositories
                               && m.SenderId != readerId
                               && !m.IsRead);
         }
+
+        public async Task<int> CountTotalUnreadMessagesAsync(long userId, bool isStudioOwner)
+        {
+            if (isStudioOwner)
+            {
+                return await _context.Messages
+                    .CountAsync(m => m.Conversation.Studio.OwnerId == userId
+                                  && m.SenderId != userId
+                                  && !m.IsRead);
+            }
+            else
+            {
+                return await _context.Messages
+                    .CountAsync(m => m.Conversation.CustomerId == userId
+                                  && m.SenderId != userId
+                                  && !m.IsRead);
+            }
+        }
     }
 }

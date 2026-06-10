@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-06-10
+
+- Implemented full-stack system notification system supporting all three system roles (Customer, Photographer/Studio Owner, and Admin).
+- Created backend DI bindings, DTO models, `NotificationRepository`, `NotificationService`, and exposed endpoints via `NotificationsController`.
+- Integrated real-time persisted database notifications on booking events (new bookings, payments, confirm/rejects, photo feedback and delivery, cancellations, and disputes).
+- Designed and built a premium React `<NotificationBell />` component with real-time unread count badges, automatic 8-second polling, a dropdown scrollable container, and smart role-based navigation.
+- Replaced static layout bell icons in both `Layout.tsx` and `AdminLayout.tsx` with the new unified `<NotificationBell />`.
+- **Chat Notification Separation & Dedicated Badge**:
+  - Excluded chat messages from the general Notification Bell to keep it focused on booking milestones and system alerts.
+  - Added a dedicated backend endpoint `GET /api/chat/unread-count` in `ChatController.cs` calculating total unread messages from the `Messages` table.
+  - Added a dynamic unread badge indicator on the Chat (MessageCircle) icon in [Layout.tsx](file:///d:/PRN212/EXE201/exe201.client/src/components/Layout.tsx) with 8-second polling for a clean and native messaging UX.
+
 ## 2026-06-08
 
 - Enhanced AI Chatbot visual cards to support direct service details navigation. Added `serviceId` support on the chatbot card template and RAG database context.

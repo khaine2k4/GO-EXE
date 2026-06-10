@@ -63,6 +63,8 @@ namespace EXE201.Server
             builder.Services.AddScoped<EXE201.Server.Repositories.IBookingWorkflowRepository, EXE201.Server.Repositories.BookingWorkflowRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IBookingWorkflowService, EXE201.Server.Services.BookingWorkflowService>();
             builder.Services.AddScoped<EXE201.Server.Services.IStudioRevenueService, EXE201.Server.Services.StudioRevenueService>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.INotificationRepository, EXE201.Server.Repositories.NotificationRepository>();
+            builder.Services.AddScoped<EXE201.Server.Services.INotificationService, EXE201.Server.Services.NotificationService>();
             builder.Services.AddHostedService<EXE201.Server.Services.BookingExpiryWorker>();
             builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiModerationService, EXE201.Server.Services.GeminiModerationService>();
             builder.Services.AddHttpClient<EXE201.Server.Services.IChatbotService, EXE201.Server.Services.DeepSeekChatbotService>();

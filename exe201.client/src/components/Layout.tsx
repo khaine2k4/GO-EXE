@@ -1,10 +1,12 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import logoImg from '../assets/GO - EXE logo.png'
 import { ChevronDown, LogOut, Menu, X, MessageCircle, Mail, Phone, MapPin } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '../store/AppStore'
 import AIChatbot from './AIChatbot'
+import NotificationBell from './NotificationBell'
+import api from '../api/axios'
 
 const NAV: Record<string, { label: string; to: string }[]> = {
   USER: [
@@ -60,6 +62,7 @@ export default function Layout() {
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [showHeader, setShowHeader] = useState(true)
 
   // Scroll to top on every route change
@@ -91,6 +94,24 @@ export default function Layout() {
   const isPhotographer = role === 'PHOTOGRAPHER' || role === 'STUDIO_OWNER'
   const homePath = user && isPhotographer ? '/photographer/dashboard' : user && role === 'ADMIN' ? '/admin/users' : '/'
   const myPhotographer = isPhotographer ? state.photographers.find((p) => p.id === user?.id) : null
+
+  // Fetch unread chat messages count
+  useEffect(() => {
+    if (!user || role === 'ADMIN') return
+
+    const fetchUnreadChat = async () => {
+      try {
+        const res = await api.get('/chat/unread-count')
+        setUnreadChatCount(res.data.count)
+      } catch (error) {
+        console.error('Error fetching unread chat count:', error)
+      }
+    }
+
+    fetchUnreadChat()
+    const interval = setInterval(fetchUnreadChat, 8000) // Poll every 8 seconds
+    return () => clearInterval(interval)
+  }, [user, role])
 
   function handleLogout() {
     actions.logout()
@@ -140,14 +161,22 @@ export default function Layout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            {user && (
+              <NotificationBell />
+            )}
             {user && role !== 'ADMIN' && (
               <Link
                 to="/chat"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-white text-[var(--color-graphite)] shadow-sm transition hover:border-[var(--color-azure)] hover:text-[var(--color-azure)]"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-white text-[var(--color-graphite)] shadow-sm transition hover:border-[var(--color-azure)] hover:text-[var(--color-azure)]"
                 title="Hộp thư"
                 aria-label="Hộp thư"
               >
                 <MessageCircle className="h-5 w-5" />
+                {unreadChatCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-black text-white ring-2 ring-white shadow-sm animate-pulse">
+                    {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                  </span>
+                )}
               </Link>
             )}
             {user ? (

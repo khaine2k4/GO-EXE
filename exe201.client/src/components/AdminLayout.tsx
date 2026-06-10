@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import logoImg from '../assets/GO - EXE logo.png'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Banknote, BarChart3, Bell, BriefcaseBusiness, ChevronLeft, CircleDollarSign, FolderTree, HandCoins, LifeBuoy, LogOut, Menu, MessageSquare, Percent, ShieldCheck, Users, X } from 'lucide-react'
+import { ArrowLeft, Banknote, BarChart3, BriefcaseBusiness, ChevronLeft, CircleDollarSign, FolderTree, HandCoins, LifeBuoy, LogOut, Menu, MessageSquare, Percent, ShieldCheck, Users, X } from 'lucide-react'
 import { useAppStore } from '../store/AppStore'
+import NotificationBell from './NotificationBell'
 
 export default function AdminLayout() {
   const { state, actions } = useAppStore()
@@ -25,7 +26,6 @@ export default function AdminLayout() {
 
   const pendingApprovalsCount = state.photographers.filter((item) => item.status === 'PENDING').length
   const openDisputesCount = state.disputes.filter((item) => item.status === 'open').length
-  const totalNotifications = pendingApprovalsCount + openDisputesCount
 
   const navItems = useMemo(
     () => [
@@ -189,10 +189,7 @@ export default function AdminLayout() {
               <div>{now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
               <div>{now.toLocaleDateString('vi-VN')}</div>
             </div>
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm">
-              <Bell className="h-4 w-4" />
-              {totalNotifications > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">{totalNotifications}</span>}
-            </div>
+            <NotificationBell />
           </div>
         </header>
 

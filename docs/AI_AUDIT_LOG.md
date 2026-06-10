@@ -1,5 +1,30 @@
 # AI Audit Log
 
+## 2026-06-10 - Hệ thống thông báo hệ thống toàn diện (Persisted Notifications)
+
+- **Kiến trúc dữ liệu & API Backend**:
+  - Tạo mới DTO [NotificationDto.cs](file:///d:/PRN212/EXE201/exe201.Server/DTOs/NotificationDto.cs) chuyển dữ liệu thông báo qua API.
+  - Xây dựng Repository và interface `INotificationRepository` để truy vấn danh sách thông báo, đếm số thông báo chưa đọc, đánh dấu đã đọc, và lấy danh sách ID của Admin.
+  - Xây dựng Service `INotificationService` làm tầng nghiệp vụ và xử lý logic gửi thông báo.
+  - Tạo mới [NotificationsController.cs](file:///d:/PRN212/EXE201/exe201.Server/Controllers/NotificationsController.cs) cung cấp các endpoint lấy danh sách thông báo, đếm số lượng chưa đọc, đọc một hoặc đọc tất cả thông báo.
+  - Tách biệt hoàn toàn thông báo Chat: Bổ sung endpoint `GET /api/chat/unread-count` tại `ChatController.cs` để đếm tổng số tin nhắn chưa đọc trực tiếp từ bảng `Messages` (dựa trên trạng thái `IsRead` của từng tin nhắn).
+  - Loại bỏ các bản ghi thông báo `CHAT` tạm thời tại bảng `notifications` để chống dư thừa dữ liệu và loại bỏ sự bất đồng bộ khi xem tin nhắn.
+  - Lọc loại trừ loại `CHAT` khỏi bộ đếm và danh sách thông báo hệ thống tại repository `NotificationRepository.cs` (`n.Type != "CHAT"`).
+- **Tích hợp Trigger Sự kiện**:
+  - Khi thay đổi trạng thái đặt lịch (`BookingWorkflowService.cs`):
+    - Đặt lịch mới -> Gửi thông báo cho Studio.
+    - Đã thanh toán -> Gửi thông báo cho Studio.
+    - Studio xác nhận/từ chối/bắt đầu/tải ảnh demo -> Gửi thông báo cho Khách hàng.
+    - Khách gửi phản hồi sửa ảnh -> Gửi thông báo cho Studio.
+    - Studio bàn giao ảnh hoàn chỉnh -> Gửi thông báo cho Khách hàng.
+    - Khách xác nhận hoàn thành đơn hàng -> Gửi thông báo cho Studio.
+    - Hủy đơn đặt lịch -> Gửi thông báo cho bên đối diện.
+    - Khách hàng khiếu nại (dispute) -> Gửi thông báo cho Studio và gửi thông báo hệ thống cho toàn bộ Admin.
+- **Tái cấu trúc Frontend**:
+  - Tạo mới component [NotificationBell.tsx](file:///d:/PRN212/EXE201/exe201.client/src/components/NotificationBell.tsx) hiển thị danh sách thông báo hệ thống và booking (không gồm chat), hỗ trợ đếm số lượng, đánh dấu đã đọc, polling 8 giây, và điều hướng theo vai trò.
+  - Tích hợp chuông thông báo vào Navbar chính của người dùng [Layout.tsx](file:///d:/PRN212/EXE201/exe201.client/src/components/Layout.tsx) và Navbar trang quản trị [AdminLayout.tsx](file:///d:/PRN212/EXE201/exe201.client/src/components/AdminLayout.tsx).
+  - Tích hợp **Badge thông báo chấm đỏ và đếm số tin nhắn chưa đọc** riêng biệt trên Icon Hộp thư (Chat Icon - MessageCircle) trong [Layout.tsx](file:///d:/PRN212/EXE201/exe201.client/src/components/Layout.tsx) lấy dữ liệu thực tế từ `/api/chat/unread-count`, tự động polling 8 giây đồng bộ.
+
 ## 2026-06-08 - Tích hợp DeepSeek Chatbot API & Cải tiến Điều hướng Visual Cards
 
 - **Bổ sung serviceId vào Visual Card**:
