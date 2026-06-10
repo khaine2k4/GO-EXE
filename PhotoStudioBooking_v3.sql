@@ -393,6 +393,8 @@ CREATE TABLE bookings (
     dispute_note          NVARCHAR(MAX),
     dispute_resolved_at   DATETIME2,
     dispute_resolved_by   BIGINT,
+    dispute_created_by    BIGINT,
+    dispute_created_by_role NVARCHAR(50),
 
     -- Audit                                           [FIX-09]
     created_at         DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -406,7 +408,8 @@ CREATE TABLE bookings (
     CONSTRAINT FK_bookings_slot        FOREIGN KEY (slot_id)            REFERENCES time_slots(slot_id),
     CONSTRAINT FK_bookings_status      FOREIGN KEY (status_id)          REFERENCES booking_statuses(status_id),
     CONSTRAINT FK_bookings_cancel_by   FOREIGN KEY (cancelled_by)       REFERENCES users(user_id),
-    CONSTRAINT FK_bookings_dispute_by  FOREIGN KEY (dispute_resolved_by) REFERENCES users(user_id)
+    CONSTRAINT FK_bookings_dispute_by  FOREIGN KEY (dispute_resolved_by) REFERENCES users(user_id),
+    CONSTRAINT FK_bookings_dispute_created_by FOREIGN KEY (dispute_created_by) REFERENCES users(user_id)
     -- [FIX-07] Unique constraint removed — replaced by filtered index below
     --          to allow slot reuse after CANCELLED / REJECTED bookings.
 );

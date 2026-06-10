@@ -153,6 +153,10 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.DisputeCreatedBy).HasColumnName("dispute_created_by");
+            entity.Property(e => e.DisputeCreatedByRole)
+                .HasMaxLength(50)
+                .HasColumnName("dispute_created_by_role");
             entity.Property(e => e.DisputeNote).HasColumnName("dispute_note");
             entity.Property(e => e.DisputeResolvedAt).HasColumnName("dispute_resolved_at");
             entity.Property(e => e.DisputeResolvedBy).HasColumnName("dispute_resolved_by");
@@ -194,6 +198,10 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasForeignKey(d => d.CustomerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_bookings_customer");
+
+            entity.HasOne(d => d.DisputeCreatedByNavigation).WithMany(p => p.BookingDisputeCreatedByNavigations)
+                .HasForeignKey(d => d.DisputeCreatedBy)
+                .HasConstraintName("FK_bookings_dispute_created_by");
 
             entity.HasOne(d => d.DisputeResolvedByNavigation).WithMany(p => p.BookingDisputeResolvedByNavigations)
                 .HasForeignKey(d => d.DisputeResolvedBy)

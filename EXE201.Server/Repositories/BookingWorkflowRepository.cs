@@ -142,6 +142,16 @@ namespace EXE201.Server.Repositories
                 .Take(batchSize)
                 .ToListAsync();
 
+        public async Task<List<Booking>> GetExpiredFinalDeliveredBookingsAsync(long finalDeliveredStatusId, long awaitingCustomerStatusId, DateTime threshold, int batchSize)
+            => await BookingQuery()
+                .AsNoTracking()
+                .Where(b => (b.StatusId == finalDeliveredStatusId || b.StatusId == awaitingCustomerStatusId) &&
+                            b.UpdatedAt <= threshold &&
+                            b.DisputedAt == null)
+                .OrderBy(b => b.UpdatedAt)
+                .Take(batchSize)
+                .ToListAsync();
+
         public async Task<List<Booking>> GetBookingsByCustomerAsync(long customerId, string? status)
         {
             var query = BookingQuery().Where(b => b.CustomerId == customerId);

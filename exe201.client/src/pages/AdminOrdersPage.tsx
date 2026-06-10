@@ -81,7 +81,16 @@ type AdminBookingDetail = {
   latestPayment?: PaymentDto
   payments: PaymentDto[]
   logs: BookingLogDto[]
-  dispute?: { reason?: string; disputedAt?: string; resolvedAt?: string; resolvedBy?: number; resolvedByName?: string }
+  dispute?: {
+    reason?: string
+    disputedAt?: string
+    createdBy?: number
+    createdByName?: string
+    createdByRole?: string
+    resolvedAt?: string
+    resolvedBy?: number
+    resolvedByName?: string
+  }
 }
 
 const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
@@ -584,7 +593,11 @@ function BookingDetailModal({
                   Ghi chú nghiệp vụ
                 </div>
                 <div className="space-y-2 text-sm font-semibold text-amber-900/90 leading-relaxed">
-                  {booking.dispute?.reason && <p>🚨 Khiếu nại: {booking.dispute.reason}</p>}
+                  {booking.dispute?.reason && (
+                    <p>
+                      🚨 Khiếu nại (bởi {booking.dispute.createdByRole === 'STUDIO_OWNER' ? 'Studio' : 'Khách hàng'} - {booking.dispute.createdByName || 'N/A'}): {booking.dispute.reason}
+                    </p>
+                  )}
                   {booking.cancelReason && <p>🚫 Lý do hủy: {booking.cancelReason}</p>}
                   {booking.rejectReason && <p>❌ Lý do từ chối: {booking.rejectReason}</p>}
                 </div>

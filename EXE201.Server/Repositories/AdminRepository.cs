@@ -751,6 +751,7 @@ namespace EXE201.Server.Repositories
                 .Include(b => b.Payments).ThenInclude(p => p.Method)
                 .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
                 .Include(b => b.BookingLogs).ThenInclude(l => l.ChangedByNavigation)
+                .Include(b => b.DisputeCreatedByNavigation)
                 .Include(b => b.DisputeResolvedByNavigation);
         }
 
@@ -924,6 +925,9 @@ namespace EXE201.Server.Repositories
                     {
                         Reason = booking.DisputeNote,
                         DisputedAt = booking.DisputedAt?.ToString("O"),
+                        CreatedBy = booking.DisputeCreatedBy,
+                        CreatedByName = booking.DisputeCreatedByNavigation?.FullName ?? (booking.DisputeCreatedByRole == "STUDIO_OWNER" ? booking.Studio.StudioName : booking.Customer.FullName),
+                        CreatedByRole = booking.DisputeCreatedByRole,
                         ResolvedAt = booking.DisputeResolvedAt?.ToString("O"),
                         ResolvedBy = booking.DisputeResolvedBy,
                         ResolvedByName = booking.DisputeResolvedByNavigation?.FullName

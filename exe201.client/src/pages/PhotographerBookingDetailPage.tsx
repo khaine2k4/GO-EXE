@@ -20,6 +20,7 @@ import {
 import { useToast } from '../components/Toast'
 import {
   confirmBooking,
+  disputeBooking,
   getBooking,
   markInProgress,
   rejectBooking,
@@ -68,6 +69,7 @@ export default function PhotographerBookingDetailPage() {
   const [error, setError] = useState('')
   const [deliveryForm, setDeliveryForm] = useState<{ type: 'demo' | 'final'; urls: string[]; note: string } | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [disputeDialogOpen, setDisputeDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -101,6 +103,15 @@ export default function PhotographerBookingDetailPage() {
       'Đã từ chối đơn đặt lịch',
     )
     if (succeeded) setRejectDialogOpen(false)
+  }
+
+  async function handleDispute(reason: string) {
+    if (!booking) return
+    const succeeded = await runAction(
+      () => disputeBooking(booking.id, reason),
+      'Đã gửi khiếu nại khách hàng',
+    )
+    if (succeeded) setDisputeDialogOpen(false)
   }
 
   async function submitDelivery() {
@@ -245,6 +256,16 @@ export default function PhotographerBookingDetailPage() {
                   🚫 Đơn đặt lịch này đã bị hủy hoặc từ chối.
                 </div>
               )}
+              {['CONFIRMED', 'IN_PROGRESS', 'DEMO_UPLOADED', 'EDITING', 'FINAL_DELIVERED', 'AWAITING_CUSTOMER'].includes(booking.status) && (
+                <button
+                  disabled={actioning}
+                  type="button"
+                  onClick={() => setDisputeDialogOpen(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white hover:bg-rose-50 text-xs font-black uppercase tracking-wider text-rose-600 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <XCircle className="h-4 w-4" /> Khiếu nại khách hàng
+                </button>
+              )}
             </div>
           </div>
 
@@ -347,6 +368,20 @@ export default function PhotographerBookingDetailPage() {
         loading={actioning}
         onCancel={() => setRejectDialogOpen(false)}
         onSubmit={handleReject}
+      />
+
+      <ReasonDialog
+        open={disputeDialogOpen}
+        title="Khiếu nại khách hàng"
+        description="Lý do này giúp Admin có cơ sở phân xử tranh chấp công bằng cho Studio và khách hàng."
+        label="Lý do khiếu nại"
+        placeholder="Ví dụ: Khách hàng không xác nhận hoàn tất sau khi nhận ảnh final hoặc yêu cầu vượt quá cam kết ban đầu..."
+        defaultReason="Studio yêu cầu khiếu nại đơn hàng"
+        confirmText="Gửi khiếu nại"
+        danger
+        loading={actioning}
+        onCancel={() => setDisputeDialogOpen(false)}
+        onSubmit={handleDispute}
       />
     </div>
   )

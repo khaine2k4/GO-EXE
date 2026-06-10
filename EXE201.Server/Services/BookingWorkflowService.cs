@@ -582,6 +582,79 @@ namespace EXE201.Server.Services
             return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
+        public async Task<int> AutoCompleteDeliveredBookingsAsync()
+        {
+            var finalDeliveredId = await _repo.GetBookingStatusIdAsync(BookingFinalDelivered);
+            var awaitingCustomerId = await _repo.GetBookingStatusIdAsync("AWAITING_CUSTOMER");
+            if (finalDeliveredId == null || awaitingCustomerId == null) return 0;
+
+            // 3 days threshold
+            var threshold = DateTime.UtcNow.AddDays(-3);
+            var expiredBookings = await _repo.GetExpiredFinalDeliveredBookingsAsync(finalDeliveredId.Value, awaitingCustomerId.Value, threshold, 50);
+            var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
+            if (completedId == null) return 0;
+
+            var count = 0;
+            foreach (var b in expiredBookings)
+            {
+                await using var tx = await _repo.BeginTransactionAsync();
+                var booking = await _repo.GetBookingForUpdateAsync(b.BookingId);
+                if (booking == null) continue;
+                if (booking.Status.StatusName != BookingFinalDelivered && booking.Status.StatusName != "AWAITING_CUSTOMER") continue;
+                if (booking.DisputedAt != null) continue; // safety check
+
+                var oldStatus = booking.Status.StatusName;
+                booking.StatusId = completedId.Value;
+                booking.CompletedAt = DateTime.UtcNow;
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.UpdatedBy = 0; // 0 represents System auto-complete
+
+                await CreateSettlementIfNeededAsync(booking);
+
+                await _walletService.CreditStudioEarningAsync(
+                    booking.StudioId,
+                    booking.StudioRevenue,
+                    booking.BookingId,
+                    $"Studio revenue from Booking #{booking.BookingCode} (Auto-completed)");
+
+                AddBookingLogEntry(booking.BookingId, oldStatus, BookingCompleted, 0, "System auto-completed booking (customer did not dispute/confirm in 3 days)");
+                await _repo.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                // Send notifications
+                try
+                {
+                    // Notify Studio Owner
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.Studio.OwnerId,
+                        title: "🎉 Đặt lịch tự động hoàn thành!",
+                        content: $"Đơn hàng #{booking.BookingCode} đã được hệ thống tự động hoàn thành do quá hạn nhận ảnh 3 ngày. Doanh thu đã được cộng vào Ví của bạn.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+
+                    // Notify Customer
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.CustomerId,
+                        title: "📅 Đặt lịch đã được hoàn thành tự động",
+                        content: $"Đơn hàng #{booking.BookingCode} đã được hệ thống tự động hoàn thành do không có khiếu nại trong vòng 3 ngày kể từ khi nhận ảnh.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Notification] Error in AutoCompleteDeliveredBookingsAsync: {ex.Message}");
+                }
+
+                count++;
+            }
+
+            return count;
+        }
+
         public async Task<BookingResponse?> CancelBookingAsync(long userId, string role, long bookingId, string? reason)
         {
             await using var tx = await _repo.BeginTransactionAsync();
@@ -672,23 +745,38 @@ namespace EXE201.Server.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Notification] Error in CancelBookingAsync: {ex.Message}");
+                 Console.WriteLine($"[Notification] Error in CancelBookingAsync: {ex.Message}");
             }
 
             return await GetBookingForUserAsync(userId, role, booking.BookingId);
         }
 
-        public async Task<BookingResponse?> DisputeBookingAsync(long customerId, long bookingId, string reason)
+        public async Task<BookingResponse?> DisputeBookingAsync(long userId, string role, long bookingId, string reason)
         {
             if (string.IsNullOrWhiteSpace(reason)) return null;
 
             await using var tx = await _repo.BeginTransactionAsync();
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
-            if (booking == null || booking.CustomerId != customerId) return null;
-            
+            if (booking == null) return null;
+
+            // Phân quyền
+            if (role == "CUSTOMER")
+            {
+                if (booking.CustomerId != userId) return null;
+            }
+            else if (role == "STUDIO_OWNER")
+            {
+                if (!await _repo.IsStudioOwnerAsync(booking.StudioId, userId)) return null;
+            }
+            else
+            {
+                return null;
+            }
+
             var currentStatus = booking.Status.StatusName;
-            if (currentStatus != BookingInProgress && 
+            if (currentStatus != BookingConfirmed &&
+                currentStatus != BookingInProgress && 
                 currentStatus != BookingDemoUploaded && 
                 currentStatus != BookingEditing && 
                 currentStatus != BookingFinalDelivered && 
@@ -700,34 +788,53 @@ namespace EXE201.Server.Services
 
             booking.DisputedAt = DateTime.UtcNow;
             booking.DisputeNote = reason.Trim();
+            booking.DisputeCreatedBy = userId;
+            booking.DisputeCreatedByRole = role;
             booking.UpdatedAt = DateTime.UtcNow;
-            booking.UpdatedBy = customerId;
+            booking.UpdatedBy = userId;
 
-            AddBookingLogEntry(booking.BookingId, currentStatus, "DISPUTED", customerId, reason.Trim());
+            AddBookingLogEntry(booking.BookingId, currentStatus, "DISPUTED", userId, reason.Trim());
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
             // ── THÊM THÔNG BÁO KHI CÓ KHIẾU NẠI ──────────────────────────────────
             try
             {
-                // Thông báo cho Studio Owner
-                await _notificationService.CreateNotificationAsync(
-                    userId: booking.Studio.OwnerId,
-                    title: "⚠️ Khiếu nại đặt lịch mới",
-                    content: $"Khách hàng đã gửi khiếu nại cho đơn hàng #{booking.BookingCode}. Chi tiết: {reason.Trim()}.",
-                    type: "BOOKING",
-                    refType: "BOOKING",
-                    refId: booking.BookingId
-                );
+                if (role == "CUSTOMER")
+                {
+                    // Thông báo cho Studio Owner
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.Studio.OwnerId,
+                        title: "⚠️ Khiếu nại đặt lịch mới",
+                        content: $"Khách hàng đã gửi khiếu nại cho đơn hàng #{booking.BookingCode}. Chi tiết: {reason.Trim()}.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+                else if (role == "STUDIO_OWNER")
+                {
+                    // Thông báo cho Customer
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.CustomerId,
+                        title: "⚠️ Studio khiếu nại đơn hàng",
+                        content: $"Studio '{booking.Studio.StudioName}' đã gửi khiếu nại cho đơn hàng #{booking.BookingCode}. Chi tiết: {reason.Trim()}.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
 
                 // Thông báo cho tất cả Admin
                 var adminIds = await _notificationService.GetAdminUserIdsAsync();
+                var initiatorName = role == "CUSTOMER" ? booking.Customer.FullName : booking.Studio.StudioName;
+                var initiatorType = role == "CUSTOMER" ? "Khách hàng" : "Studio";
                 foreach (var adminId in adminIds)
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: adminId,
                         title: "🛡️ Yêu cầu hỗ trợ khiếu nại mới",
-                        content: $"Khách hàng đã khiếu nại Studio '{booking.Studio.StudioName}' về đơn #{booking.BookingCode}.",
+                        content: $"{initiatorType} '{initiatorName}' đã khiếu nại đơn #{booking.BookingCode}.",
                         type: "SYSTEM",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -739,7 +846,7 @@ namespace EXE201.Server.Services
                 Console.WriteLine($"[Notification] Error in DisputeBookingAsync: {ex.Message}");
             }
 
-            return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
+            return await GetBookingForUserAsync(userId, role, booking.BookingId);
         }
 
         public async Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role)

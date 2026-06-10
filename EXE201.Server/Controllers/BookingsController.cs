@@ -140,7 +140,7 @@ namespace EXE201.Server.Controllers
         }
 
         [HttpPut("{id:long}/dispute")]
-        [Authorize(Roles = "CUSTOMER")]
+        [Authorize(Roles = "CUSTOMER,STUDIO_OWNER")]
         public async Task<IActionResult> Dispute(long id, [FromBody] BookingActionRequest request)
         {
             var reason = request.Reason ?? request.Note;
@@ -149,7 +149,7 @@ namespace EXE201.Server.Controllers
                 return BadRequest("Dispute reason is required.");
             }
 
-            var booking = await _bookingService.DisputeBookingAsync(GetCurrentUserId(), id, reason);
+            var booking = await _bookingService.DisputeBookingAsync(GetCurrentUserId(), GetCurrentRole(), id, reason);
             return booking == null ? BadRequest("Booking cannot be disputed.") : Ok(booking);
         }
 

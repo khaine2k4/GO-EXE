@@ -61,6 +61,10 @@ public partial class Booking
 
     public long? DisputeResolvedBy { get; set; }
 
+    public long? DisputeCreatedBy { get; set; }
+
+    public string? DisputeCreatedByRole { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public long? CreatedBy { get; set; }
@@ -76,6 +80,8 @@ public partial class Booking
     public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
 
     public virtual User Customer { get; set; } = null!;
+
+    public virtual User? DisputeCreatedByNavigation { get; set; }
 
     public virtual User? DisputeResolvedByNavigation { get; set; }
 

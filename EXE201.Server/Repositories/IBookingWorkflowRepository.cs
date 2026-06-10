@@ -41,6 +41,7 @@ namespace EXE201.Server.Repositories
         Task<Booking?> GetBookingForUpdateAsync(long bookingId);
         Task<bool> SlotHasActiveBookingAsync(long slotId);
         Task<List<Booking>> GetExpiredPendingPaymentBookingsAsync(long pendingPaymentStatusId, DateTime now, int batchSize);
+        Task<List<Booking>> GetExpiredFinalDeliveredBookingsAsync(long finalDeliveredStatusId, long awaitingCustomerStatusId, DateTime threshold, int batchSize);
         Task<List<Booking>> GetBookingsByCustomerAsync(long customerId, string? status);
         Task<List<Booking>> GetBookingsByStudioAsync(long studioId, string? status);
         void AddBooking(Booking booking);

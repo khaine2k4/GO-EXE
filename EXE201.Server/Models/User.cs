@@ -53,6 +53,8 @@ public partial class User
 
     public virtual ICollection<Booking> BookingCustomers { get; set; } = new List<Booking>();
 
+    public virtual ICollection<Booking> BookingDisputeCreatedByNavigations { get; set; } = new List<Booking>();
+
     public virtual ICollection<Booking> BookingDisputeResolvedByNavigations { get; set; } = new List<Booking>();
 
     public virtual ICollection<BookingLog> BookingLogs { get; set; } = new List<BookingLog>();
