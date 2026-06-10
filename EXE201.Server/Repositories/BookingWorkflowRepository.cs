@@ -146,7 +146,10 @@ namespace EXE201.Server.Repositories
             => await BookingQuery()
                 .AsNoTracking()
                 .Where(b => (b.StatusId == finalDeliveredStatusId || b.StatusId == awaitingCustomerStatusId) &&
-                            b.UpdatedAt <= threshold &&
+                            (b.BookingLogs
+                                .Where(l => l.NewStatus == "FINAL_DELIVERED" || l.NewStatus == "AWAITING_CUSTOMER")
+                                .Select(l => (DateTime?)l.ChangedAt)
+                                .Max() ?? b.UpdatedAt) <= threshold &&
                             b.DisputedAt == null)
                 .OrderBy(b => b.UpdatedAt)
                 .Take(batchSize)
@@ -248,6 +251,22 @@ namespace EXE201.Server.Repositories
 
         public async Task<bool> ReviewExistsAsync(long bookingId)
             => await _context.Reviews.AnyAsync(r => r.BookingId == bookingId);
+
+        public async Task RecalculateStudioRatingAsync(long studioId)
+        {
+            var studio = await _context.Studios.FirstOrDefaultAsync(s => s.StudioId == studioId);
+            if (studio == null) return;
+
+            var visibleReviews = _context.Reviews.Where(r => r.StudioId == studioId && !r.IsHidden);
+            var totalReviews = await visibleReviews.CountAsync();
+            var avgRating = totalReviews == 0
+                ? 0m
+                : Math.Round(await visibleReviews.AverageAsync(r => (decimal)r.Rating), 1);
+
+            studio.TotalReviews = totalReviews;
+            studio.AvgRating = avgRating;
+            studio.UpdatedAt = DateTime.UtcNow;
+        }
 
         // ── Private helpers ──────────────────────────────────────────────────
 

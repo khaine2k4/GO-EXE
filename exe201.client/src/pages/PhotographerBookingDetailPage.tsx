@@ -20,6 +20,7 @@ import {
 import { useToast } from '../components/Toast'
 import {
   confirmBooking,
+  completeBooking,
   disputeBooking,
   getBooking,
   markInProgress,
@@ -237,6 +238,11 @@ export default function PhotographerBookingDetailPage() {
                 </button>
               )}
               {booking.status === 'FINAL_DELIVERED' && (
+                <button disabled={actioning} type="button" onClick={() => runAction(() => completeBooking(booking.id), 'Đã gửi yêu cầu khách hàng xác nhận hoàn tất')} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-xs font-black uppercase text-white shadow-lg shadow-emerald-600/10 active:scale-95 transition-all disabled:opacity-50">
+                  <CheckCircle2 className="h-4 w-4" /> Gửi yêu cầu hoàn tất
+                </button>
+              )}
+              {booking.status === 'AWAITING_CUSTOMER' && (
                 <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 text-xs font-black uppercase tracking-wider text-teal-700 text-center leading-relaxed">
                   ⏳ Đang chờ khách hàng xác nhận hoàn tất.
                 </div>

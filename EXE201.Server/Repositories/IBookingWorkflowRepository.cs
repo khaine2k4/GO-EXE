@@ -69,5 +69,6 @@ namespace EXE201.Server.Repositories
         // Review
         void AddReview(Review review);
         Task<bool> ReviewExistsAsync(long bookingId);
+        Task RecalculateStudioRatingAsync(long studioId);
     }
 }

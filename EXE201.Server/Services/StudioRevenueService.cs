@@ -100,7 +100,7 @@ namespace EXE201.Server.Services
             return new StudioBookingStatisticsDto
             {
                 TotalBookings = total,
-                PendingBookings = bookings.Count(b => b.Status.StatusName == "PENDING"),
+                PendingBookings = bookings.Count(b => b.Status.StatusName is "PENDING_PAYMENT" or "PENDING_CONFIRMATION"),
                 ConfirmedBookings = bookings.Count(b => b.Status.StatusName == "CONFIRMED"),
                 InProgressBookings = bookings.Count(b => b.Status.StatusName == "IN_PROGRESS"),
                 CompletedBookings = completed,

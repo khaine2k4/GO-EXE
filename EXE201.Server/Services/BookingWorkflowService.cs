@@ -1,4 +1,4 @@
-using exe201.Server.Models;
+﻿using exe201.Server.Models;
 using EXE201.Server.DTOs;
 using EXE201.Server.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -209,7 +209,9 @@ namespace EXE201.Server.Services
                 await _repo.SaveChangesAsync();
             }
 
-            if (day.TimeSlots.Any(s => s.StartTime == start)) return null;
+            if (!day.IsAvailable) return null;
+            if (IsSlotInPast(date, start)) return null;
+            if (day.TimeSlots.Any(s => start < s.EndTime && s.StartTime < end)) return null;
 
             var slot = new TimeSlot
             {
@@ -247,6 +249,8 @@ namespace EXE201.Server.Services
 
             if (package == null || slot == null) return null;
             if (slot.Status != SlotOpen) return null;
+            if (!slot.WorkingDay.IsAvailable) return null;
+            if (IsSlotInPast(slot.WorkingDay.WorkingDate, slot.StartTime)) return null;
             if (slot.WorkingDay.StudioId != package.Service.StudioId) return null;
             if (await _repo.SlotHasActiveBookingAsync(request.SlotId)) return null;
             if (package.Service.Studio.Status != "APPROVED" || package.Service.Studio.DeletedAt != null) return null;
@@ -282,6 +286,12 @@ namespace EXE201.Server.Services
                 CommissionAmount = commissionAmount,
                 StudioRevenue = package.Price - commissionAmount,
                 PaymentExpiresAt = now.AddMinutes(GetIntSetting("BookingHoldMinutes", 15)),
+                PackageNameSnapshot = package.PackageName,
+                ServiceNameSnapshot = package.Service.ServiceName,
+                PackageDescriptionSnapshot = package.Description,
+                PackageDurationHoursSnapshot = package.DurationHours,
+                PackageMaxPhotosSnapshot = package.MaxPhotos,
+                PackageInclusionsSnapshot = package.Inclusions,
                 CreatedAt = now,
                 UpdatedAt = now,
                 CreatedBy = customerId,
@@ -298,13 +308,12 @@ namespace EXE201.Server.Services
 
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI CÓ BOOKING MỚI ──────────────────
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: package.Service.Studio.OwnerId,
-                    title: "📅 Yêu cầu đặt lịch mới",
-                    content: $"Khách hàng vừa gửi yêu cầu đặt lịch cho gói '{package.PackageName}' vào ngày {slot.WorkingDay.WorkingDate:dd/MM/yyyy}.",
+                    title: "Yeu cau dat lich moi",
+                    content: $"Khach hang vua gui yeu cau dat lich cho goi '{package.PackageName}' vao ngay {slot.WorkingDay.WorkingDate:dd/MM/yyyy}.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -417,6 +426,7 @@ namespace EXE201.Server.Services
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName != BookingDemoUploaded) return null;
 
             var editingId = await _repo.GetOrCreateBookingStatusIdAsync(BookingEditing);
@@ -428,13 +438,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI CÓ PHẢN HỒI ────────────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO PHOTOGRAPHER KHI CÃ“ PHáº¢N Há»’I â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.Studio.OwnerId,
-                    title: "💬 Phản hồi ảnh từ khách hàng",
-                    content: $"Khách hàng đã gửi yêu cầu chỉnh sửa cho đơn đặt lịch #{booking.BookingCode}.",
+                    title: "ðŸ’¬ Pháº£n há»“i áº£nh tá»« khÃ¡ch hÃ ng",
+                    content: $"KhÃ¡ch hÃ ng Ä‘Ã£ gá»­i yÃªu cáº§u chá»‰nh sá»­a cho Ä‘Æ¡n Ä‘áº·t lá»‹ch #{booking.BookingCode}.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -458,6 +468,7 @@ namespace EXE201.Server.Services
             var studio = await _repo.GetOwnedStudioAsync(ownerId);
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName is not (BookingDemoUploaded or BookingEditing)) return null;
 
             var oldStatus = booking.Status.StatusName;
@@ -470,13 +481,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO KHÁCH HÀNG KHI BÀN GIAO ẢNH HOÀN CHỈNH ──────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO KHÃCH HÃ€NG KHI BÃ€N GIAO áº¢NH HOÃ€N CHá»ˆNH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.CustomerId,
-                    title: "🎨 Đã bàn giao ảnh hoàn chỉnh!",
-                    content: $"Studio '{studio.StudioName}' đã tải lên bộ ảnh hoàn chỉnh. Vui lòng kiểm tra và xác nhận hoàn thành.",
+                    title: "ðŸŽ¨ ÄÃ£ bÃ n giao áº£nh hoÃ n chá»‰nh!",
+                    content: $"Studio '{studio.StudioName}' Ä‘Ã£ táº£i lÃªn bá»™ áº£nh hoÃ n chá»‰nh. Vui lÃ²ng kiá»ƒm tra vÃ  xÃ¡c nháº­n hoÃ n thÃ nh.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -491,7 +502,42 @@ namespace EXE201.Server.Services
         }
 
         public async Task<BookingResponse?> CompleteBookingAsync(long ownerId, long bookingId)
-            => await Task.FromResult<BookingResponse?>(null);
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var studio = await _repo.GetOwnedStudioAsync(ownerId);
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
+            if (IsDisputed(booking)) return null;
+            if (booking.Status.StatusName != BookingFinalDelivered) return null;
+
+            var awaitingId = await _repo.GetOrCreateBookingStatusIdAsync("AWAITING_CUSTOMER");
+            booking.StatusId = awaitingId;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = ownerId;
+
+            AddBookingLogEntry(booking.BookingId, BookingFinalDelivered, "AWAITING_CUSTOMER", ownerId, "Studio requested customer confirmation after final delivery");
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.CustomerId,
+                    title: "Studio yÃªu cáº§u xÃ¡c nháº­n hoÃ n táº¥t",
+                    content: $"Studio '{studio.StudioName}' Ä‘Ã£ giao áº£nh final cho Ä‘Æ¡n #{booking.BookingCode}. Vui lÃ²ng kiá»ƒm tra vÃ  xÃ¡c nháº­n hoÃ n táº¥t náº¿u má»i thá»© Ä‘Ãºng cam káº¿t.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in CompleteBookingAsync: {ex.Message}");
+            }
+
+            return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", booking.BookingId);
+        }
 
         public async Task<BookingReviewResponse?> CreateReviewAsync(long customerId, long bookingId, CreateBookingReviewRequest request)
         {
@@ -521,6 +567,8 @@ namespace EXE201.Server.Services
             _repo.AddReview(review);
             AddBookingLogEntry(booking.BookingId, BookingCompleted, "REVIEWED", customerId, "Customer reviewed booking");
             await _repo.SaveChangesAsync();
+            await _repo.RecalculateStudioRatingAsync(booking.StudioId);
+            await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
             return new BookingReviewResponse
@@ -538,6 +586,7 @@ namespace EXE201.Server.Services
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName != BookingFinalDelivered && booking.Status.StatusName != "AWAITING_CUSTOMER") return null;
 
             var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
@@ -562,13 +611,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI HOÀN THÀNH ────────────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO PHOTOGRAPHER KHI HOÃ€N THÃ€NH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.Studio.OwnerId,
-                    title: "🎉 Đặt lịch hoàn thành thành công!",
-                    content: $"Khách hàng đã xác nhận hoàn thành đơn hàng #{booking.BookingCode}. Tiền thanh toán đã được cộng vào Ví của bạn.",
+                    title: "ðŸŽ‰ Äáº·t lá»‹ch hoÃ n thÃ nh thÃ nh cÃ´ng!",
+                    content: $"KhÃ¡ch hÃ ng Ä‘Ã£ xÃ¡c nháº­n hoÃ n thÃ nh Ä‘Æ¡n hÃ ng #{booking.BookingCode}. Tiá»n thanh toÃ¡n Ä‘Ã£ Ä‘Æ°á»£c cá»™ng vÃ o VÃ­ cá»§a báº¡n.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -627,8 +676,8 @@ namespace EXE201.Server.Services
                     // Notify Studio Owner
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.Studio.OwnerId,
-                        title: "🎉 Đặt lịch tự động hoàn thành!",
-                        content: $"Đơn hàng #{booking.BookingCode} đã được hệ thống tự động hoàn thành do quá hạn nhận ảnh 3 ngày. Doanh thu đã được cộng vào Ví của bạn.",
+                        title: "ðŸŽ‰ Äáº·t lá»‹ch tá»± Ä‘á»™ng hoÃ n thÃ nh!",
+                        content: $"ÄÆ¡n hÃ ng #{booking.BookingCode} Ä‘Ã£ Ä‘Æ°á»£c há»‡ thá»‘ng tá»± Ä‘á»™ng hoÃ n thÃ nh do quÃ¡ háº¡n nháº­n áº£nh 3 ngÃ y. Doanh thu Ä‘Ã£ Ä‘Æ°á»£c cá»™ng vÃ o VÃ­ cá»§a báº¡n.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -637,8 +686,8 @@ namespace EXE201.Server.Services
                     // Notify Customer
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.CustomerId,
-                        title: "📅 Đặt lịch đã được hoàn thành tự động",
-                        content: $"Đơn hàng #{booking.BookingCode} đã được hệ thống tự động hoàn thành do không có khiếu nại trong vòng 3 ngày kể từ khi nhận ảnh.",
+                        title: "ðŸ“… Äáº·t lá»‹ch Ä‘Ã£ Ä‘Æ°á»£c hoÃ n thÃ nh tá»± Ä‘á»™ng",
+                        content: $"ÄÆ¡n hÃ ng #{booking.BookingCode} Ä‘Ã£ Ä‘Æ°á»£c há»‡ thá»‘ng tá»± Ä‘á»™ng hoÃ n thÃ nh do khÃ´ng cÃ³ khiáº¿u náº¡i trong vÃ²ng 3 ngÃ y ká»ƒ tá»« khi nháº­n áº£nh.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -698,15 +747,15 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO KHI ĐƠN ĐẶT LỊCH BỊ HỦY ─────────────────────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO KHI ÄÆ N Äáº¶T Lá»ŠCH Bá»Š Há»¦Y â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 if (role == "CUSTOMER")
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.Studio.OwnerId,
-                        title: "❌ Đặt lịch bị hủy bởi khách hàng",
-                        content: $"Khách hàng đã hủy đơn hàng #{booking.BookingCode}. Lý do: {reason ?? "Không có lý do cụ thể"}.",
+                        title: "âŒ Äáº·t lá»‹ch bá»‹ há»§y bá»Ÿi khÃ¡ch hÃ ng",
+                        content: $"KhÃ¡ch hÃ ng Ä‘Ã£ há»§y Ä‘Æ¡n hÃ ng #{booking.BookingCode}. LÃ½ do: {reason ?? "KhÃ´ng cÃ³ lÃ½ do cá»¥ thá»ƒ"}.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -716,8 +765,8 @@ namespace EXE201.Server.Services
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.CustomerId,
-                        title: "❌ Đặt lịch bị hủy bởi Studio",
-                        content: $"Studio đã hủy đơn đặt lịch #{booking.BookingCode}. Tiền thanh toán đã hoàn lại ví của bạn. Lý do: {reason ?? "Không có lý do cụ thể"}.",
+                        title: "âŒ Äáº·t lá»‹ch bá»‹ há»§y bá»Ÿi Studio",
+                        content: $"Studio Ä‘Ã£ há»§y Ä‘Æ¡n Ä‘áº·t lá»‹ch #{booking.BookingCode}. Tiá»n thanh toÃ¡n Ä‘Ã£ hoÃ n láº¡i vÃ­ cá»§a báº¡n. LÃ½ do: {reason ?? "KhÃ´ng cÃ³ lÃ½ do cá»¥ thá»ƒ"}.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -727,16 +776,16 @@ namespace EXE201.Server.Services
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.CustomerId,
-                        title: "🛡️ Đặt lịch bị hủy bởi hệ thống",
-                        content: $"Đơn đặt lịch #{booking.BookingCode} đã bị hủy bởi quản trị viên hệ thống.",
+                        title: "ðŸ›¡ï¸ Äáº·t lá»‹ch bá»‹ há»§y bá»Ÿi há»‡ thá»‘ng",
+                        content: $"ÄÆ¡n Ä‘áº·t lá»‹ch #{booking.BookingCode} Ä‘Ã£ bá»‹ há»§y bá»Ÿi quáº£n trá»‹ viÃªn há»‡ thá»‘ng.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
                     );
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.Studio.OwnerId,
-                        title: "🛡️ Đặt lịch bị hủy bởi hệ thống",
-                        content: $"Đơn đặt lịch #{booking.BookingCode} đã bị hủy bởi quản trị viên hệ thống.",
+                        title: "ðŸ›¡ï¸ Äáº·t lá»‹ch bá»‹ há»§y bá»Ÿi há»‡ thá»‘ng",
+                        content: $"ÄÆ¡n Ä‘áº·t lá»‹ch #{booking.BookingCode} Ä‘Ã£ bá»‹ há»§y bá»Ÿi quáº£n trá»‹ viÃªn há»‡ thá»‘ng.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -760,7 +809,7 @@ namespace EXE201.Server.Services
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null) return null;
 
-            // Phân quyền
+            // PhÃ¢n quyá»n
             if (role == "CUSTOMER")
             {
                 if (booking.CustomerId != userId) return null;
@@ -797,16 +846,16 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO KHI CÓ KHIẾU NẠI ──────────────────────────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO KHI CÃ“ KHIáº¾U Náº I â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 if (role == "CUSTOMER")
                 {
-                    // Thông báo cho Studio Owner
+                    // ThÃ´ng bÃ¡o cho Studio Owner
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.Studio.OwnerId,
-                        title: "⚠️ Khiếu nại đặt lịch mới",
-                        content: $"Khách hàng đã gửi khiếu nại cho đơn hàng #{booking.BookingCode}. Chi tiết: {reason.Trim()}.",
+                        title: "âš ï¸ Khiáº¿u náº¡i Ä‘áº·t lá»‹ch má»›i",
+                        content: $"KhÃ¡ch hÃ ng Ä‘Ã£ gá»­i khiáº¿u náº¡i cho Ä‘Æ¡n hÃ ng #{booking.BookingCode}. Chi tiáº¿t: {reason.Trim()}.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -814,27 +863,27 @@ namespace EXE201.Server.Services
                 }
                 else if (role == "STUDIO_OWNER")
                 {
-                    // Thông báo cho Customer
+                    // ThÃ´ng bÃ¡o cho Customer
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.CustomerId,
-                        title: "⚠️ Studio khiếu nại đơn hàng",
-                        content: $"Studio '{booking.Studio.StudioName}' đã gửi khiếu nại cho đơn hàng #{booking.BookingCode}. Chi tiết: {reason.Trim()}.",
+                        title: "âš ï¸ Studio khiáº¿u náº¡i Ä‘Æ¡n hÃ ng",
+                        content: $"Studio '{booking.Studio.StudioName}' Ä‘Ã£ gá»­i khiáº¿u náº¡i cho Ä‘Æ¡n hÃ ng #{booking.BookingCode}. Chi tiáº¿t: {reason.Trim()}.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
                     );
                 }
 
-                // Thông báo cho tất cả Admin
+                // ThÃ´ng bÃ¡o cho táº¥t cáº£ Admin
                 var adminIds = await _notificationService.GetAdminUserIdsAsync();
                 var initiatorName = role == "CUSTOMER" ? booking.Customer.FullName : booking.Studio.StudioName;
-                var initiatorType = role == "CUSTOMER" ? "Khách hàng" : "Studio";
+                var initiatorType = role == "CUSTOMER" ? "KhÃ¡ch hÃ ng" : "Studio";
                 foreach (var adminId in adminIds)
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: adminId,
-                        title: "🛡️ Yêu cầu hỗ trợ khiếu nại mới",
-                        content: $"{initiatorType} '{initiatorName}' đã khiếu nại đơn #{booking.BookingCode}.",
+                        title: "ðŸ›¡ï¸ YÃªu cáº§u há»— trá»£ khiáº¿u náº¡i má»›i",
+                        content: $"{initiatorType} '{initiatorName}' Ä‘Ã£ khiáº¿u náº¡i Ä‘Æ¡n #{booking.BookingCode}.",
                         type: "SYSTEM",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -902,13 +951,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI LỊCH ĐÃ THANH TOÁN ──────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO PHOTOGRAPHER KHI Lá»ŠCH ÄÃƒ THANH TOÃN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.Studio.OwnerId,
-                    title: "💰 Đặt lịch đã được thanh toán",
-                    content: $"Lịch chụp ngày {booking.ShootingDate:dd/MM/yyyy} đã được thanh toán. Vui lòng vào xác nhận lịch chụp.",
+                    title: "ðŸ’° Äáº·t lá»‹ch Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n",
+                    content: $"Lá»‹ch chá»¥p ngÃ y {booking.ShootingDate:dd/MM/yyyy} Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n. Vui lÃ²ng vÃ o xÃ¡c nháº­n lá»‹ch chá»¥p.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -1138,6 +1187,7 @@ namespace EXE201.Server.Services
             var studio = await _repo.GetOwnedStudioAsync(ownerId);
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName != expectedStatus) return null;
 
             var nextStatusId = await _repo.GetOrCreateBookingStatusIdAsync(nextStatus);
@@ -1151,31 +1201,31 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO KHÁCH HÀNG KHI STUDIO CÓ SỰ THAY ĐỔI TRẠNG THÁI ──────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO KHÃCH HÃ€NG KHI STUDIO CÃ“ Sá»° THAY Äá»”I TRáº NG THÃI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
-                string title = "📅 Cập nhật đơn đặt lịch";
-                string content = $"Đơn đặt lịch của bạn đã được cập nhật trạng thái mới: {nextStatus}.";
+                string title = "ðŸ“… Cáº­p nháº­t Ä‘Æ¡n Ä‘áº·t lá»‹ch";
+                string content = $"ÄÆ¡n Ä‘áº·t lá»‹ch cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t tráº¡ng thÃ¡i má»›i: {nextStatus}.";
 
                 if (nextStatus == BookingConfirmed)
                 {
-                    title = "🎉 Đặt lịch đã được xác nhận!";
-                    content = $"Studio '{studio.StudioName}' đã xác nhận yêu cầu đặt lịch của bạn cho ngày {booking.ShootingDate:dd/MM/yyyy}.";
+                    title = "ðŸŽ‰ Äáº·t lá»‹ch Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n!";
+                    content = $"Studio '{studio.StudioName}' Ä‘Ã£ xÃ¡c nháº­n yÃªu cáº§u Ä‘áº·t lá»‹ch cá»§a báº¡n cho ngÃ y {booking.ShootingDate:dd/MM/yyyy}.";
                 }
                 else if (nextStatus == BookingRejected)
                 {
-                    title = "❌ Yêu cầu đặt lịch bị từ chối";
-                    content = $"Yêu cầu đặt lịch của bạn đã bị từ chối bởi Studio. Lý do: {booking.RejectReason ?? "Không có lý do cụ thể"}.";
+                    title = "âŒ YÃªu cáº§u Ä‘áº·t lá»‹ch bá»‹ tá»« chá»‘i";
+                    content = $"YÃªu cáº§u Ä‘áº·t lá»‹ch cá»§a báº¡n Ä‘Ã£ bá»‹ tá»« chá»‘i bá»Ÿi Studio. LÃ½ do: {booking.RejectReason ?? "KhÃ´ng cÃ³ lÃ½ do cá»¥ thá»ƒ"}.";
                 }
                 else if (nextStatus == BookingInProgress)
                 {
-                    title = "📸 Buổi chụp ảnh đã bắt đầu";
-                    content = $"Studio '{studio.StudioName}' đã bắt đầu tiến hành buổi chụp của bạn.";
+                    title = "ðŸ“¸ Buá»•i chá»¥p áº£nh Ä‘Ã£ báº¯t Ä‘áº§u";
+                    content = $"Studio '{studio.StudioName}' Ä‘Ã£ báº¯t Ä‘áº§u tiáº¿n hÃ nh buá»•i chá»¥p cá»§a báº¡n.";
                 }
                 else if (nextStatus == BookingDemoUploaded)
                 {
-                    title = "🖼️ Đã có ảnh demo mới";
-                    content = $"Studio '{studio.StudioName}' đã tải lên ảnh demo cho buổi chụp ngày {booking.ShootingDate:dd/MM/yyyy}. Vui lòng xem và phản hồi.";
+                    title = "ðŸ–¼ï¸ ÄÃ£ cÃ³ áº£nh demo má»›i";
+                    content = $"Studio '{studio.StudioName}' Ä‘Ã£ táº£i lÃªn áº£nh demo cho buá»•i chá»¥p ngÃ y {booking.ShootingDate:dd/MM/yyyy}. Vui lÃ²ng xem vÃ  pháº£n há»“i.";
                 }
 
                 await _notificationService.CreateNotificationAsync(
@@ -1205,6 +1255,14 @@ namespace EXE201.Server.Services
 
         private static bool IsDisputed(Booking booking)
             => booking.DisputedAt.HasValue && !booking.DisputeResolvedAt.HasValue;
+
+        private static bool IsSlotInPast(DateOnly date, TimeOnly start)
+        {
+            var now = DateTime.UtcNow.AddHours(7);
+            var today = DateOnly.FromDateTime(now);
+            if (date < today) return true;
+            return date == today && start <= TimeOnly.FromDateTime(now);
+        }
 
         private void AddBookingLogEntry(long bookingId, string? oldStatus, string newStatus, long changedBy, string? note)
         {
@@ -1345,7 +1403,7 @@ namespace EXE201.Server.Services
                 booking.CustomerId,
                 booking.TotalPrice,
                 booking.BookingId,
-                $"Hoàn tiền Booking #{booking.BookingCode} (lý do: {reason})"
+                $"HoÃ n tiá»n Booking #{booking.BookingCode} (lÃ½ do: {reason})"
             );
         }
 
@@ -1573,7 +1631,7 @@ namespace EXE201.Server.Services
 
             if (payment != null && payment.PaymentStatus.StatusName == PaymentPending)
             {
-                // Cancel the old PayOS order via its stored ProviderRef (best-effort — ignore if already gone)
+                // Cancel the old PayOS order via its stored ProviderRef (best-effort â€” ignore if already gone)
                 if (!string.IsNullOrEmpty(payment.ProviderRef) &&
                     long.TryParse(payment.ProviderRef, out var oldOrderCode))
                 {

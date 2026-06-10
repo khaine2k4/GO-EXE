@@ -43,6 +43,9 @@ namespace EXE201.Server.Repositories
 
         public async Task<WalletTransaction> CreditWalletAsync(long walletId, decimal amount, string txType, long? bookingId, long? paymentId, string description)
         {
+            var existing = await FindTransactionAsync(walletId, txType, bookingId, paymentId);
+            if (existing != null) return existing;
+
             var wallet = await _context.Wallets.FindAsync(walletId);
             if (wallet == null)
                 throw new ArgumentException($"Wallet with ID {walletId} not found.");
@@ -67,6 +70,18 @@ namespace EXE201.Server.Repositories
             await _context.SaveChangesAsync();
 
             return transaction;
+        }
+
+        public async Task<WalletTransaction?> FindTransactionAsync(long walletId, string txType, long? bookingId, long? paymentId)
+        {
+            if (bookingId == null && paymentId == null) return null;
+
+            return await _context.WalletTransactions
+                .Where(t => t.WalletId == walletId && t.TxType == txType)
+                .Where(t => bookingId == null || t.BookingId == bookingId)
+                .Where(t => paymentId == null || t.PaymentId == paymentId)
+                .OrderByDescending(t => t.CreatedAt)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<WalletTransaction> DebitWalletAsync(long walletId, decimal amount, string txType, long? bookingId, long? paymentId, string description)

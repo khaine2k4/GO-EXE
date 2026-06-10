@@ -480,7 +480,7 @@ namespace EXE201.Server.Repositories
                 PortfolioImages = studio.StudioPortfolios.Count,
                 TotalPortfolios = studio.StudioPortfolios.Count,
                 TotalBookings = studio.Bookings.Count,
-                PendingBookings = studio.Bookings.Count(b => b.Status.StatusName == "PENDING"),
+                PendingBookings = studio.Bookings.Count(b => b.Status.StatusName is "PENDING_PAYMENT" or "PENDING_CONFIRMATION"),
                 ConfirmedBookings = studio.Bookings.Count(b => b.Status.StatusName == "CONFIRMED"),
                 CompletedBookings = completed.Count,
                 GrossRevenue = completed.Sum(b => b.TotalPrice),
@@ -537,7 +537,7 @@ namespace EXE201.Server.Repositories
         {
             var studio = await GetOwnedStudioAsync(ownerId);
             if (studio == null) return null;
-            return await _context.Services.FirstOrDefaultAsync(s => s.ServiceId == serviceId && s.StudioId == studio.StudioId && !s.IsHidden);
+            return await _context.Services.FirstOrDefaultAsync(s => s.ServiceId == serviceId && s.StudioId == studio.StudioId);
         }
 
         private static string GetCategoryName(UpsertCategoryRequest request) =>
