@@ -216,6 +216,14 @@ namespace EXE201.Server.Repositories
                 booking.Slot.Status = "OPEN";
 
                 await MarkLatestPaidPaymentForRefundAsync(booking, adminNote ?? "Dispute resolved with customer refund");
+                
+                // ── HOÀN TIỀN VÀO VÍ KHÁCH HÀNG KHI ĐƯỢC ADMIN PHÂN XỬ ────────────────
+                await _walletService.CreditCustomerRefundAsync(
+                    booking.CustomerId,
+                    booking.TotalPrice,
+                    booking.BookingId,
+                    $"[Khiếu nại] Hoàn tiền Booking #{booking.BookingCode} theo quyết định phân xử của Admin");
+
                 AddBookingLog(booking.BookingId, oldStatus, "CANCELLED", adminId, BuildAdminDisputeNote("Refund customer", adminNote));
             }
 
