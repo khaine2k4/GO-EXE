@@ -14,5 +14,6 @@ namespace EXE201.Server.Repositories
         Task<Message> CreateMessageAsync(Message message);
         Task MarkMessagesAsReadAsync(long conversationId, long readerId);
         Task<int> CountUnreadMessagesAsync(long conversationId, long readerId);
+        Task<int> CountTotalUnreadMessagesAsync(long userId, bool isStudioOwner);
     }
 }

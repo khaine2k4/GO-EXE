@@ -34,13 +34,20 @@ namespace EXE201.Server.Services
         private readonly IConfiguration _configuration;
         private readonly IPayOsService _payOsService;
         private readonly IWalletService _walletService;
+        private readonly INotificationService _notificationService;
 
-        public BookingWorkflowService(IBookingWorkflowRepository repo, IConfiguration configuration, IPayOsService payOsService, IWalletService walletService)
+        public BookingWorkflowService(
+            IBookingWorkflowRepository repo, 
+            IConfiguration configuration, 
+            IPayOsService payOsService, 
+            IWalletService walletService,
+            INotificationService notificationService)
         {
             _repo = repo;
             _configuration = configuration;
             _payOsService = payOsService;
             _walletService = walletService;
+            _notificationService = notificationService;
         }
 
         public async Task<List<WorkingScheduleResponse>> GetMySchedulesAsync(long ownerId)
@@ -288,6 +295,24 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
 
             await tx.CommitAsync();
+
+            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI CÓ BOOKING MỚI ──────────────────
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: package.Service.Studio.OwnerId,
+                    title: "📅 Yêu cầu đặt lịch mới",
+                    content: $"Khách hàng vừa gửi yêu cầu đặt lịch cho gói '{package.PackageName}' vào ngày {slot.WorkingDay.WorkingDate:dd/MM/yyyy}.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in CreateBookingAsync: {ex.Message}");
+            }
+
             return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
@@ -382,6 +407,23 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
+            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI CÓ PHẢN HỒI ────────────────────
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.Studio.OwnerId,
+                    title: "💬 Phản hồi ảnh từ khách hàng",
+                    content: $"Khách hàng đã gửi yêu cầu chỉnh sửa cho đơn đặt lịch #{booking.BookingCode}.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in SubmitPhotoFeedbackAsync: {ex.Message}");
+            }
+
             return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
@@ -406,6 +448,23 @@ namespace EXE201.Server.Services
             AddBookingLogEntry(booking.BookingId, oldStatus, BookingFinalDelivered, ownerId, SerializeDeliveryNote(urls, request.Note));
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
+
+            // ── THÊM THÔNG BÁO CHO KHÁCH HÀNG KHI BÀN GIAO ẢNH HOÀN CHỈNH ──────────
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.CustomerId,
+                    title: "🎨 Đã bàn giao ảnh hoàn chỉnh!",
+                    content: $"Studio '{studio.StudioName}' đã tải lên bộ ảnh hoàn chỉnh. Vui lòng kiểm tra và xác nhận hoàn thành.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in UploadFinalPhotosAsync: {ex.Message}");
+            }
 
             return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", booking.BookingId);
         }
@@ -482,6 +541,23 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
+            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI HOÀN THÀNH ────────────────────
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.Studio.OwnerId,
+                    title: "🎉 Đặt lịch hoàn thành thành công!",
+                    content: $"Khách hàng đã xác nhận hoàn thành đơn hàng #{booking.BookingCode}. Tiền thanh toán đã được cộng vào Ví của bạn.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in ConfirmCompletionAsync: {ex.Message}");
+            }
+
             return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
@@ -528,6 +604,56 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
+            // ── THÊM THÔNG BÁO KHI ĐƠN ĐẶT LỊCH BỊ HỦY ─────────────────────────────
+            try
+            {
+                if (role == "CUSTOMER")
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.Studio.OwnerId,
+                        title: "❌ Đặt lịch bị hủy bởi khách hàng",
+                        content: $"Khách hàng đã hủy đơn hàng #{booking.BookingCode}. Lý do: {reason ?? "Không có lý do cụ thể"}.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+                else if (role == "STUDIO_OWNER")
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.CustomerId,
+                        title: "❌ Đặt lịch bị hủy bởi Studio",
+                        content: $"Studio đã hủy đơn đặt lịch #{booking.BookingCode}. Tiền thanh toán đã hoàn lại ví của bạn. Lý do: {reason ?? "Không có lý do cụ thể"}.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+                else if (role == "ADMIN")
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.CustomerId,
+                        title: "🛡️ Đặt lịch bị hủy bởi hệ thống",
+                        content: $"Đơn đặt lịch #{booking.BookingCode} đã bị hủy bởi quản trị viên hệ thống.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.Studio.OwnerId,
+                        title: "🛡️ Đặt lịch bị hủy bởi hệ thống",
+                        content: $"Đơn đặt lịch #{booking.BookingCode} đã bị hủy bởi quản trị viên hệ thống.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in CancelBookingAsync: {ex.Message}");
+            }
+
             return await GetBookingForUserAsync(userId, role, booking.BookingId);
         }
 
@@ -550,6 +676,38 @@ namespace EXE201.Server.Services
             AddBookingLogEntry(booking.BookingId, BookingInProgress, "DISPUTED", customerId, reason.Trim());
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
+
+            // ── THÊM THÔNG BÁO KHI CÓ KHIẾU NẠI ──────────────────────────────────
+            try
+            {
+                // Thông báo cho Studio Owner
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.Studio.OwnerId,
+                    title: "⚠️ Khiếu nại đặt lịch mới",
+                    content: $"Khách hàng đã gửi khiếu nại cho đơn hàng #{booking.BookingCode}. Chi tiết: {reason.Trim()}.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+
+                // Thông báo cho tất cả Admin
+                var adminIds = await _notificationService.GetAdminUserIdsAsync();
+                foreach (var adminId in adminIds)
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        userId: adminId,
+                        title: "🛡️ Yêu cầu hỗ trợ khiếu nại mới",
+                        content: $"Khách hàng đã khiếu nại Studio '{booking.Studio.StudioName}' về đơn #{booking.BookingCode}.",
+                        type: "SYSTEM",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in DisputeBookingAsync: {ex.Message}");
+            }
 
             return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
@@ -606,6 +764,23 @@ namespace EXE201.Server.Services
             AddBookingLogEntry(booking.BookingId, BookingPendingPayment, BookingPendingConfirmation, customerId, $"Payment simulated via {method.MethodName}");
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
+
+            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI LỊCH ĐÃ THANH TOÁN ──────────────
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.Studio.OwnerId,
+                    title: "💰 Đặt lịch đã được thanh toán",
+                    content: $"Lịch chụp ngày {booking.ShootingDate:dd/MM/yyyy} đã được thanh toán. Vui lòng vào xác nhận lịch chụp.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in PayBookingAsync: {ex.Message}");
+            }
 
             return MapPayment(payment);
         }
@@ -838,6 +1013,47 @@ namespace EXE201.Server.Services
 
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
+
+            // ── THÊM THÔNG BÁO CHO KHÁCH HÀNG KHI STUDIO CÓ SỰ THAY ĐỔI TRẠNG THÁI ──────────
+            try
+            {
+                string title = "📅 Cập nhật đơn đặt lịch";
+                string content = $"Đơn đặt lịch của bạn đã được cập nhật trạng thái mới: {nextStatus}.";
+
+                if (nextStatus == BookingConfirmed)
+                {
+                    title = "🎉 Đặt lịch đã được xác nhận!";
+                    content = $"Studio '{studio.StudioName}' đã xác nhận yêu cầu đặt lịch của bạn cho ngày {booking.ShootingDate:dd/MM/yyyy}.";
+                }
+                else if (nextStatus == BookingRejected)
+                {
+                    title = "❌ Yêu cầu đặt lịch bị từ chối";
+                    content = $"Yêu cầu đặt lịch của bạn đã bị từ chối bởi Studio. Lý do: {booking.RejectReason ?? "Không có lý do cụ thể"}.";
+                }
+                else if (nextStatus == BookingInProgress)
+                {
+                    title = "📸 Buổi chụp ảnh đã bắt đầu";
+                    content = $"Studio '{studio.StudioName}' đã bắt đầu tiến hành buổi chụp của bạn.";
+                }
+                else if (nextStatus == BookingDemoUploaded)
+                {
+                    title = "🖼️ Đã có ảnh demo mới";
+                    content = $"Studio '{studio.StudioName}' đã tải lên ảnh demo cho buổi chụp ngày {booking.ShootingDate:dd/MM/yyyy}. Vui lòng xem và phản hồi.";
+                }
+
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.CustomerId,
+                    title: title,
+                    content: content,
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in StudioTransitionAsync: {ex.Message}");
+            }
 
             return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", bookingId);
         }

@@ -19,19 +19,22 @@ namespace EXE201.Server.Controllers
         private readonly IHubContext<ChatHub> _hubContext;
         private readonly Services.IGeminiModerationService _moderationService;
         private readonly Services.IChatbotService _chatbotService;
+        private readonly Services.INotificationService _notificationService;
 
         public ChatController(
             IChatRepository chatRepo, 
             IStudioRepository studioRepo, 
             IHubContext<ChatHub> hubContext,
             Services.IGeminiModerationService moderationService,
-            Services.IChatbotService chatbotService)
+            Services.IChatbotService chatbotService,
+            Services.INotificationService notificationService)
         {
             _chatRepo = chatRepo;
             _studioRepo = studioRepo;
             _hubContext = hubContext;
             _moderationService = moderationService;
             _chatbotService = chatbotService;
+            _notificationService = notificationService;
         }
 
         private long GetCurrentUserId()
@@ -76,6 +79,16 @@ namespace EXE201.Server.Controllers
             }
 
             return Ok(result);
+        }
+
+        // ── GET /api/chat/unread-count ──────────────────────────────
+        [HttpGet("unread-count")]
+        public async Task<IActionResult> GetTotalUnreadCount()
+        {
+            var userId = GetCurrentUserId();
+            var isOwner = IsStudioOwner();
+            var count = await _chatRepo.CountTotalUnreadMessagesAsync(userId, isOwner);
+            return Ok(new { count });
         }
 
         // ── POST /api/chat/conversations ────────────────────────────
