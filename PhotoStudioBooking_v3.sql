@@ -368,6 +368,8 @@ CREATE TABLE bookings (
 
     shooting_date      DATE           NOT NULL,
     shooting_location  NVARCHAR(500),
+    shooting_lat       DECIMAL(10,7),
+    shooting_lng       DECIMAL(10,7),
     note               NVARCHAR(MAX),
 
     -- Financials
@@ -818,6 +820,8 @@ CREATE OR ALTER PROCEDURE sp_create_booking
     @slot_id           BIGINT,
     @shooting_date     DATE,
     @shooting_location NVARCHAR(500) = NULL,
+    @shooting_lat      DECIMAL(10,7) = NULL,
+    @shooting_lng      DECIMAL(10,7) = NULL,
     @note              NVARCHAR(MAX) = NULL,
     @total_price       DECIMAL(12,0),
     @commission_pct    DECIMAL(5,2),
@@ -854,13 +858,13 @@ BEGIN
 
     INSERT INTO bookings (
         customer_id, studio_id, package_id, slot_id, status_id,
-        booking_code, shooting_date, shooting_location, note,
+        booking_code, shooting_date, shooting_location, shooting_lat, shooting_lng, note,
         total_price, commission_percent, commission_amount, studio_revenue, payment_expires_at,
         created_by
     )
     VALUES (
         @customer_id, @studio_id, @package_id, @slot_id, @status_pending,
-        @booking_code, @shooting_date, @shooting_location, @note,
+        @booking_code, @shooting_date, @shooting_location, @shooting_lat, @shooting_lng, @note,
         @total_price, @commission_pct, @commission_amount, @studio_revenue, DATEADD(MINUTE, 15, SYSUTCDATETIME()),
         @customer_id
     );

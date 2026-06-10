@@ -54,6 +54,20 @@ namespace EXE201.Server.Services
             return await _payOS.PaymentRequests.GetAsync(orderCode);
         }
 
+        public async Task<bool> CancelPaymentLinkAsync(long orderCode)
+        {
+            try
+            {
+                await _payOS.PaymentRequests.CancelAsync(orderCode);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PAYOS] Could not cancel order {orderCode}: {ex.Message}");
+                return false;
+            }
+        }
+
         public async Task<WebhookData> VerifyWebhookDataAsync(string webhookBodyJson)
         {
             var webhook = JsonSerializer.Deserialize<Webhook>(webhookBodyJson, new JsonSerializerOptions

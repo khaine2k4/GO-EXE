@@ -230,7 +230,8 @@ namespace EXE201.Server.Controllers
                     ownerType, 
                     request.Amount, 
                     request.BankCode, 
-                    request.AccountNumber, 
+                    request.AccountNumber,
+                    request.AccountName,
                     request.Description ?? ""
                 );
 

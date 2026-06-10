@@ -4,6 +4,7 @@ using EXE201.Server.Services;
 using EXE201.Server.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace EXE201.Server.Controllers
 {
@@ -14,11 +15,13 @@ namespace EXE201.Server.Controllers
     {
         private readonly IBookingWorkflowService _bookingService;
         private readonly IBookingWorkflowRepository _repo;
+        private readonly IConfiguration _config;
 
-        public PaymentsController(IBookingWorkflowService bookingService, IBookingWorkflowRepository repo)
+        public PaymentsController(IBookingWorkflowService bookingService, IBookingWorkflowRepository repo, IConfiguration config)
         {
             _bookingService = bookingService;
             _repo = repo;
+            _config = config;
         }
 
         [HttpGet]
@@ -86,8 +89,13 @@ namespace EXE201.Server.Controllers
             var success = await _bookingService.ProcessVnPayReturnAsync(vnpayParams);
             var status = success ? "success" : "fail";
 
+            var frontendUrl = _config["PayOS:FrontendUrl"] ?? _config["SePay:FrontendBaseUrl"] ?? "";
+            if (!string.IsNullOrEmpty(frontendUrl))
+            {
+                return Redirect($"{frontendUrl}/#/customer/bookings/{bookingId}?paymentStatus={status}");
+            }
             // Dùng relative path để tự động chạy đúng cả ở localhost và domain thật gophotostudio.uk
-            return Redirect($"/customer/bookings/{bookingId}?paymentStatus={status}");
+            return Redirect($"/#/customer/bookings/{bookingId}?paymentStatus={status}");
         }
 
         [HttpGet("vnpay-ipn")]
@@ -134,13 +142,22 @@ namespace EXE201.Server.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> PayOsReturn([FromQuery] long orderCode, [FromQuery] string status)
         {
-            // Process the return URL parameters, query PayOS API for verification, and update database state
+            // Resolve the real bookingId from ProviderRef (orderCode = PaymentId in new flow)
+            // Fallback to orderCode itself for old bookings created before this change
+            var bookingByRef = await _repo.GetBookingByProviderRefAsync(orderCode.ToString());
+            var bookingId = bookingByRef?.BookingId ?? orderCode;
+
             var success = await _bookingService.ProcessPayOsReturnAsync(orderCode, status);
             var paymentStatus = success ? "success" : "fail";
-            
-            // Dùng relative path để tự động chạy đúng cả ở localhost và domain thật gophotostudio.uk
-            return Redirect($"/customer/bookings/{orderCode}?paymentStatus={paymentStatus}");
+
+            var frontendUrl = _config["PayOS:FrontendUrl"] ?? _config["SePay:FrontendBaseUrl"] ?? "";
+            if (!string.IsNullOrEmpty(frontendUrl))
+            {
+                return Redirect($"{frontendUrl}/#/customer/bookings/{bookingId}?paymentStatus={paymentStatus}");
+            }
+            return Redirect($"/#/customer/bookings/{bookingId}?paymentStatus={paymentStatus}");
         }
+
 
         [HttpPost("payos-webhook")]
         [AllowAnonymous]

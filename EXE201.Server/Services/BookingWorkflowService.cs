@@ -274,6 +274,8 @@ namespace EXE201.Server.Services
                 BookingCode = $"BK-{now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}",
                 ShootingDate = slot.WorkingDay.WorkingDate,
                 ShootingLocation = request.ShootingLocation,
+                ShootingLat = request.ShootingLat,
+                ShootingLng = request.ShootingLng,
                 Note = request.Note,
                 TotalPrice = package.Price,
                 CommissionPercent = commissionPercent,
@@ -335,7 +337,7 @@ namespace EXE201.Server.Services
                 bookings = new List<Booking>();
             }
 
-            return bookings.Select(MapBooking).ToList();
+            return bookings.Select(booking => MapBooking(booking, role)).ToList();
         }
 
         public async Task<BookingResponse?> GetBookingForUserAsync(long userId, string role, long bookingId)
@@ -343,7 +345,26 @@ namespace EXE201.Server.Services
             var booking = await _repo.GetFullBookingAsync(bookingId);
             if (booking == null) return null;
             if (!await CanAccessBookingAsync(userId, role, booking)) return null;
-            return MapBooking(booking);
+            return MapBooking(booking, role);
+        }
+
+        public async Task<string?> GetCustomerPhotoPreviewUrlAsync(long customerId, long bookingId, string deliveryType, int photoIndex)
+        {
+            if (photoIndex < 0) return null;
+
+            var booking = await _repo.GetFullBookingAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+
+            var normalizedType = deliveryType.Trim().ToUpperInvariant();
+            var urls = normalizedType switch
+            {
+                "DEMO" => ParseDeliveryUrls(booking.BookingLogs, BookingDemoUploaded),
+                "FINAL" when booking.Status.StatusName != BookingCompleted => ParseDeliveryUrls(booking.BookingLogs, BookingFinalDelivered),
+                _ => new List<string>()
+            };
+
+            if (photoIndex >= urls.Count) return null;
+            return ToCloudinaryWatermarkedPreviewUrl(urls[photoIndex]);
         }
 
         public async Task<BookingResponse?> ConfirmBookingAsync(long ownerId, long bookingId)
@@ -1294,7 +1315,7 @@ namespace EXE201.Server.Services
             return hasActiveBooking && slot.Status == SlotOpen ? SlotBooked : slot.Status;
         }
 
-        private static BookingResponse MapBooking(Booking b)
+        private BookingResponse MapBooking(Booking b, string role)
         {
             var status = IsDisputed(b) ? "DISPUTED" : b.Status.StatusName;
             var review = b.Review == null ? null : new BookingReviewResponse
@@ -1304,6 +1325,22 @@ namespace EXE201.Server.Services
                 Comment = b.Review.Comment,
                 CreatedAt = b.Review.CreatedAt.ToString("O")
             };
+            var demoPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingDemoUploaded);
+            var finalPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingFinalDelivered);
+
+            if (role == "CUSTOMER")
+            {
+                demoPhotoUrls = demoPhotoUrls
+                    .Select((_, index) => $"/api/bookings/{b.BookingId}/photo-preview/demo/{index}")
+                    .ToList();
+
+                if (status != BookingCompleted)
+                {
+                    finalPhotoUrls = finalPhotoUrls
+                        .Select((_, index) => $"/api/bookings/{b.BookingId}/photo-preview/final/{index}")
+                        .ToList();
+                }
+            }
 
             return new BookingResponse
             {
@@ -1320,6 +1357,8 @@ namespace EXE201.Server.Services
                 StartTime = b.Slot.StartTime.ToString("HH:mm"),
                 EndTime = b.Slot.EndTime.ToString("HH:mm"),
                 ShootingLocation = b.ShootingLocation,
+                ShootingLat = b.ShootingLat,
+                ShootingLng = b.ShootingLng,
                 Note = b.Note,
                 Status = status,
                 TotalPrice = b.TotalPrice,
@@ -1327,14 +1366,58 @@ namespace EXE201.Server.Services
                 StudioRevenue = b.StudioRevenue,
                 PaymentExpiresAt = b.PaymentExpiresAt?.ToString("O"),
                 CanCancel = status is BookingPendingPayment or BookingPendingConfirmation,
-                DemoPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingDemoUploaded),
-                FinalPhotoUrls = ParseDeliveryUrls(b.BookingLogs, BookingFinalDelivered),
+                DemoPhotoUrls = demoPhotoUrls,
+                FinalPhotoUrls = finalPhotoUrls,
                 CustomerFeedback = ParseCustomerFeedback(b.BookingLogs),
                 CanReview = status == BookingCompleted && review == null,
                 Review = review,
                 CreatedAt = b.CreatedAt.ToString("O"),
                 LatestPayment = b.Payments.OrderByDescending(p => p.CreatedAt).Select(MapPayment).FirstOrDefault()
             };
+        }
+
+        private string ToCloudinaryWatermarkedPreviewUrl(string url)
+        {
+            const string uploadSegment = "/image/upload/";
+            var uploadIndex = url.IndexOf(uploadSegment, StringComparison.OrdinalIgnoreCase);
+            if (uploadIndex < 0) return url;
+
+            var insertIndex = uploadIndex + uploadSegment.Length;
+            var previewTransform = BuildCloudinaryPreviewTransform();
+
+            if (url[insertIndex..].StartsWith(previewTransform, StringComparison.OrdinalIgnoreCase))
+            {
+                return url;
+            }
+
+            return url.Insert(insertIndex, previewTransform);
+        }
+
+        private string BuildCloudinaryPreviewTransform()
+        {
+            var watermarkPublicId = _configuration["Cloudinary:WatermarkPublicId"]?.Trim();
+            if (string.IsNullOrWhiteSpace(watermarkPublicId))
+            {
+                watermarkPublicId = "exe201/brand/go-watermark-full-50";
+            }
+
+            var overlayPublicId = NormalizeCloudinaryOverlayPublicId(watermarkPublicId);
+            return $"c_limit,w_1400,q_auto:good/l_{overlayPublicId},fl_relative,c_fill,w_1.0,h_1.0,g_center/fl_layer_apply/";
+        }
+
+        private static string NormalizeCloudinaryOverlayPublicId(string publicId)
+        {
+            var normalized = publicId.Replace('\\', '/').Trim();
+            foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".webp", ".svg" })
+            {
+                if (normalized.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized = normalized[..^extension.Length];
+                    break;
+                }
+            }
+
+            return Uri.EscapeDataString(normalized.Replace('/', ':')).Replace("%3A", ":", StringComparison.OrdinalIgnoreCase);
         }
 
         private sealed record PhotoDeliveryLog(List<string> PhotoUrls, string? Note);
@@ -1370,17 +1453,39 @@ namespace EXE201.Server.Services
                 ?? throw new InvalidOperationException("Payment method PAYOS was not found.");
 
             // Get or create pending payment for PAYOS
-            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault()
-                ?? await CreatePendingPaymentAsync(booking, "PAYOS");
+            var payment = booking.Payments.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+
+            if (payment != null && payment.PaymentStatus.StatusName == PaymentPending)
+            {
+                // Cancel the old PayOS order via its stored ProviderRef (best-effort — ignore if already gone)
+                if (!string.IsNullOrEmpty(payment.ProviderRef) &&
+                    long.TryParse(payment.ProviderRef, out var oldOrderCode))
+                {
+                    await _payOsService.CancelPaymentLinkAsync(oldOrderCode);
+                }
+
+                // Reset the payment record for reuse
+                payment.PaymentCode = $"PAY-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+                payment.ProviderRef = null;
+                payment.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (payment == null)
+            {
+                payment = await CreatePendingPaymentAsync(booking, "PAYOS");
+            }
 
             payment.MethodId = payosMethod.MethodId;
             payment.Method = payosMethod;
             payment.PaymentProvider = "PAYOS";
 
+            // Generate a truly unique orderCode using Unix timestamp (seconds) * 100 + random 2-digit suffix.
+            // PayOS rejects ANY previously used orderCode (even after cancel), so we must never reuse one.
+            // This gives a 12-digit number, well within int64 range, unique to the millisecond.
+            var orderCode = DateTimeOffset.UtcNow.ToUnixTimeSeconds() * 100L + new Random().Next(10, 99);
+            payment.ProviderRef = orderCode.ToString();
+
             await _repo.SaveChangesAsync();
 
-            // Create payment link via payOS
-            var orderCode = booking.BookingId; // Must be unique numeric code
             var amount = (int)payment.Amount;
             var description = $"Thanh toan BK{booking.BookingId}";
             if (description.Length > 25) description = description.Substring(0, 25);
@@ -1406,8 +1511,8 @@ namespace EXE201.Server.Services
                 var verifiedData = await _payOsService.VerifyWebhookDataAsync(webhookBodyJson);
                 if (verifiedData == null) return false;
 
-                var bookingId = verifiedData.OrderCode;
-                return await MarkBookingPaidAsync(bookingId, verifiedData.Reference);
+                // orderCode = PaymentId stored in payment.ProviderRef
+                return await MarkBookingPaidByOrderCodeAsync(verifiedData.OrderCode, verifiedData.Reference);
             }
             catch (Exception ex)
             {
@@ -1416,41 +1521,59 @@ namespace EXE201.Server.Services
             }
         }
 
-        public async Task<bool> ProcessPayOsReturnAsync(long bookingId, string status)
+        public async Task<bool> ProcessPayOsReturnAsync(long orderCode, string status)
         {
             try
             {
-                // Retrieve actual status directly from payOS API using the order code (bookingId)
-                var paymentInfo = await _payOsService.GetPaymentLinkInformationAsync(bookingId);
+                // Retrieve actual status directly from payOS API
+                var paymentInfo = await _payOsService.GetPaymentLinkInformationAsync(orderCode);
                 if (paymentInfo == null) return false;
 
                 var payOsStatus = paymentInfo.Status.ToString();
                 if (IsPayOsPaidStatus(payOsStatus) || IsPayOsPaidStatus(status))
                 {
-                    // Find the latest transaction reference if available
                     string? transactionRef = null;
                     if (paymentInfo.Transactions != null && paymentInfo.Transactions.Count > 0)
                     {
-                        var latestTx = paymentInfo.Transactions.LastOrDefault();
-                        transactionRef = latestTx?.Reference;
+                        transactionRef = paymentInfo.Transactions.LastOrDefault()?.Reference;
                     }
-
-                    return await MarkBookingPaidAsync(bookingId, transactionRef);
+                    return await MarkBookingPaidByOrderCodeAsync(orderCode, transactionRef);
                 }
 
                 if (IsPayOsFailedStatus(payOsStatus) || IsPayOsFailedStatus(status))
                 {
-                    return await MarkBookingPaymentFailedAsync(bookingId, $"Payment {payOsStatus} via payOS");
+                    return await MarkBookingFailedByOrderCodeAsync(orderCode, $"Payment {payOsStatus} via payOS");
                 }
 
                 return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing PayOS Return for booking {bookingId}: {ex.Message}");
+                Console.WriteLine($"Error processing PayOS Return for orderCode {orderCode}: {ex.Message}");
                 return false;
             }
         }
+
+        /// <summary>Look up a booking via payment.ProviderRef = orderCode, then mark it paid.</summary>
+        private async Task<bool> MarkBookingPaidByOrderCodeAsync(long orderCode, string? transactionCode)
+        {
+            // Try ProviderRef first (new flow: orderCode = PaymentId)
+            var booking = await _repo.GetBookingByProviderRefAsync(orderCode.ToString());
+            // Fallback: old bookings where orderCode == bookingId
+            if (booking == null) booking = await _repo.GetBookingForUpdateAsync(orderCode);
+            if (booking == null) return false;
+            return await MarkBookingPaidAsync(booking.BookingId, transactionCode);
+        }
+
+        /// <summary>Look up a booking via payment.ProviderRef = orderCode, then mark payment failed.</summary>
+        private async Task<bool> MarkBookingFailedByOrderCodeAsync(long orderCode, string reason)
+        {
+            var booking = await _repo.GetBookingByProviderRefAsync(orderCode.ToString());
+            if (booking == null) booking = await _repo.GetBookingForUpdateAsync(orderCode);
+            if (booking == null) return false;
+            return await MarkBookingPaymentFailedAsync(booking.BookingId, reason);
+        }
+
 
         private async Task<bool> MarkBookingPaidAsync(long bookingId, string? transactionCode)
         {

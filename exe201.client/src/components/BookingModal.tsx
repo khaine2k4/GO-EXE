@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Calendar, Check, Clock, CreditCard, MapPin, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -9,6 +9,8 @@ import { useToast } from './Toast'
 import type { Photographer, Photoset } from '../types'
 import type { ServiceDetail } from '../services/catalogTypes'
 import { getStudioDays } from '../services/scheduleApi'
+import LocationPickerMap from './map/LocationPickerMap'
+import { DA_NANG_CENTER, hasCoordinate, type MapCoordinate } from './map/mapConstants'
 import {
   createBooking,
   getStudioSlots,
@@ -43,6 +45,7 @@ export default function BookingModal({
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null)
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(service?.packages[0]?.id ?? null)
   const [shootingLocation, setShootingLocation] = useState('')
+  const [shootingCoordinate, setShootingCoordinate] = useState<MapCoordinate>(getInitialShootingCoordinate(service))
   const [note, setNote] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PAYOS')
   const [submitting, setSubmitting] = useState(false)
@@ -51,6 +54,99 @@ export default function BookingModal({
   const [busyDates, setBusyDates] = useState<string[]>([])
   const [activeStep, setActiveStep] = useState(1)
 
+  const [suggestions, setSuggestions] = useState<Array<{ label: string; lat: number; lng: number }>>([])
+  const [searching, setSearching] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const suggestionRef = useRef<HTMLDivElement | null>(null)
+
+  // Handle typing location in input
+  const handleLocationInputChange = (value: string) => {
+    setShootingLocation(value)
+    setSearchQuery(value)
+  }
+
+  // Handle selecting location suggestion
+  const handleSelectSuggestion = (item: { label: string; lat: number; lng: number }) => {
+    setShootingLocation(item.label)
+    setShootingCoordinate({ lat: item.lat, lng: item.lng })
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
+
+  // Handle map marker drag & click -> reverse geocode to get address string
+  const handleMapLocationChange = async (coord: MapCoordinate) => {
+    setShootingCoordinate(coord)
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coord.lat}&lon=${coord.lng}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'GoExeStudioBookingApp/1.0',
+            'Accept-Language': 'vi',
+          },
+        }
+      )
+      const data = await response.json()
+      if (data && data.display_name) {
+        setShootingLocation(data.display_name)
+      }
+    } catch (error) {
+      console.error('Lỗi giải ngược tọa độ:', error)
+    }
+  }
+
+  // Debounced search for Nominatim geocoding suggestions
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&countrycodes=vn`,
+          {
+            headers: {
+              'User-Agent': 'GoExeStudioBookingApp/1.0',
+              'Accept-Language': 'vi',
+            },
+          }
+        )
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          const formatted = data.map((item: any) => ({
+            label: item.display_name,
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+          }))
+          setSuggestions(formatted)
+          setShowSuggestions(formatted.length > 0)
+        }
+      } catch (err) {
+        console.error('Lỗi khi gợi ý vị trí:', err)
+      } finally {
+        setSearching(false)
+      }
+    }, 600) // 600ms debounce
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Handle clicking outside location suggestions
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (suggestionRef.current && !suggestionRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   useEffect(() => {
     if (!open) return
     setDate('')
@@ -58,6 +154,7 @@ export default function BookingModal({
     setSelectedSlotId(null)
     setSelectedPackageId(service?.packages[0]?.id ?? null)
     setShootingLocation('')
+    setShootingCoordinate(getInitialShootingCoordinate(service))
     setNote('')
     setPaymentMethod('PAYOS')
     setSubmitting(false)
@@ -65,6 +162,9 @@ export default function BookingModal({
     setError('')
     setBusyDates([])
     setActiveStep(1)
+    setSuggestions([])
+    setSearchQuery('')
+    setShowSuggestions(false)
   }, [open, service?.id])
 
   useEffect(() => {
@@ -169,6 +269,8 @@ export default function BookingModal({
           packageId: selectedPackageId,
           slotId: selectedSlotId,
           shootingLocation: shootingLocation.trim(),
+          shootingLat: shootingCoordinate.lat,
+          shootingLng: shootingCoordinate.lng,
           note: note.trim() || undefined,
         })
 
@@ -385,12 +487,40 @@ export default function BookingModal({
                         />
                         <Panel icon={<MapPin className="h-4 w-4" />} title="Địa điểm và ghi chú">
                           <div className="space-y-3">
-                            <input
-                              value={shootingLocation}
-                              onChange={(event) => setShootingLocation(event.target.value)}
-                              placeholder="Ví dụ: Bãi biển Mỹ Khê, Đà Nẵng"
-                              className="h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm font-bold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
-                            />
+                            <div ref={suggestionRef} className="relative">
+                              <input
+                                value={shootingLocation}
+                                onChange={(event) => handleLocationInputChange(event.target.value)}
+                                onFocus={() => {
+                                  if (suggestions.length > 0) setShowSuggestions(true)
+                                }}
+                                placeholder="Ví dụ: Bãi biển Mỹ Khê, Đà Nẵng"
+                                className="h-12 w-full rounded-2xl border border-slate-200 px-4 pr-24 text-sm font-bold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
+                              />
+                              {searching && (
+                                <div className="absolute right-4 top-3.5 text-xs font-bold text-indigo-500 animate-pulse">
+                                  Đang tìm...
+                                </div>
+                              )}
+                              {showSuggestions && suggestions.length > 0 && (
+                                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                                  {suggestions.map((item, idx) => (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => handleSelectSuggestion(item)}
+                                      className="block w-full rounded-xl px-4 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                                    >
+                                      {item.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <LocationPickerMap value={shootingCoordinate} onChange={handleMapLocationChange} className="h-64 w-full" />
+                            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+                              Tọa độ đã chọn: <span className="text-slate-900">{shootingCoordinate.lat.toFixed(5)}, {shootingCoordinate.lng.toFixed(5)}</span>
+                            </div>
                             <textarea
                               value={note}
                               onChange={(event) => setNote(event.target.value)}
@@ -419,6 +549,7 @@ export default function BookingModal({
                               <SummaryRow label="Ngày" value={date || 'Chưa chọn'} />
                               <SummaryRow label="Giờ" value={selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : apiMode ? 'Chưa chọn' : 'Theo ngày đã chọn'} />
                               <SummaryRow label="Địa điểm" value={shootingLocation || 'Chưa nhập'} />
+                              <SummaryRow label="Tọa độ" value={`${shootingCoordinate.lat.toFixed(5)}, ${shootingCoordinate.lng.toFixed(5)}`} />
                             </div>
                             <div className="mt-5 border-t border-slate-200 pt-4">
                               <div className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tạm tính</div>
@@ -529,6 +660,14 @@ function PaymentNote({ method }: { method: PaymentMethod }) {
       Bạn sẽ thanh toán tiền mặt trực tiếp tại studio khi đến chụp. Slot sẽ được giữ theo luồng booking hiện tại.
     </div>
   )
+}
+
+function getInitialShootingCoordinate(service?: ServiceDetail): MapCoordinate {
+  if (hasCoordinate(service)) {
+    return { lat: service.lat, lng: service.lng }
+  }
+
+  return DA_NANG_CENTER
 }
 
 function formatVnd(value: number) {

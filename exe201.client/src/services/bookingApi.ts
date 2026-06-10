@@ -40,6 +40,8 @@ export type BookingDto = {
   startTime: string
   endTime: string
   shootingLocation?: string
+  shootingLat?: number
+  shootingLng?: number
   note?: string
   status: 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'DEMO_UPLOADED' | 'EDITING' | 'FINAL_DELIVERED' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'DISPUTED' | string
   totalPrice: number
@@ -67,7 +69,7 @@ export function getStudioSlots(studioId: number, date: string) {
   return api.get<TimeSlotDto[]>(`/schedules/studios/${studioId}/slots`, { params: { date } }).then((res) => res.data)
 }
 
-export function createBooking(payload: { packageId: number; slotId: number; shootingLocation?: string; note?: string }) {
+export function createBooking(payload: { packageId: number; slotId: number; shootingLocation?: string; shootingLat?: number; shootingLng?: number; note?: string }) {
   return api.post<BookingDto>('/bookings', payload).then((res) => res.data)
 }
 

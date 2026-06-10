@@ -83,6 +83,7 @@ export default function ProfilePage() {
     const [withdrawAmount, setWithdrawAmount] = useState('')
     const [bankCode, setBankCode] = useState('VCB')
     const [accountNumber, setAccountNumber] = useState('')
+    const [accountName, setAccountName] = useState(currentUser?.name || '')
     const [withdrawDesc, setWithdrawDesc] = useState('')
     const [withdrawLoading, setWithdrawLoading] = useState(false)
 
@@ -159,6 +160,7 @@ export default function ProfilePage() {
             .then((res) => {
                 const data = res.data
                 setName(data.name || '')
+                setAccountName(data.name || currentUser?.name || '')
                 setPhone(data.phone || '')
                 setAvatarUrl(data.avatarUrl || '')
                 setGender(data.gender || 'MALE')
@@ -274,6 +276,16 @@ export default function ProfilePage() {
             return
         }
 
+        const normalizedAccountName = removeSign4VietnameseString(accountName)
+        if (!normalizedAccountName || normalizedAccountName.length < 2) {
+            toast.push({
+                type: 'error',
+                title: 'Lỗi nhập liệu',
+                message: 'Vui lòng nhập tên chủ tài khoản ngân hàng.'
+            })
+            return
+        }
+
         const amt = Number(withdrawAmount)
         if (isNaN(amt) || amt < 10000) {
             toast.push({
@@ -327,6 +339,16 @@ export default function ProfilePage() {
             return
         }
 
+        const normalizedAccountName = removeSign4VietnameseString(accountName)
+        if (!normalizedAccountName || normalizedAccountName.length < 2) {
+            toast.push({
+                type: 'error',
+                title: 'Lỗi nhập liệu',
+                message: 'Vui lòng nhập tên chủ tài khoản ngân hàng.'
+            })
+            return
+        }
+
         const amt = Number(withdrawAmount)
         if (isNaN(amt) || amt < 10000) {
             toast.push({
@@ -357,11 +379,12 @@ export default function ProfilePage() {
 
         setWithdrawLoading(true)
         try {
-            const sanitizedName = removeSign4VietnameseString(name || currentUser?.name || '')
+            const sanitizedName = removeSign4VietnameseString(accountName)
             await createWithdrawal(
                 amt,
                 bankCode,
                 accountNumber,
+                accountName.trim(),
                 withdrawDesc.trim() || `Rut tien ve tai khoan ${bankCode}`,
                 otpCode.trim()
             )
@@ -372,6 +395,7 @@ export default function ProfilePage() {
             })
             setWithdrawAmount('')
             setAccountNumber('')
+            setAccountName(name || currentUser?.name || '')
             setWithdrawDesc('')
             setOtpCode('')
             setOtpSent(false)
@@ -1174,7 +1198,7 @@ export default function ProfilePage() {
                                                     LƯU Ý BẢO MẬT (Strict Security Mode)
                                                 </div>
                                                 <p>
-                                                    Họ tên chủ tài khoản ngân hàng thụ hưởng bắt buộc phải trùng khớp 100% với **Tên thật trên hồ sơ cá nhân** của bạn. Hệ thống đã khóa cố định ô này để đảm bảo an toàn tuyệt đối, tránh rủi ro rút tiền về tài khoản giả mạo.
+                                                    Họ tên chủ tài khoản ngân hàng phải trùng với tài khoản nhận tiền. Bạn có thể chỉnh tên này nếu tên Google hoặc hồ sơ chưa đúng với ngân hàng.
                                                 </p>
                                             </div>
 
@@ -1216,15 +1240,18 @@ export default function ProfilePage() {
                                                 </div>
 
                                                 <div className="space-y-1">
-                                                    <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Tên chủ tài khoản (ĐÃ KHÓA)</label>
+                                                    <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Tên chủ tài khoản</label>
                                                     <input
                                                         type="text"
-                                                        value={removeSign4VietnameseString(name || currentUser?.name || '')}
-                                                        disabled
-                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500 outline-none cursor-not-allowed select-none"
+                                                        value={accountName}
+                                                        onChange={(e) => setAccountName(e.target.value)}
+                                                        disabled={otpSent}
+                                                        placeholder="Nhập đúng tên trên tài khoản ngân hàng"
+                                                        required
+                                                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition duration-200 disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                                                     />
                                                     <p className="px-1 text-[9px] font-bold text-indigo-600">
-                                                        * Tên tự động chuyển hóa: Viết hoa không dấu chuẩn ngân hàng.
+                                                        * Chuẩn hóa: {accountName ? removeSign4VietnameseString(accountName) : 'VIET HOA KHONG DAU'}
                                                     </p>
                                                 </div>
 

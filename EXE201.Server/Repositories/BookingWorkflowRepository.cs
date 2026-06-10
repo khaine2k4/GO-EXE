@@ -173,6 +173,11 @@ namespace EXE201.Server.Repositories
             => await BookingQuery()
                 .FirstOrDefaultAsync(b => b.Payments.Any(p => p.PaymentCode == paymentCode));
 
+        public async Task<Booking?> GetBookingByProviderRefAsync(string providerRef)
+            => await BookingQuery()
+                .FirstOrDefaultAsync(b => b.Payments.Any(p => p.ProviderRef == providerRef));
+
+
         // ── Booking Status ───────────────────────────────────────────────────
 
         public async Task<long?> GetBookingStatusIdAsync(string statusName)

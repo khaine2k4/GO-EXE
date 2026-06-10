@@ -166,6 +166,12 @@ public partial class PhotoStudioBookingContext : DbContext
             entity.Property(e => e.ShootingLocation)
                 .HasMaxLength(500)
                 .HasColumnName("shooting_location");
+            entity.Property(e => e.ShootingLat)
+                .HasColumnType("decimal(10, 7)")
+                .HasColumnName("shooting_lat");
+            entity.Property(e => e.ShootingLng)
+                .HasColumnType("decimal(10, 7)")
+                .HasColumnName("shooting_lng");
             entity.Property(e => e.SlotId).HasColumnName("slot_id");
             entity.Property(e => e.StatusId).HasColumnName("status_id");
             entity.Property(e => e.StudioId).HasColumnName("studio_id");

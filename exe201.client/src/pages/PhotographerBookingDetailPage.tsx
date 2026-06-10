@@ -26,6 +26,8 @@ import {
   type BookingDto,
 } from '../services/bookingApi'
 import MultiImageUploader from '../components/MultiImageUploader'
+import BookingLocationMap from '../components/map/BookingLocationMap'
+import ReasonDialog from '../components/ReasonDialog'
 
 function formatVnd(value: number) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`
@@ -62,6 +64,7 @@ export default function PhotographerBookingDetailPage() {
   const [actioning, setActioning] = useState(false)
   const [error, setError] = useState('')
   const [deliveryForm, setDeliveryForm] = useState<{ type: 'demo' | 'final'; urls: string[]; note: string } | null>(null)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -79,11 +82,22 @@ export default function PhotographerBookingDetailPage() {
       setBooking(updated)
       setDeliveryForm(null)
       toast.push({ type: 'success', title })
+      return true
     } catch {
       toast.push({ type: 'error', title: 'Thao tác thất bại' })
+      return false
     } finally {
       setActioning(false)
     }
+  }
+
+  async function handleReject(reason: string) {
+    if (!booking) return
+    const succeeded = await runAction(
+      () => rejectBooking(booking.id, reason.trim() || undefined),
+      'Đã từ chối đơn đặt lịch',
+    )
+    if (succeeded) setRejectDialogOpen(false)
   }
 
   async function submitDelivery() {
@@ -140,6 +154,16 @@ export default function PhotographerBookingDetailPage() {
             <Info icon={<MapPin className="h-4 w-4 text-indigo-600" />} label="Địa điểm buổi chụp" value={booking.shootingLocation || 'Tại Studio'} />
             <Info icon={<CircleDollarSign className="h-4 w-4 text-indigo-600" />} label="Doanh thu Studio của bạn" value={formatVnd(booking.studioRevenue)} />
             <Info icon={<Clock className="h-4 w-4 text-indigo-600" />} label="Thời gian tạo đơn" value={new Date(booking.createdAt).toLocaleString('vi-VN')} />
+          </div>
+
+          <div className="mt-6">
+            <BookingLocationMap
+              lat={booking.shootingLat}
+              lng={booking.shootingLng}
+              address={booking.shootingLocation}
+              title="Điểm hẹn chụp ảnh"
+              subtitle={`${formatDate(booking.shootingDate)} lúc ${booking.startTime} - ${booking.endTime}`}
+            />
           </div>
 
           {/* Guest Notes */}
@@ -217,7 +241,7 @@ export default function PhotographerBookingDetailPage() {
                   <button disabled={actioning} type="button" onClick={() => runAction(() => confirmBooking(booking.id), 'Đã xác nhận đơn đặt lịch')} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 hover:bg-slate-800 text-xs font-black uppercase text-white shadow-md active:scale-95 transition-all disabled:opacity-50">
                     <CheckCircle2 className="h-4 w-4" /> Xác nhận đơn
                   </button>
-                  <button disabled={actioning} type="button" onClick={() => runAction(() => rejectBooking(booking.id, window.prompt('Nhập lý do từ chối nhận đơn đặt lịch này:') || undefined), 'Đã từ chối đơn đặt lịch')} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white hover:bg-rose-50 text-xs font-black uppercase text-rose-600 active:scale-95 transition-all disabled:opacity-50">
+                  <button disabled={actioning} type="button" onClick={() => setRejectDialogOpen(true)} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white hover:bg-rose-50 text-xs font-black uppercase text-rose-600 active:scale-95 transition-all disabled:opacity-50">
                     <XCircle className="h-4 w-4" /> Từ chối nhận
                   </button>
                 </>
@@ -269,6 +293,19 @@ export default function PhotographerBookingDetailPage() {
           </div>
         </aside>
       </div>
+      <ReasonDialog
+        open={rejectDialogOpen}
+        title="Từ chối nhận đơn đặt lịch"
+        description="Lý do này giúp khách hàng hiểu rõ tình trạng đơn và hỗ trợ admin kiểm tra khi cần."
+        label="Lý do từ chối"
+        placeholder="Ví dụ: Studio bận lịch đột xuất, cần khách chọn khung giờ khác..."
+        defaultReason="Studio từ chối nhận đơn đặt lịch"
+        confirmText="Từ chối đơn"
+        danger
+        loading={actioning}
+        onCancel={() => setRejectDialogOpen(false)}
+        onSubmit={handleReject}
+      />
     </div>
   )
 }
