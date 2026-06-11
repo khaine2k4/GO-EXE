@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, BadgeCheck, MessageCircle, Star, X } from 'lucide-react'
 import { getStudioDetail } from '../services/studioApi'
 import type { ServiceSummary, StudioDetail } from '../services/catalogTypes'
+import { logAnalyticsEvent } from '../services/analyticsApi'
 
 function formatVnd(value?: number) {
   if (!value) return 'Liên hệ'
@@ -23,7 +24,10 @@ export default function PhotographerProfilePage() {
     if (!id) return
     setLoading(true)
     getStudioDetail(id)
-      .then(setStudio)
+      .then((data) => {
+        setStudio(data)
+        logAnalyticsEvent('VIEW_STUDIO', window.location.pathname, data.id).catch(() => {})
+      })
       .catch(() => setError('Không tải được hồ sơ studio.'))
       .finally(() => setLoading(false))
   }, [id])

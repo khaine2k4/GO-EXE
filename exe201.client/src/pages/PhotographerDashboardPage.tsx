@@ -25,8 +25,9 @@ import FinanceManager from '../components/photographer/management/FinanceManager
 import PhotographerProfileManager from '../components/photographer/management/PhotographerProfileManager'
 import ScheduleManager from '../components/photographer/management/ScheduleManager'
 import ReviewManager from '../components/photographer/management/ReviewManager'
+import StudioAnalyticsManager from '../components/photographer/management/StudioAnalyticsManager'
 
-type DashboardTab = 'overview' | 'manage' | 'content' | 'bookings' | 'finance'
+type DashboardTab = 'overview' | 'manage' | 'content' | 'bookings' | 'finance' | 'analytics'
 
 export default function PhotographerDashboardPage() {
   const [params, setParams] = useSearchParams()
@@ -176,6 +177,7 @@ export default function PhotographerDashboardPage() {
           )}
           {activeTab === 'bookings' && <BookingManager initialBooking={selectedBooking} onChanged={refreshAll} />}
           {activeTab === 'finance' && <FinanceManager />}
+          {activeTab === 'analytics' && <StudioAnalyticsManager />}
           {activeTab === 'content' && (
             <>
               <SubTabs
@@ -199,7 +201,7 @@ export default function PhotographerDashboardPage() {
 }
 
 function normalizeTab(value: string | null): DashboardTab {
-  if (value === 'manage' || value === 'content' || value === 'bookings' || value === 'finance') return value
+  if (value === 'manage' || value === 'content' || value === 'bookings' || value === 'finance' || value === 'analytics') return value
   if (value === 'services' || value === 'packages' || value === 'schedule') return 'manage'
   if (value === 'portfolio' || value === 'reviews' || value === 'profile') return 'content'
   return 'overview'

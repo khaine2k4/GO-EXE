@@ -25,6 +25,7 @@ const NAV: Record<string, { label: string; to: string }[]> = {
     { label: 'Booking', to: '/photographer/dashboard?tab=bookings' },
     { label: 'Tài chính', to: '/photographer/dashboard?tab=finance' },
     { label: 'Nội dung', to: '/photographer/dashboard?tab=content' },
+    { label: 'Thống kê', to: '/photographer/dashboard?tab=analytics' },
   ],
   STUDIO_OWNER: [
     { label: 'Tổng quan', to: '/photographer/dashboard' },
@@ -32,6 +33,7 @@ const NAV: Record<string, { label: string; to: string }[]> = {
     { label: 'Booking', to: '/photographer/dashboard?tab=bookings' },
     { label: 'Tài chính', to: '/photographer/dashboard?tab=finance' },
     { label: 'Nội dung', to: '/photographer/dashboard?tab=content' },
+    { label: 'Thống kê', to: '/photographer/dashboard?tab=analytics' },
   ],
   ADMIN: [
     { label: 'Người dùng', to: '/admin/users' },

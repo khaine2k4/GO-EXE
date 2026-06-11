@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type React from 'react'
-import { AlertCircle, BarChart3, Building2, CalendarCheck, RefreshCw, Star, Users } from 'lucide-react'
+import { AlertCircle, BarChart3, Building2, CalendarCheck, RefreshCw, Star, Users, Eye, MousePointerClick, TrendingUp } from 'lucide-react'
 import { getAdminDashboardStats, type AdminDashboardStats } from '../services/adminDashboardApi'
+import { getAdminAnalytics, type AdminAnalyticsSummary, type DailyEventCount, type TopStudioAnalytics } from '../services/analyticsApi'
 
 const emptyDashboard: AdminDashboardStats = {
   systemStats: {
@@ -32,15 +33,23 @@ function formatDate(value?: string) {
 
 export default function AdminDashboardPage() {
   const [dashboard, setDashboard] = useState<AdminDashboardStats>(emptyDashboard)
+  const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null)
+  const [days, setDays] = useState(7)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (selectedDays: number) => {
     setLoading(true)
     setError('')
     try {
-      setDashboard(await getAdminDashboardStats())
-    } catch {
+      const [statsData, analyticsData] = await Promise.all([
+        getAdminDashboardStats(),
+        getAdminAnalytics(selectedDays)
+      ])
+      setDashboard(statsData)
+      setAnalytics(analyticsData)
+    } catch (err) {
+      console.error(err)
       setError('Không tải được dashboard admin.')
     } finally {
       setLoading(false)
@@ -48,13 +57,40 @@ export default function AdminDashboardPage() {
   }, [])
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchData(days)
+  }, [fetchData, days])
 
   const maxCommission = useMemo(
     () => Math.max(...dashboard.monthlyRevenue.map((item) => item.platformCommission), 1),
     [dashboard.monthlyRevenue]
   )
+
+  const maxAnalyticsCount = useMemo(() => {
+    if (!analytics) return 1
+    const viewMax = analytics.dailyViews.length > 0 ? Math.max(...analytics.dailyViews.map((d: DailyEventCount) => d.count)) : 0
+    const bookingMax = analytics.dailyBookings.length > 0 ? Math.max(...analytics.dailyBookings.map((d: DailyEventCount) => d.count)) : 0
+    return Math.max(viewMax, bookingMax, 5)
+  }, [analytics])
+
+  const shouldShowLabel = (idx: number) => {
+    if (days <= 7) return true
+    if (days <= 14) return idx % 2 === 0
+    if (days <= 30) return idx % 5 === 0
+    return idx % 10 === 0
+  }
+
+  const barWidthClass = useMemo(() => {
+    if (days <= 7) return 'w-3 sm:w-4'
+    if (days <= 14) return 'w-2 sm:w-3'
+    if (days <= 30) return 'w-1 sm:w-2'
+    return 'w-px sm:w-1'
+  }, [days])
+
+  const barGapClass = useMemo(() => {
+    if (days <= 7) return 'gap-1'
+    if (days <= 14) return 'gap-0.5'
+    return 'gap-[1px]'
+  }, [days])
 
   return (
     <div className="space-y-5 pb-12">
@@ -81,6 +117,104 @@ export default function AdminDashboardPage() {
         <Metric icon={<CalendarCheck className="h-5 w-5" />} label="Đã hoàn thành" value={dashboard.systemStats.completedBookings} tone="emerald" />
         <Metric icon={<BarChart3 className="h-5 w-5" />} label="Tỷ lệ hoàn thành" value={`${dashboard.systemStats.completionRate}%`} tone="indigo" />
       </div>
+
+      {analytics && (
+        <section className="space-y-5">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-base font-semibold text-slate-950">Hiệu suất tương tác toàn sàn (7 ngày qua)</h3>
+            <p className="mt-1 text-xs text-slate-500 font-medium">Lượt xem, lượt click đặt lịch và tỷ lệ chuyển đổi chung của toàn hệ thống.</p>
+
+            <div className="grid gap-4 sm:grid-cols-3 mt-4">
+              <div className="rounded-xl border border-slate-100 p-4 bg-slate-50/50 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng views Studio</span>
+                  <p className="text-2xl font-black text-indigo-700 mt-1">{analytics.totalViews.toLocaleString()}</p>
+                </div>
+                <Eye className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div className="rounded-xl border border-slate-100 p-4 bg-slate-50/50 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng clicks đặt lịch</span>
+                  <p className="text-2xl font-black text-emerald-700 mt-1">{analytics.totalBookingClicks.toLocaleString()}</p>
+                </div>
+                <MousePointerClick className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div className="rounded-xl border border-slate-100 p-4 bg-slate-50/50 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tỷ lệ chuyển đổi chung</span>
+                  <p className="text-2xl font-black text-amber-600 mt-1">{analytics.bookingConversionRate}%</p>
+                </div>
+                <TrendingUp className="h-5 w-5 text-amber-500" />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-[1.3fr_0.9fr]">
+            {/* System interaction chart */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-slate-950">Xu hướng truy cập & Đặt lịch toàn sàn</h3>
+                <p className="text-xs text-slate-500 font-medium">Số lượt view và click booking qua các ngày.</p>
+              </div>
+              <div className="flex h-56 items-end gap-2 border-b border-l border-slate-100 pb-2 pl-2">
+                {analytics.dailyViews.map((item: DailyEventCount, idx: number) => {
+                  const viewHeight = Math.max(4, Math.round((item.count * 100) / maxAnalyticsCount))
+                  const bookingItem = analytics.dailyBookings[idx]
+                  const bookingHeight = bookingItem ? Math.max(4, Math.round((bookingItem.count * 100) / maxAnalyticsCount)) : 4
+                  const dateParts = item.date.split('-')
+                  const displayDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}` : item.date
+
+                  return (
+                    <div key={item.date} className="group relative flex min-w-0 flex-1 flex-col items-center gap-1">
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full mb-1 hidden flex-col items-center rounded-lg bg-slate-950 p-2 text-[9px] font-black text-white shadow-md group-hover:flex z-10 w-24">
+                        <p className="text-indigo-400">Views: {item.count}</p>
+                        <p className="text-emerald-400">Clicks: {bookingItem?.count ?? 0}</p>
+                        <span className="text-slate-500 text-[8px] font-normal">{displayDate}</span>
+                      </div>
+
+                      <div className={`flex w-full items-end justify-center ${barGapClass} h-48`}>
+                        <div className={`${barWidthClass} rounded-t bg-indigo-500 transition-all duration-300`} style={{ height: `${viewHeight}%` }} />
+                        <div className={`${barWidthClass} rounded-t bg-emerald-500 transition-all duration-300`} style={{ height: `${bookingHeight}%` }} />
+                      </div>
+                      <div className="w-full truncate text-center text-[10px] font-medium text-slate-400 h-4">
+                        {shouldShowLabel(idx) ? displayDate : ''}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Top studios by interaction */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-slate-950">Top Studios theo tương tác</h3>
+                <p className="text-xs text-slate-500 font-medium">Bản lĩnh thu hút traffic và tạo booking.</p>
+              </div>
+              <div className="space-y-2.5 mt-4">
+                {analytics.topStudios.map((studio: TopStudioAnalytics, idx: number) => (
+                  <div key={studio.studioId} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-2.5 shadow-sm text-xs">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-xs font-black text-indigo-700 shadow-sm border border-slate-100">
+                      #{idx + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-black text-slate-900">{studio.studioName}</div>
+                      <div className="text-[10px] font-semibold text-slate-400">{studio.city} · {studio.views} xem</div>
+                    </div>
+                    <div className="shrink-0 font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md text-[10px]">
+                      {studio.bookingClicks} clicks ({studio.conversionRate}%)
+                    </div>
+                  </div>
+                ))}
+                {analytics.topStudios.length === 0 && (
+                  <div className="py-10 text-center text-xs font-semibold text-slate-400">Chưa có số liệu tương tác.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-[1.3fr_0.9fr]">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

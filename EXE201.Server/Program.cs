@@ -68,6 +68,8 @@ namespace EXE201.Server
             builder.Services.AddHttpClient<EXE201.Server.Services.IGeminiChatbotService, EXE201.Server.Services.GeminiChatbotService>();
             builder.Services.AddScoped<EXE201.Server.Repositories.IWalletRepository, EXE201.Server.Repositories.WalletRepository>();
             builder.Services.AddScoped<EXE201.Server.Services.IWalletService, EXE201.Server.Services.WalletService>();
+            builder.Services.AddScoped<EXE201.Server.Repositories.IAnalyticsRepository, EXE201.Server.Repositories.AnalyticsRepository>();
+            builder.Services.AddScoped<EXE201.Server.Services.IAnalyticsService, EXE201.Server.Services.AnalyticsService>();
             builder.Services.AddScoped<EXE201.Server.Services.IEmailService, EXE201.Server.Services.EmailService>();
             builder.Services.AddSingleton<EXE201.Server.Services.ICloudinaryService, EXE201.Server.Services.CloudinaryService>();
 

@@ -71,6 +71,8 @@ public partial class PhotoStudioBookingContext : DbContext
 
     public virtual DbSet<PayoutRequest> PayoutRequests { get; set; }
 
+    public virtual DbSet<AnalyticsEvent> AnalyticsEvents { get; set; }
+
     public virtual DbSet<VMonthlyPlatformRevenue> VMonthlyPlatformRevenues { get; set; }
 
     public virtual DbSet<VStudioRevenue> VStudioRevenues { get; set; }
@@ -1436,6 +1438,39 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasForeignKey(d => d.WalletId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_payout_requests_wallets");
+        });
+
+        modelBuilder.Entity<AnalyticsEvent>(entity =>
+        {
+            entity.HasKey(e => e.EventId).HasName("PK_analytics_events");
+            entity.ToTable("analytics_events");
+
+            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.Property(e => e.EventName)
+                .HasMaxLength(50)
+                .IsUnicode(false)
+                .HasColumnName("event_name");
+            entity.Property(e => e.PageUrl)
+                .HasMaxLength(255)
+                .HasColumnName("page_url");
+            entity.Property(e => e.StudioId).HasColumnName("studio_id");
+            entity.Property(e => e.PackageId).HasColumnName("package_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Studio).WithMany()
+                .HasForeignKey(d => d.StudioId)
+                .HasConstraintName("FK_analytics_events_studios");
+
+            entity.HasOne(d => d.Package).WithMany()
+                .HasForeignKey(d => d.PackageId)
+                .HasConstraintName("FK_analytics_events_packages");
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("FK_analytics_events_users");
         });
 
         modelBuilder.HasSequence("seq_booking_code");

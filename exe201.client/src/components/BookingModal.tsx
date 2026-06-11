@@ -9,6 +9,7 @@ import { useToast } from './Toast'
 import type { Photographer, Photoset } from '../types'
 import type { ServiceDetail } from '../services/catalogTypes'
 import { getStudioDays } from '../services/scheduleApi'
+import { logAnalyticsEvent } from '../services/analyticsApi'
 import LocationPickerMap from './map/LocationPickerMap'
 import { DA_NANG_CENTER, hasCoordinate, type MapCoordinate } from './map/mapConstants'
 import {
@@ -165,7 +166,17 @@ export default function BookingModal({
     setSuggestions([])
     setSearchQuery('')
     setShowSuggestions(false)
+
+    if (service?.studioId) {
+      logAnalyticsEvent('CLICK_BOOKING', window.location.pathname, service.studioId, service.packages[0]?.id).catch(() => {})
+    }
   }, [open, service?.id])
+
+  useEffect(() => {
+    if (open && service?.studioId && selectedPackageId) {
+      logAnalyticsEvent('SELECT_PACKAGE', window.location.pathname, service.studioId, selectedPackageId).catch(() => {})
+    }
+  }, [selectedPackageId, open, service?.studioId])
 
   useEffect(() => {
     if (!open || !service?.studioId) {
