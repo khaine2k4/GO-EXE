@@ -279,7 +279,8 @@ namespace EXE201.Server.Services
             if (reloadedUser == null) return null;
 
             // Đường dẫn kích hoạt tài khoản bằng HashRouter
-            string verifyUrl = $"http://localhost:5173/#/verify-email?token={verificationToken}&email={Uri.EscapeDataString(request.Email)}";
+            var frontendUrl = _configuration["PayOS:FrontendUrl"] ?? _configuration["SePay:FrontendBaseUrl"] ?? "http://localhost:5173";
+            string verifyUrl = $"{frontendUrl}/#/verify-email?token={verificationToken}&email={Uri.EscapeDataString(request.Email)}";
 
             // Gửi email kích hoạt tài khoản trong luồng chạy ngầm để không chặn phản hồi HTTP
             _ = Task.Run(async () =>
@@ -412,7 +413,8 @@ namespace EXE201.Server.Services
             await _userRepository.UpdateUserAsync(user);
 
             // Đường link đổi mật khẩu
-            string resetUrl = $"http://localhost:5173/#/reset-password?token={token}&email={Uri.EscapeDataString(email)}";
+            var frontendUrl = _configuration["PayOS:FrontendUrl"] ?? _configuration["SePay:FrontendBaseUrl"] ?? "http://localhost:5173";
+            string resetUrl = $"{frontendUrl}/#/reset-password?token={token}&email={Uri.EscapeDataString(email)}";
 
             // Gửi email chứa đường dẫn khôi phục mật khẩu chuẩn ngoài đời
             _ = Task.Run(async () =>

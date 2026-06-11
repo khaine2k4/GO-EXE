@@ -37,6 +37,18 @@ public partial class Booking
 
     public decimal StudioRevenue { get; set; }
 
+    public string? PackageNameSnapshot { get; set; }
+
+    public string? ServiceNameSnapshot { get; set; }
+
+    public string? PackageDescriptionSnapshot { get; set; }
+
+    public int? PackageDurationHoursSnapshot { get; set; }
+
+    public int? PackageMaxPhotosSnapshot { get; set; }
+
+    public string? PackageInclusionsSnapshot { get; set; }
+
     public DateTime? PaymentExpiresAt { get; set; }
 
     public DateTime? ConfirmedAt { get; set; }
@@ -61,6 +73,10 @@ public partial class Booking
 
     public long? DisputeResolvedBy { get; set; }
 
+    public long? DisputeCreatedBy { get; set; }
+
+    public string? DisputeCreatedByRole { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public long? CreatedBy { get; set; }
@@ -76,6 +92,8 @@ public partial class Booking
     public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
 
     public virtual User Customer { get; set; } = null!;
+
+    public virtual User? DisputeCreatedByNavigation { get; set; }
 
     public virtual User? DisputeResolvedByNavigation { get; set; }
 

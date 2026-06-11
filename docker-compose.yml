@@ -28,6 +28,7 @@ services:
       - PayOS__ChecksumKey=${PAYOS_CHECKSUM_KEY}
       - PayOS__ReturnUrl=https://gophotostudio.uk/api/payments/payos-return
       - PayOS__CancelUrl=https://gophotostudio.uk/customer/bookings
+      - PayOS__FrontendUrl=https://gophotostudio.uk
       - PayOS__PayoutClientId=${PAYOS_PAYOUT_CLIENT_ID}
       - PayOS__PayoutApiKey=${PAYOS_PAYOUT_API_KEY}
       - PayOS__PayoutChecksumKey=${PAYOS_PAYOUT_CHECKSUM_KEY}

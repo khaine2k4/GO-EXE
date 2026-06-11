@@ -25,6 +25,7 @@ namespace EXE201.Server.Repositories
                 .Include(b => b.Studio)
                 .Include(b => b.Package)
                 .Include(b => b.Status)
+                .Include(b => b.BookingLogs)
                 .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
                 .Include(b => b.Payments).ThenInclude(p => p.Method)
                 .AsQueryable();
@@ -41,9 +42,15 @@ namespace EXE201.Server.Repositories
 
             if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
             {
-                query = status == "DISPUTED"
-                    ? query.Where(b => b.DisputedAt != null && b.DisputeResolvedAt == null)
-                    : query.Where(b => b.Status.StatusName == status && (b.DisputedAt == null || b.DisputeResolvedAt != null));
+                query = status switch
+                {
+                    "DISPUTED" => query.Where(b => b.DisputedAt != null && b.DisputeResolvedAt == null),
+                    "NO_SHOW" => query.Where(b =>
+                        b.Status.StatusName == "CANCELLED" &&
+                        b.BookingLogs.Any(l => l.NewStatus == "NO_SHOW") &&
+                        (b.DisputedAt == null || b.DisputeResolvedAt != null)),
+                    _ => query.Where(b => b.Status.StatusName == status && (b.DisputedAt == null || b.DisputeResolvedAt != null))
+                };
             }
 
             if (!string.IsNullOrWhiteSpace(paymentStatus) && paymentStatus != "ALL")
@@ -203,6 +210,12 @@ namespace EXE201.Server.Repositories
                     });
                 }
 
+                await _walletService.CreditStudioEarningAsync(
+                    booking.StudioId,
+                    booking.StudioRevenue,
+                    booking.BookingId,
+                    $"[Khiếu nại] Admin release doanh thu Booking #{booking.BookingCode} cho Studio");
+
                 AddBookingLog(booking.BookingId, oldStatus, "COMPLETED", adminId, BuildAdminDisputeNote("Release to studio", adminNote));
             }
             else
@@ -355,6 +368,8 @@ namespace EXE201.Server.Repositories
             review.UpdatedAt = DateTime.UtcNow;
             review.UpdatedBy = adminId;
 
+            await _context.SaveChangesAsync();
+            await RecalculateStudioRatingAsync(review.StudioId);
             await _context.SaveChangesAsync();
             return true;
         }
@@ -531,6 +546,7 @@ namespace EXE201.Server.Repositories
             else if (normalizedStatus == "REFUNDED")
             {
                 payment.RefundedAt ??= DateTime.UtcNow;
+                payment.RefundMethod = "WALLET";
                 payment.RefundReason = request.Reason;
             }
             else if (normalizedStatus == "REFUND_PENDING")
@@ -548,6 +564,15 @@ namespace EXE201.Server.Repositories
                 payment.FailureReason = request.Reason;
             }
 
+            await SyncBookingForManualPaymentStatusAsync(payment, normalizedStatus, request.Reason, adminId);
+            if (normalizedStatus == "REFUNDED" && payment.Method.MethodName != "CASH")
+            {
+                await _walletService.CreditCustomerRefundAsync(
+                    payment.Booking.CustomerId,
+                    payment.Amount,
+                    payment.BookingId,
+                    $"[Admin] Hoàn tiền Booking #{payment.Booking.BookingCode}");
+            }
             await _context.SaveChangesAsync();
             return MapAdminPaymentDetail(payment);
         }
@@ -674,24 +699,9 @@ namespace EXE201.Server.Repositories
 
             if (normPayoutMethod == "PAYOS_PAYOUT")
             {
-                // In Sandbox / MVP environment, we use a standard sandbox destination account since
-                // database does not store individual Studio bank details yet.
-                var accountNumber = "123456789";
-                var bankCode = "970422"; // MB Bank (Military Bank) BIN Code
-                var accountName = "NGUYEN VAN A";
-
-                var payoutSuccess = await _payOsService.ExecutePayoutAsync(
-                    accountNumber,
-                    bankCode,
-                    accountName,
-                    (int)settlement.StudioAmount,
-                    $"Thanh toan studio BK {settlement.Booking.BookingCode}"
-                );
-
-                if (!payoutSuccess)
-                {
-                    throw new InvalidOperationException("PayOS automated payout failed. Check configuration or balance.");
-                }
+                // Direct bank payouts need a verified destination account.
+                // Use the wallet withdrawal workflow for PayOS/NAPAS transfers.
+                normPayoutMethod = "WALLET";
             }
 
             settlement.Status = "PAID";
@@ -701,12 +711,9 @@ namespace EXE201.Server.Repositories
 
             await _context.SaveChangesAsync();
 
-            // Cộng tiền vào wallet studio sau khi admin duyệt settlement
-            await _walletService.CreditStudioEarningAsync(
-                settlement.StudioId,
-                settlement.StudioAmount,
-                settlement.BookingId,
-                $"[Admin duyệt] Thu nhập từ Booking #{settlement.Booking.BookingCode}");
+            // NOTE: Tiền studio đã được cộng vào ví khi booking chuyển sang COMPLETED
+            // (ConfirmCompletionAsync / AutoCompleteDeliveredBookingsAsync).
+            // Settlement ở đây chỉ là tracking trạng thái payout/accounting, không credit lại.
 
             return MapSettlement(settlement);
         }
@@ -729,7 +736,8 @@ namespace EXE201.Server.Repositories
                 .Include(p => p.Booking).ThenInclude(b => b.Customer)
                 .Include(p => p.Booking).ThenInclude(b => b.Studio)
                 .Include(p => p.Booking).ThenInclude(b => b.Package)
-                .Include(p => p.Booking).ThenInclude(b => b.Status);
+                .Include(p => p.Booking).ThenInclude(b => b.Status)
+                .Include(p => p.Booking).ThenInclude(b => b.Slot);
         }
 
         private IQueryable<Settlement> SettlementQuery()
@@ -751,6 +759,7 @@ namespace EXE201.Server.Repositories
                 .Include(b => b.Payments).ThenInclude(p => p.Method)
                 .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
                 .Include(b => b.BookingLogs).ThenInclude(l => l.ChangedByNavigation)
+                .Include(b => b.DisputeCreatedByNavigation)
                 .Include(b => b.DisputeResolvedByNavigation);
         }
 
@@ -790,8 +799,76 @@ namespace EXE201.Server.Repositories
         private static bool IsDisputed(Booking booking)
             => booking.DisputedAt.HasValue && !booking.DisputeResolvedAt.HasValue;
 
+        private async Task RecalculateStudioRatingAsync(long studioId)
+        {
+            var studio = await _context.Studios.FirstOrDefaultAsync(s => s.StudioId == studioId);
+            if (studio == null) return;
+
+            var visibleReviews = _context.Reviews.Where(r => r.StudioId == studioId && !r.IsHidden);
+            var totalReviews = await visibleReviews.CountAsync();
+            var avgRating = totalReviews == 0
+                ? 0m
+                : Math.Round(await visibleReviews.AverageAsync(r => (decimal)r.Rating), 1);
+
+            studio.TotalReviews = totalReviews;
+            studio.AvgRating = avgRating;
+            studio.UpdatedAt = DateTime.UtcNow;
+        }
+
         private static string GetEffectiveBookingStatus(Booking booking)
-            => IsDisputed(booking) ? "DISPUTED" : booking.Status.StatusName;
+        {
+            if (IsDisputed(booking)) return "DISPUTED";
+            if (booking.Status.StatusName == "CANCELLED" && booking.BookingLogs.Any(l => l.NewStatus == "NO_SHOW")) return "NO_SHOW";
+            return booking.Status.StatusName;
+        }
+
+        private async Task SyncBookingForManualPaymentStatusAsync(Payment payment, string paymentStatus, string? reason, long adminId)
+        {
+            var booking = payment.Booking;
+            if (booking == null) return;
+
+            var currentStatus = booking.Status.StatusName;
+            var now = DateTime.UtcNow;
+
+            if (paymentStatus == "PAID" && currentStatus == "PENDING_PAYMENT")
+            {
+                var pendingConfirmation = await GetBookingStatusAsync("PENDING_CONFIRMATION");
+                booking.StatusId = pendingConfirmation.StatusId;
+                booking.Status = pendingConfirmation;
+                booking.PaymentExpiresAt = null;
+                booking.UpdatedAt = now;
+                booking.UpdatedBy = adminId;
+                if (booking.Slot != null) booking.Slot.Status = "BOOKED";
+                AddBookingLog(booking.BookingId, currentStatus, "PENDING_CONFIRMATION", adminId, reason ?? "Admin manually marked payment as PAID");
+            }
+            else if (paymentStatus is "FAILED" or "CANCELLED" && currentStatus == "PENDING_PAYMENT")
+            {
+                var cancelled = await GetBookingStatusAsync("CANCELLED");
+                booking.StatusId = cancelled.StatusId;
+                booking.Status = cancelled;
+                booking.CancelledAt = now;
+                booking.CancelledBy = adminId;
+                booking.CancelReason = reason ?? $"Admin manually marked payment as {paymentStatus}";
+                booking.PaymentExpiresAt = null;
+                booking.UpdatedAt = now;
+                booking.UpdatedBy = adminId;
+                if (booking.Slot != null) booking.Slot.Status = "OPEN";
+                AddBookingLog(booking.BookingId, currentStatus, "CANCELLED", adminId, booking.CancelReason);
+            }
+            else if (paymentStatus == "REFUNDED" && currentStatus is "PENDING_CONFIRMATION" or "CONFIRMED" or "IN_PROGRESS")
+            {
+                var cancelled = await GetBookingStatusAsync("CANCELLED");
+                booking.StatusId = cancelled.StatusId;
+                booking.Status = cancelled;
+                booking.CancelledAt = now;
+                booking.CancelledBy = adminId;
+                booking.CancelReason = reason ?? "Admin manually marked payment as REFUNDED";
+                booking.UpdatedAt = now;
+                booking.UpdatedBy = adminId;
+                if (booking.Slot != null) booking.Slot.Status = "OPEN";
+                AddBookingLog(booking.BookingId, currentStatus, "CANCELLED", adminId, booking.CancelReason);
+            }
+        }
 
         private async Task MarkLatestPaidPaymentForRefundAsync(Booking booking, string reason)
         {
@@ -800,10 +877,11 @@ namespace EXE201.Server.Repositories
                 .FirstOrDefault(p => p.PaymentStatus.StatusName == "PAID");
             if (payment == null || payment.Method.MethodName == "CASH") return;
 
-            var refundPending = await GetPaymentStatusAsync("REFUND_PENDING");
-            payment.PaymentStatusId = refundPending.PaymentStatusId;
-            payment.PaymentStatus = refundPending;
-            payment.RefundMethod = "MANUAL";
+            var refunded = await GetPaymentStatusAsync("REFUNDED");
+            payment.PaymentStatusId = refunded.PaymentStatusId;
+            payment.PaymentStatus = refunded;
+            payment.RefundedAt = DateTime.UtcNow;
+            payment.RefundMethod = "WALLET";
             payment.RefundPendingReason = reason;
             payment.RefundReason = reason;
             payment.UpdatedAt = DateTime.UtcNow;
@@ -924,6 +1002,9 @@ namespace EXE201.Server.Repositories
                     {
                         Reason = booking.DisputeNote,
                         DisputedAt = booking.DisputedAt?.ToString("O"),
+                        CreatedBy = booking.DisputeCreatedBy,
+                        CreatedByName = booking.DisputeCreatedByNavigation?.FullName ?? (booking.DisputeCreatedByRole == "STUDIO_OWNER" ? booking.Studio.StudioName : booking.Customer.FullName),
+                        CreatedByRole = booking.DisputeCreatedByRole,
                         ResolvedAt = booking.DisputeResolvedAt?.ToString("O"),
                         ResolvedBy = booking.DisputeResolvedBy,
                         ResolvedByName = booking.DisputeResolvedByNavigation?.FullName

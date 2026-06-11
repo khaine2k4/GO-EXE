@@ -8,6 +8,7 @@ namespace EXE201.Server.Repositories
     {
         Task<Wallet> GetOrCreateWalletAsync(string ownerType, long ownerId);
         Task<WalletTransaction> CreditWalletAsync(long walletId, decimal amount, string txType, long? bookingId, long? paymentId, string description);
+        Task<WalletTransaction?> FindTransactionAsync(long walletId, string txType, long? bookingId, long? paymentId);
         Task<WalletTransaction> DebitWalletAsync(long walletId, decimal amount, string txType, long? bookingId, long? paymentId, string description);
         Task<List<WalletTransaction>> GetTransactionsByWalletIdAsync(long walletId, int limit = 50);
         Task<List<Wallet>> GetAllWalletsAsync();

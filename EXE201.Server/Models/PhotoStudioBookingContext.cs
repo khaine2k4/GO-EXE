@@ -153,15 +153,29 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
+            entity.Property(e => e.DisputeCreatedBy).HasColumnName("dispute_created_by");
+            entity.Property(e => e.DisputeCreatedByRole)
+                .HasMaxLength(50)
+                .HasColumnName("dispute_created_by_role");
             entity.Property(e => e.DisputeNote).HasColumnName("dispute_note");
             entity.Property(e => e.DisputeResolvedAt).HasColumnName("dispute_resolved_at");
             entity.Property(e => e.DisputeResolvedBy).HasColumnName("dispute_resolved_by");
             entity.Property(e => e.DisputedAt).HasColumnName("disputed_at");
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.PackageId).HasColumnName("package_id");
+            entity.Property(e => e.PackageDescriptionSnapshot).HasColumnName("package_description_snapshot");
+            entity.Property(e => e.PackageDurationHoursSnapshot).HasColumnName("package_duration_hours_snapshot");
+            entity.Property(e => e.PackageInclusionsSnapshot).HasColumnName("package_inclusions_snapshot");
+            entity.Property(e => e.PackageMaxPhotosSnapshot).HasColumnName("package_max_photos_snapshot");
+            entity.Property(e => e.PackageNameSnapshot)
+                .HasMaxLength(255)
+                .HasColumnName("package_name_snapshot");
             entity.Property(e => e.PaymentExpiresAt).HasColumnName("payment_expires_at");
             entity.Property(e => e.RejectReason).HasColumnName("reject_reason");
             entity.Property(e => e.RejectedAt).HasColumnName("rejected_at");
+            entity.Property(e => e.ServiceNameSnapshot)
+                .HasMaxLength(255)
+                .HasColumnName("service_name_snapshot");
             entity.Property(e => e.ShootingDate).HasColumnName("shooting_date");
             entity.Property(e => e.ShootingLocation)
                 .HasMaxLength(500)
@@ -194,6 +208,10 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasForeignKey(d => d.CustomerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_bookings_customer");
+
+            entity.HasOne(d => d.DisputeCreatedByNavigation).WithMany(p => p.BookingDisputeCreatedByNavigations)
+                .HasForeignKey(d => d.DisputeCreatedBy)
+                .HasConstraintName("FK_bookings_dispute_created_by");
 
             entity.HasOne(d => d.DisputeResolvedByNavigation).WithMany(p => p.BookingDisputeResolvedByNavigations)
                 .HasForeignKey(d => d.DisputeResolvedBy)

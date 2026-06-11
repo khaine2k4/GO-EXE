@@ -1,4 +1,4 @@
-using exe201.Server.Models;
+﻿using exe201.Server.Models;
 using EXE201.Server.DTOs;
 using EXE201.Server.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -19,11 +19,18 @@ namespace EXE201.Server.Services
         private const string BookingCompleted = "COMPLETED";
         private const string BookingCancelled = "CANCELLED";
         private const string BookingRejected = "REJECTED";
+        private const string BookingNoShow = "NO_SHOW";
+        private const string BookingRescheduleRequested = "RESCHEDULE_REQUESTED";
+        private const string BookingRescheduleApproved = "RESCHEDULE_APPROVED";
+        private const string BookingRescheduleRejected = "RESCHEDULE_REJECTED";
 
         private const string PaymentPending = "PENDING";
         private const string PaymentPaid = "PAID";
         private const string PaymentFailed = "FAILED";
         private const string PaymentRefundPending = "REFUND_PENDING";
+        private const string PaymentRefunded = "REFUNDED";
+        private const string PaymentPartiallyRefunded = "PARTIALLY_REFUNDED";
+        private const string PaymentForfeited = "FORFEITED";
 
         private const string SlotOpen = "OPEN";
         private const string SlotHolding = "HOLDING";
@@ -209,7 +216,9 @@ namespace EXE201.Server.Services
                 await _repo.SaveChangesAsync();
             }
 
-            if (day.TimeSlots.Any(s => s.StartTime == start)) return null;
+            if (!day.IsAvailable) return null;
+            if (IsSlotInPast(date, start)) return null;
+            if (day.TimeSlots.Any(s => start < s.EndTime && s.StartTime < end)) return null;
 
             var slot = new TimeSlot
             {
@@ -247,6 +256,8 @@ namespace EXE201.Server.Services
 
             if (package == null || slot == null) return null;
             if (slot.Status != SlotOpen) return null;
+            if (!slot.WorkingDay.IsAvailable) return null;
+            if (IsSlotInPast(slot.WorkingDay.WorkingDate, slot.StartTime)) return null;
             if (slot.WorkingDay.StudioId != package.Service.StudioId) return null;
             if (await _repo.SlotHasActiveBookingAsync(request.SlotId)) return null;
             if (package.Service.Studio.Status != "APPROVED" || package.Service.Studio.DeletedAt != null) return null;
@@ -282,6 +293,12 @@ namespace EXE201.Server.Services
                 CommissionAmount = commissionAmount,
                 StudioRevenue = package.Price - commissionAmount,
                 PaymentExpiresAt = now.AddMinutes(GetIntSetting("BookingHoldMinutes", 15)),
+                PackageNameSnapshot = package.PackageName,
+                ServiceNameSnapshot = package.Service.ServiceName,
+                PackageDescriptionSnapshot = package.Description,
+                PackageDurationHoursSnapshot = package.DurationHours,
+                PackageMaxPhotosSnapshot = package.MaxPhotos,
+                PackageInclusionsSnapshot = package.Inclusions,
                 CreatedAt = now,
                 UpdatedAt = now,
                 CreatedBy = customerId,
@@ -298,13 +315,12 @@ namespace EXE201.Server.Services
 
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI CÓ BOOKING MỚI ──────────────────
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: package.Service.Studio.OwnerId,
-                    title: "📅 Yêu cầu đặt lịch mới",
-                    content: $"Khách hàng vừa gửi yêu cầu đặt lịch cho gói '{package.PackageName}' vào ngày {slot.WorkingDay.WorkingDate:dd/MM/yyyy}.",
+                    title: "Yeu cau dat lich moi",
+                    content: $"Khach hang vua gui yeu cau dat lich cho goi '{package.PackageName}' vao ngay {slot.WorkingDay.WorkingDate:dd/MM/yyyy}.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -417,6 +433,7 @@ namespace EXE201.Server.Services
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName != BookingDemoUploaded) return null;
 
             var editingId = await _repo.GetOrCreateBookingStatusIdAsync(BookingEditing);
@@ -428,13 +445,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI CÓ PHẢN HỒI ────────────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO PHOTOGRAPHER KHI CÃ“ PHáº¢N Há»’I â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.Studio.OwnerId,
-                    title: "💬 Phản hồi ảnh từ khách hàng",
-                    content: $"Khách hàng đã gửi yêu cầu chỉnh sửa cho đơn đặt lịch #{booking.BookingCode}.",
+                    title: "ðŸ’¬ Pháº£n há»“i áº£nh tá»« khÃ¡ch hÃ ng",
+                    content: $"KhÃ¡ch hÃ ng Ä‘Ã£ gá»­i yÃªu cáº§u chá»‰nh sá»­a cho Ä‘Æ¡n Ä‘áº·t lá»‹ch #{booking.BookingCode}.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -458,6 +475,7 @@ namespace EXE201.Server.Services
             var studio = await _repo.GetOwnedStudioAsync(ownerId);
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName is not (BookingDemoUploaded or BookingEditing)) return null;
 
             var oldStatus = booking.Status.StatusName;
@@ -470,13 +488,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO KHÁCH HÀNG KHI BÀN GIAO ẢNH HOÀN CHỈNH ──────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO KHÃCH HÃ€NG KHI BÃ€N GIAO áº¢NH HOÃ€N CHá»ˆNH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.CustomerId,
-                    title: "🎨 Đã bàn giao ảnh hoàn chỉnh!",
-                    content: $"Studio '{studio.StudioName}' đã tải lên bộ ảnh hoàn chỉnh. Vui lòng kiểm tra và xác nhận hoàn thành.",
+                    title: "ðŸŽ¨ ÄÃ£ bÃ n giao áº£nh hoÃ n chá»‰nh!",
+                    content: $"Studio '{studio.StudioName}' Ä‘Ã£ táº£i lÃªn bá»™ áº£nh hoÃ n chá»‰nh. Vui lÃ²ng kiá»ƒm tra vÃ  xÃ¡c nháº­n hoÃ n thÃ nh.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -491,7 +509,42 @@ namespace EXE201.Server.Services
         }
 
         public async Task<BookingResponse?> CompleteBookingAsync(long ownerId, long bookingId)
-            => await Task.FromResult<BookingResponse?>(null);
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var studio = await _repo.GetOwnedStudioAsync(ownerId);
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
+            if (IsDisputed(booking)) return null;
+            if (booking.Status.StatusName != BookingFinalDelivered) return null;
+
+            var awaitingId = await _repo.GetOrCreateBookingStatusIdAsync("AWAITING_CUSTOMER");
+            booking.StatusId = awaitingId;
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = ownerId;
+
+            AddBookingLogEntry(booking.BookingId, BookingFinalDelivered, "AWAITING_CUSTOMER", ownerId, "Studio requested customer confirmation after final delivery");
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.CustomerId,
+                    title: "Studio yÃªu cáº§u xÃ¡c nháº­n hoÃ n táº¥t",
+                    content: $"Studio '{studio.StudioName}' Ä‘Ã£ giao áº£nh final cho Ä‘Æ¡n #{booking.BookingCode}. Vui lÃ²ng kiá»ƒm tra vÃ  xÃ¡c nháº­n hoÃ n táº¥t náº¿u má»i thá»© Ä‘Ãºng cam káº¿t.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in CompleteBookingAsync: {ex.Message}");
+            }
+
+            return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", booking.BookingId);
+        }
 
         public async Task<BookingReviewResponse?> CreateReviewAsync(long customerId, long bookingId, CreateBookingReviewRequest request)
         {
@@ -521,6 +574,8 @@ namespace EXE201.Server.Services
             _repo.AddReview(review);
             AddBookingLogEntry(booking.BookingId, BookingCompleted, "REVIEWED", customerId, "Customer reviewed booking");
             await _repo.SaveChangesAsync();
+            await _repo.RecalculateStudioRatingAsync(booking.StudioId);
+            await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
             return new BookingReviewResponse
@@ -538,6 +593,7 @@ namespace EXE201.Server.Services
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (booking == null || booking.CustomerId != customerId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName != BookingFinalDelivered && booking.Status.StatusName != "AWAITING_CUSTOMER") return null;
 
             var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
@@ -562,13 +618,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI HOÀN THÀNH ────────────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO PHOTOGRAPHER KHI HOÃ€N THÃ€NH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.Studio.OwnerId,
-                    title: "🎉 Đặt lịch hoàn thành thành công!",
-                    content: $"Khách hàng đã xác nhận hoàn thành đơn hàng #{booking.BookingCode}. Tiền thanh toán đã được cộng vào Ví của bạn.",
+                    title: "ðŸŽ‰ Äáº·t lá»‹ch hoÃ n thÃ nh thÃ nh cÃ´ng!",
+                    content: $"KhÃ¡ch hÃ ng Ä‘Ã£ xÃ¡c nháº­n hoÃ n thÃ nh Ä‘Æ¡n hÃ ng #{booking.BookingCode}. Tiá»n thanh toÃ¡n Ä‘Ã£ Ä‘Æ°á»£c cá»™ng vÃ o VÃ­ cá»§a báº¡n.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -582,6 +638,79 @@ namespace EXE201.Server.Services
             return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
         }
 
+        public async Task<int> AutoCompleteDeliveredBookingsAsync()
+        {
+            var finalDeliveredId = await _repo.GetBookingStatusIdAsync(BookingFinalDelivered);
+            var awaitingCustomerId = await _repo.GetBookingStatusIdAsync("AWAITING_CUSTOMER");
+            if (finalDeliveredId == null || awaitingCustomerId == null) return 0;
+
+            // 3 days threshold
+            var threshold = DateTime.UtcNow.AddDays(-3);
+            var expiredBookings = await _repo.GetExpiredFinalDeliveredBookingsAsync(finalDeliveredId.Value, awaitingCustomerId.Value, threshold, 50);
+            var completedId = await _repo.GetBookingStatusIdAsync(BookingCompleted);
+            if (completedId == null) return 0;
+
+            var count = 0;
+            foreach (var b in expiredBookings)
+            {
+                await using var tx = await _repo.BeginTransactionAsync();
+                var booking = await _repo.GetBookingForUpdateAsync(b.BookingId);
+                if (booking == null) continue;
+                if (booking.Status.StatusName != BookingFinalDelivered && booking.Status.StatusName != "AWAITING_CUSTOMER") continue;
+                if (booking.DisputedAt != null) continue; // safety check
+
+                var oldStatus = booking.Status.StatusName;
+                booking.StatusId = completedId.Value;
+                booking.CompletedAt = DateTime.UtcNow;
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.UpdatedBy = 0; // 0 represents System auto-complete
+
+                await CreateSettlementIfNeededAsync(booking);
+
+                await _walletService.CreditStudioEarningAsync(
+                    booking.StudioId,
+                    booking.StudioRevenue,
+                    booking.BookingId,
+                    $"Studio revenue from Booking #{booking.BookingCode} (Auto-completed)");
+
+                AddBookingLogEntry(booking.BookingId, oldStatus, BookingCompleted, 0, "System auto-completed booking (customer did not dispute/confirm in 3 days)");
+                await _repo.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                // Send notifications
+                try
+                {
+                    // Notify Studio Owner
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.Studio.OwnerId,
+                        title: "ðŸŽ‰ Äáº·t lá»‹ch tá»± Ä‘á»™ng hoÃ n thÃ nh!",
+                        content: $"ÄÆ¡n hÃ ng #{booking.BookingCode} Ä‘Ã£ Ä‘Æ°á»£c há»‡ thá»‘ng tá»± Ä‘á»™ng hoÃ n thÃ nh do quÃ¡ háº¡n nháº­n áº£nh 3 ngÃ y. Doanh thu Ä‘Ã£ Ä‘Æ°á»£c cá»™ng vÃ o VÃ­ cá»§a báº¡n.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+
+                    // Notify Customer
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.CustomerId,
+                        title: "ðŸ“… Äáº·t lá»‹ch Ä‘Ã£ Ä‘Æ°á»£c hoÃ n thÃ nh tá»± Ä‘á»™ng",
+                        content: $"ÄÆ¡n hÃ ng #{booking.BookingCode} Ä‘Ã£ Ä‘Æ°á»£c há»‡ thá»‘ng tá»± Ä‘á»™ng hoÃ n thÃ nh do khÃ´ng cÃ³ khiáº¿u náº¡i trong vÃ²ng 3 ngÃ y ká»ƒ tá»« khi nháº­n áº£nh.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Notification] Error in AutoCompleteDeliveredBookingsAsync: {ex.Message}");
+                }
+
+                count++;
+            }
+
+            return count;
+        }
+
         public async Task<BookingResponse?> CancelBookingAsync(long userId, string role, long bookingId, string? reason)
         {
             await using var tx = await _repo.BeginTransactionAsync();
@@ -593,7 +722,7 @@ namespace EXE201.Server.Services
             var oldEffectiveStatus = IsDisputed(booking) ? "DISPUTED" : oldStatus;
             var canCancel = role switch
             {
-                "CUSTOMER" => oldStatus is BookingPendingPayment or BookingPendingConfirmation && !IsDisputed(booking),
+                "CUSTOMER" => oldStatus is BookingPendingPayment or BookingPendingConfirmation or BookingConfirmed && !IsDisputed(booking),
                 "STUDIO_OWNER" => oldStatus is BookingPendingConfirmation or BookingConfirmed && !IsDisputed(booking),
                 "ADMIN" => oldStatus is BookingPendingPayment or BookingPendingConfirmation or BookingConfirmed or BookingInProgress,
                 _ => false
@@ -612,28 +741,39 @@ namespace EXE201.Server.Services
             booking.UpdatedBy = userId;
             booking.Slot.Status = SlotOpen;
 
+            await ReleasePendingRescheduleSlotAsync(booking, userId, "Booking cancelled");
+
             if (oldStatus == BookingPendingPayment)
             {
                 MarkLatestPayment(booking, PaymentFailed, "Booking cancelled before payment");
             }
             else
             {
-                await MarkLatestPaidPaymentForRefundAsync(booking, reason ?? $"{role} cancelled booking");
+                var cancellationQuote = CalculateCancellationQuote(booking, role);
+                await ApplyCancellationFinancialsAsync(booking, cancellationQuote, reason ?? $"{role} cancelled booking");
+                AddBookingLogEntry(
+                    booking.BookingId,
+                    oldEffectiveStatus,
+                    BookingCancelled,
+                    userId,
+                    BuildCancellationLogNote(reason ?? $"{role} cancelled booking", cancellationQuote));
             }
 
-            AddBookingLogEntry(booking.BookingId, oldEffectiveStatus, BookingCancelled, userId, reason ?? $"{role} cancelled booking");
+            if (oldStatus == BookingPendingPayment)
+            {
+                AddBookingLogEntry(booking.BookingId, oldEffectiveStatus, BookingCancelled, userId, reason ?? $"{role} cancelled booking");
+            }
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO KHI ĐƠN ĐẶT LỊCH BỊ HỦY ─────────────────────────────
             try
             {
                 if (role == "CUSTOMER")
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.Studio.OwnerId,
-                        title: "❌ Đặt lịch bị hủy bởi khách hàng",
-                        content: $"Khách hàng đã hủy đơn hàng #{booking.BookingCode}. Lý do: {reason ?? "Không có lý do cụ thể"}.",
+                        title: "Booking bi huy boi khach hang",
+                        content: $"Khach hang da huy booking #{booking.BookingCode}. Ly do: {reason ?? "Khong co ly do cu the"}.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -643,8 +783,8 @@ namespace EXE201.Server.Services
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.CustomerId,
-                        title: "❌ Đặt lịch bị hủy bởi Studio",
-                        content: $"Studio đã hủy đơn đặt lịch #{booking.BookingCode}. Tiền thanh toán đã hoàn lại ví của bạn. Lý do: {reason ?? "Không có lý do cụ thể"}.",
+                        title: "Booking bi huy boi Studio",
+                        content: $"Studio da huy booking #{booking.BookingCode}. Ly do: {reason ?? "Khong co ly do cu the"}.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -654,16 +794,16 @@ namespace EXE201.Server.Services
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.CustomerId,
-                        title: "🛡️ Đặt lịch bị hủy bởi hệ thống",
-                        content: $"Đơn đặt lịch #{booking.BookingCode} đã bị hủy bởi quản trị viên hệ thống.",
+                        title: "Booking bi huy boi he thong",
+                        content: $"Booking #{booking.BookingCode} da bi huy boi quan tri vien.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
                     );
                     await _notificationService.CreateNotificationAsync(
                         userId: booking.Studio.OwnerId,
-                        title: "🛡️ Đặt lịch bị hủy bởi hệ thống",
-                        content: $"Đơn đặt lịch #{booking.BookingCode} đã bị hủy bởi quản trị viên hệ thống.",
+                        title: "Booking bi huy boi he thong",
+                        content: $"Booking #{booking.BookingCode} da bi huy boi quan tri vien.",
                         type: "BOOKING",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -672,53 +812,268 @@ namespace EXE201.Server.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Notification] Error in CancelBookingAsync: {ex.Message}");
+                 Console.WriteLine($"[Notification] Error in CancelBookingAsync: {ex.Message}");
             }
 
             return await GetBookingForUserAsync(userId, role, booking.BookingId);
         }
 
-        public async Task<BookingResponse?> DisputeBookingAsync(long customerId, long bookingId, string reason)
+        public async Task<BookingResponse?> RequestRescheduleAsync(long customerId, long bookingId, RescheduleBookingRequest request)
+        {
+            if (request.NewSlotId <= 0) return null;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null || booking.CustomerId != customerId) return null;
+            if (IsDisputed(booking)) return null;
+            if (booking.Status.StatusName is not (BookingPendingConfirmation or BookingConfirmed)) return null;
+            if (GetPendingRescheduleRequest(booking) != null) return null;
+            if (request.NewSlotId == booking.SlotId) return null;
+
+            var newSlot = await _repo.GetSlotForUpdateWithWorkingDayAsync(request.NewSlotId);
+            if (newSlot == null) return null;
+            if (!await IsSlotUsableForRescheduleAsync(newSlot, booking.StudioId)) return null;
+
+            newSlot.Status = SlotHolding;
+            var payload = BuildRescheduleRequestPayload(customerId, "CUSTOMER", newSlot, request.Reason);
+            AddBookingLogEntry(booking.BookingId, booking.Status.StatusName, BookingRescheduleRequested, customerId, JsonSerializer.Serialize(payload));
+
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = customerId;
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.Studio.OwnerId,
+                    title: "Khach yeu cau doi lich",
+                    content: $"Khach hang yeu cau doi booking #{booking.BookingCode} sang {payload.NewDate} {payload.NewStartTime}-{payload.NewEndTime}.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in RequestRescheduleAsync: {ex.Message}");
+            }
+
+            return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
+        }
+
+        public async Task<BookingResponse?> RespondRescheduleAsync(long ownerId, long bookingId, bool approve, string? reason)
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null) return null;
+            if (!await _repo.IsStudioOwnerAsync(booking.StudioId, ownerId)) return null;
+            if (IsDisputed(booking)) return null;
+
+            var pending = GetPendingRescheduleRequest(booking);
+            if (pending == null) return null;
+            if (booking.Status.StatusName is not (BookingPendingConfirmation or BookingConfirmed)) return null;
+
+            var newSlot = await _repo.GetSlotForUpdateWithWorkingDayAsync(pending.NewSlotId);
+            if (newSlot == null) return null;
+
+            if (approve)
+            {
+                if (newSlot.WorkingDay.StudioId != booking.StudioId) return null;
+                if (!newSlot.WorkingDay.IsAvailable) return null;
+                if (IsSlotInPast(newSlot.WorkingDay.WorkingDate, newSlot.StartTime)) return null;
+                if (newSlot.Status is not (SlotHolding or SlotOpen)) return null;
+                if (await _repo.SlotHasActiveBookingAsync(newSlot.SlotId)) return null;
+
+                booking.Slot.Status = SlotOpen;
+                booking.SlotId = newSlot.SlotId;
+                booking.ShootingDate = newSlot.WorkingDay.WorkingDate;
+                newSlot.Status = SlotBooked;
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.UpdatedBy = ownerId;
+
+                AddBookingLogEntry(
+                    booking.BookingId,
+                    booking.Status.StatusName,
+                    BookingRescheduleApproved,
+                    ownerId,
+                    BuildRescheduleDecisionNote(pending, reason ?? "Studio approved reschedule"));
+            }
+            else
+            {
+                if (newSlot.Status == SlotHolding)
+                {
+                    newSlot.Status = SlotOpen;
+                }
+
+                booking.UpdatedAt = DateTime.UtcNow;
+                booking.UpdatedBy = ownerId;
+                AddBookingLogEntry(
+                    booking.BookingId,
+                    booking.Status.StatusName,
+                    BookingRescheduleRejected,
+                    ownerId,
+                    BuildRescheduleDecisionNote(pending, reason ?? "Studio rejected reschedule"));
+            }
+
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.CustomerId,
+                    title: approve ? "Studio da duyet doi lich" : "Studio tu choi doi lich",
+                    content: approve
+                        ? $"Booking #{booking.BookingCode} da duoc doi sang lich moi."
+                        : $"Yeu cau doi lich booking #{booking.BookingCode} da bi tu choi.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in RespondRescheduleAsync: {ex.Message}");
+            }
+
+            return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", booking.BookingId);
+        }
+
+        public async Task<BookingResponse?> MarkCustomerNoShowAsync(long ownerId, long bookingId, string? reason)
+        {
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null) return null;
+            if (!await _repo.IsStudioOwnerAsync(booking.StudioId, ownerId)) return null;
+            if (IsDisputed(booking)) return null;
+            if (booking.Status.StatusName is not (BookingConfirmed or BookingInProgress)) return null;
+            if (!IsNoShowAllowed(booking)) return null;
+
+            var oldStatus = booking.Status.StatusName;
+            var cancelledId = await _repo.GetBookingStatusIdAsync(BookingCancelled);
+            if (cancelledId == null) return null;
+
+            booking.StatusId = cancelledId.Value;
+            booking.CancelledAt = DateTime.UtcNow;
+            booking.CancelledBy = ownerId;
+            booking.CancelReason = reason ?? "Customer no-show";
+            booking.UpdatedAt = DateTime.UtcNow;
+            booking.UpdatedBy = ownerId;
+            booking.Slot.Status = SlotOpen;
+
+            await ReleasePendingRescheduleSlotAsync(booking, ownerId, "Customer no-show");
+
+            var quote = CalculateNoShowQuote(booking);
+            await ApplyCancellationFinancialsAsync(booking, quote, reason ?? "Customer no-show");
+            AddBookingLogEntry(booking.BookingId, oldStatus, BookingNoShow, ownerId, BuildCancellationLogNote(reason ?? "Customer no-show", quote));
+
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    userId: booking.CustomerId,
+                    title: "Studio bao khach khong den",
+                    content: $"Studio da danh dau booking #{booking.BookingCode} la khach khong den. Neu khong dong y, ban co the khieu nai de Admin xu ly.",
+                    type: "BOOKING",
+                    refType: "BOOKING",
+                    refId: booking.BookingId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Notification] Error in MarkCustomerNoShowAsync: {ex.Message}");
+            }
+
+            return await GetBookingForUserAsync(ownerId, "STUDIO_OWNER", booking.BookingId);
+        }
+
+        public async Task<BookingResponse?> DisputeBookingAsync(long userId, string role, long bookingId, string reason)
         {
             if (string.IsNullOrWhiteSpace(reason)) return null;
 
             await using var tx = await _repo.BeginTransactionAsync();
 
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
-            if (booking == null || booking.CustomerId != customerId) return null;
-            if (booking.Status.StatusName != BookingInProgress) return null;
+            if (booking == null) return null;
+
+            // PhÃ¢n quyá»n
+            if (role == "CUSTOMER")
+            {
+                if (booking.CustomerId != userId) return null;
+            }
+            else if (role == "STUDIO_OWNER")
+            {
+                if (!await _repo.IsStudioOwnerAsync(booking.StudioId, userId)) return null;
+            }
+            else
+            {
+                return null;
+            }
+
+            var currentStatus = booking.Status.StatusName;
+            if (currentStatus != BookingConfirmed &&
+                currentStatus != BookingInProgress && 
+                currentStatus != BookingDemoUploaded && 
+                currentStatus != BookingEditing && 
+                currentStatus != BookingFinalDelivered && 
+                currentStatus != "AWAITING_CUSTOMER")
+            {
+                return null;
+            }
             if (IsDisputed(booking)) return null;
 
             booking.DisputedAt = DateTime.UtcNow;
             booking.DisputeNote = reason.Trim();
+            booking.DisputeCreatedBy = userId;
+            booking.DisputeCreatedByRole = role;
             booking.UpdatedAt = DateTime.UtcNow;
-            booking.UpdatedBy = customerId;
+            booking.UpdatedBy = userId;
 
-            AddBookingLogEntry(booking.BookingId, BookingInProgress, "DISPUTED", customerId, reason.Trim());
+            AddBookingLogEntry(booking.BookingId, currentStatus, "DISPUTED", userId, reason.Trim());
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO KHI CÓ KHIẾU NẠI ──────────────────────────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO KHI CÃ“ KHIáº¾U Náº I â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
-                // Thông báo cho Studio Owner
-                await _notificationService.CreateNotificationAsync(
-                    userId: booking.Studio.OwnerId,
-                    title: "⚠️ Khiếu nại đặt lịch mới",
-                    content: $"Khách hàng đã gửi khiếu nại cho đơn hàng #{booking.BookingCode}. Chi tiết: {reason.Trim()}.",
-                    type: "BOOKING",
-                    refType: "BOOKING",
-                    refId: booking.BookingId
-                );
+                if (role == "CUSTOMER")
+                {
+                    // ThÃ´ng bÃ¡o cho Studio Owner
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.Studio.OwnerId,
+                        title: "âš ï¸ Khiáº¿u náº¡i Ä‘áº·t lá»‹ch má»›i",
+                        content: $"KhÃ¡ch hÃ ng Ä‘Ã£ gá»­i khiáº¿u náº¡i cho Ä‘Æ¡n hÃ ng #{booking.BookingCode}. Chi tiáº¿t: {reason.Trim()}.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
+                else if (role == "STUDIO_OWNER")
+                {
+                    // ThÃ´ng bÃ¡o cho Customer
+                    await _notificationService.CreateNotificationAsync(
+                        userId: booking.CustomerId,
+                        title: "âš ï¸ Studio khiáº¿u náº¡i Ä‘Æ¡n hÃ ng",
+                        content: $"Studio '{booking.Studio.StudioName}' Ä‘Ã£ gá»­i khiáº¿u náº¡i cho Ä‘Æ¡n hÃ ng #{booking.BookingCode}. Chi tiáº¿t: {reason.Trim()}.",
+                        type: "BOOKING",
+                        refType: "BOOKING",
+                        refId: booking.BookingId
+                    );
+                }
 
-                // Thông báo cho tất cả Admin
+                // ThÃ´ng bÃ¡o cho táº¥t cáº£ Admin
                 var adminIds = await _notificationService.GetAdminUserIdsAsync();
+                var initiatorName = role == "CUSTOMER" ? booking.Customer.FullName : booking.Studio.StudioName;
+                var initiatorType = role == "CUSTOMER" ? "KhÃ¡ch hÃ ng" : "Studio";
                 foreach (var adminId in adminIds)
                 {
                     await _notificationService.CreateNotificationAsync(
                         userId: adminId,
-                        title: "🛡️ Yêu cầu hỗ trợ khiếu nại mới",
-                        content: $"Khách hàng đã khiếu nại Studio '{booking.Studio.StudioName}' về đơn #{booking.BookingCode}.",
+                        title: "ðŸ›¡ï¸ YÃªu cáº§u há»— trá»£ khiáº¿u náº¡i má»›i",
+                        content: $"{initiatorType} '{initiatorName}' Ä‘Ã£ khiáº¿u náº¡i Ä‘Æ¡n #{booking.BookingCode}.",
                         type: "SYSTEM",
                         refType: "BOOKING",
                         refId: booking.BookingId
@@ -730,7 +1085,7 @@ namespace EXE201.Server.Services
                 Console.WriteLine($"[Notification] Error in DisputeBookingAsync: {ex.Message}");
             }
 
-            return await GetBookingForUserAsync(customerId, "CUSTOMER", booking.BookingId);
+            return await GetBookingForUserAsync(userId, role, booking.BookingId);
         }
 
         public async Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role)
@@ -786,13 +1141,13 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO PHOTOGRAPHER KHI LỊCH ĐÃ THANH TOÁN ──────────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO PHOTOGRAPHER KHI Lá»ŠCH ÄÃƒ THANH TOÃN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
                 await _notificationService.CreateNotificationAsync(
                     userId: booking.Studio.OwnerId,
-                    title: "💰 Đặt lịch đã được thanh toán",
-                    content: $"Lịch chụp ngày {booking.ShootingDate:dd/MM/yyyy} đã được thanh toán. Vui lòng vào xác nhận lịch chụp.",
+                    title: "ðŸ’° Äáº·t lá»‹ch Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n",
+                    content: $"Lá»‹ch chá»¥p ngÃ y {booking.ShootingDate:dd/MM/yyyy} Ä‘Ã£ Ä‘Æ°á»£c thanh toÃ¡n. Vui lÃ²ng vÃ o xÃ¡c nháº­n lá»‹ch chá»¥p.",
                     type: "BOOKING",
                     refType: "BOOKING",
                     refId: booking.BookingId
@@ -1022,6 +1377,7 @@ namespace EXE201.Server.Services
             var studio = await _repo.GetOwnedStudioAsync(ownerId);
             var booking = await _repo.GetBookingForUpdateAsync(bookingId);
             if (studio == null || booking == null || booking.StudioId != studio.StudioId) return null;
+            if (IsDisputed(booking)) return null;
             if (booking.Status.StatusName != expectedStatus) return null;
 
             var nextStatusId = await _repo.GetOrCreateBookingStatusIdAsync(nextStatus);
@@ -1035,31 +1391,31 @@ namespace EXE201.Server.Services
             await _repo.SaveChangesAsync();
             await tx.CommitAsync();
 
-            // ── THÊM THÔNG BÁO CHO KHÁCH HÀNG KHI STUDIO CÓ SỰ THAY ĐỔI TRẠNG THÁI ──────────
+            // â”€â”€ THÃŠM THÃ”NG BÃO CHO KHÃCH HÃ€NG KHI STUDIO CÃ“ Sá»° THAY Äá»”I TRáº NG THÃI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             try
             {
-                string title = "📅 Cập nhật đơn đặt lịch";
-                string content = $"Đơn đặt lịch của bạn đã được cập nhật trạng thái mới: {nextStatus}.";
+                string title = "ðŸ“… Cáº­p nháº­t Ä‘Æ¡n Ä‘áº·t lá»‹ch";
+                string content = $"ÄÆ¡n Ä‘áº·t lá»‹ch cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t tráº¡ng thÃ¡i má»›i: {nextStatus}.";
 
                 if (nextStatus == BookingConfirmed)
                 {
-                    title = "🎉 Đặt lịch đã được xác nhận!";
-                    content = $"Studio '{studio.StudioName}' đã xác nhận yêu cầu đặt lịch của bạn cho ngày {booking.ShootingDate:dd/MM/yyyy}.";
+                    title = "ðŸŽ‰ Äáº·t lá»‹ch Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n!";
+                    content = $"Studio '{studio.StudioName}' Ä‘Ã£ xÃ¡c nháº­n yÃªu cáº§u Ä‘áº·t lá»‹ch cá»§a báº¡n cho ngÃ y {booking.ShootingDate:dd/MM/yyyy}.";
                 }
                 else if (nextStatus == BookingRejected)
                 {
-                    title = "❌ Yêu cầu đặt lịch bị từ chối";
-                    content = $"Yêu cầu đặt lịch của bạn đã bị từ chối bởi Studio. Lý do: {booking.RejectReason ?? "Không có lý do cụ thể"}.";
+                    title = "âŒ YÃªu cáº§u Ä‘áº·t lá»‹ch bá»‹ tá»« chá»‘i";
+                    content = $"YÃªu cáº§u Ä‘áº·t lá»‹ch cá»§a báº¡n Ä‘Ã£ bá»‹ tá»« chá»‘i bá»Ÿi Studio. LÃ½ do: {booking.RejectReason ?? "KhÃ´ng cÃ³ lÃ½ do cá»¥ thá»ƒ"}.";
                 }
                 else if (nextStatus == BookingInProgress)
                 {
-                    title = "📸 Buổi chụp ảnh đã bắt đầu";
-                    content = $"Studio '{studio.StudioName}' đã bắt đầu tiến hành buổi chụp của bạn.";
+                    title = "ðŸ“¸ Buá»•i chá»¥p áº£nh Ä‘Ã£ báº¯t Ä‘áº§u";
+                    content = $"Studio '{studio.StudioName}' Ä‘Ã£ báº¯t Ä‘áº§u tiáº¿n hÃ nh buá»•i chá»¥p cá»§a báº¡n.";
                 }
                 else if (nextStatus == BookingDemoUploaded)
                 {
-                    title = "🖼️ Đã có ảnh demo mới";
-                    content = $"Studio '{studio.StudioName}' đã tải lên ảnh demo cho buổi chụp ngày {booking.ShootingDate:dd/MM/yyyy}. Vui lòng xem và phản hồi.";
+                    title = "ðŸ–¼ï¸ ÄÃ£ cÃ³ áº£nh demo má»›i";
+                    content = $"Studio '{studio.StudioName}' Ä‘Ã£ táº£i lÃªn áº£nh demo cho buá»•i chá»¥p ngÃ y {booking.ShootingDate:dd/MM/yyyy}. Vui lÃ²ng xem vÃ  pháº£n há»“i.";
                 }
 
                 await _notificationService.CreateNotificationAsync(
@@ -1090,6 +1446,14 @@ namespace EXE201.Server.Services
         private static bool IsDisputed(Booking booking)
             => booking.DisputedAt.HasValue && !booking.DisputeResolvedAt.HasValue;
 
+        private static bool IsSlotInPast(DateOnly date, TimeOnly start)
+        {
+            var now = DateTime.UtcNow.AddHours(7);
+            var today = DateOnly.FromDateTime(now);
+            if (date < today) return true;
+            return date == today && start <= TimeOnly.FromDateTime(now);
+        }
+
         private void AddBookingLogEntry(long bookingId, string? oldStatus, string newStatus, long changedBy, string? note)
         {
             _repo.AddBookingLog(new BookingLog
@@ -1102,6 +1466,275 @@ namespace EXE201.Server.Services
                 ChangedAt = DateTime.UtcNow
             });
         }
+
+        private BookingCancellationQuote CalculateCancellationQuote(Booking booking, string role)
+        {
+            var payment = GetLatestPaidPayment(booking);
+            if (payment == null)
+            {
+                return new BookingCancellationQuote(0, 0, 0, "NO_PAID_PAYMENT", "Booking chua co thanh toan PAID de hoan tien.");
+            }
+
+            if (string.Equals(payment.Method.MethodName, "CASH", StringComparison.OrdinalIgnoreCase))
+            {
+                return new BookingCancellationQuote(0, 0, 0, "MANUAL_CASH", "Booking thanh toan tien mat, can xu ly hoan tien/phi ngoai he thong.");
+            }
+
+            var paidAmount = payment.Amount;
+            if (role == "CUSTOMER")
+            {
+                var daysUntilShoot = GetDaysUntilShoot(booking);
+                decimal refundRate;
+                string policyCode;
+                string message;
+
+                if (daysUntilShoot >= 7)
+                {
+                    refundRate = 1m;
+                    policyCode = "CUSTOMER_CANCEL_FULL_REFUND";
+                    message = "Khach huy truoc tu 7 ngay: hoan 100%.";
+                }
+                else if (daysUntilShoot >= 3)
+                {
+                    refundRate = 0.5m;
+                    policyCode = "CUSTOMER_CANCEL_HALF_REFUND";
+                    message = "Khach huy trong khoang 3-6 ngay: hoan 50%, phan con lai chia theo commission.";
+                }
+                else
+                {
+                    refundRate = 0m;
+                    policyCode = "CUSTOMER_CANCEL_FORFEIT";
+                    message = "Khach huy duoi 3 ngay: khong hoan, Studio nhan phan doanh thu sau commission.";
+                }
+
+                var refundAmount = Math.Round(paidAmount * refundRate, 0);
+                var retainedAmount = Math.Max(0, paidAmount - refundAmount);
+                return new BookingCancellationQuote(
+                    refundAmount,
+                    retainedAmount,
+                    CalculateStudioCompensation(booking, retainedAmount),
+                    policyCode,
+                    message);
+            }
+
+            return new BookingCancellationQuote(
+                paidAmount,
+                0,
+                0,
+                role == "STUDIO_OWNER" ? "STUDIO_CANCEL_FULL_REFUND" : "ADMIN_CANCEL_FULL_REFUND",
+                "Studio/Admin huy booking: hoan 100% cho khach hang.");
+        }
+
+        private BookingCancellationQuote CalculateNoShowQuote(Booking booking)
+        {
+            var payment = GetLatestPaidPayment(booking);
+            if (payment == null)
+            {
+                return new BookingCancellationQuote(0, 0, 0, "NO_PAID_PAYMENT", "Booking chua co thanh toan PAID.");
+            }
+
+            if (string.Equals(payment.Method.MethodName, "CASH", StringComparison.OrdinalIgnoreCase))
+            {
+                return new BookingCancellationQuote(0, 0, 0, "MANUAL_CASH", "Booking thanh toan tien mat, can xu ly no-show ngoai he thong.");
+            }
+
+            var retainedAmount = payment.Amount;
+            return new BookingCancellationQuote(
+                0,
+                retainedAmount,
+                CalculateStudioCompensation(booking, retainedAmount),
+                "CUSTOMER_NO_SHOW",
+                "Khach khong den buoi chup: khong hoan, Studio nhan phan doanh thu sau commission.");
+        }
+
+        private async Task ApplyCancellationFinancialsAsync(Booking booking, BookingCancellationQuote quote, string reason)
+        {
+            var payment = GetLatestPaidPayment(booking);
+            if (payment == null) return;
+            if (string.Equals(payment.Method.MethodName, "CASH", StringComparison.OrdinalIgnoreCase)) return;
+
+            if (quote.RefundAmount > 0)
+            {
+                var statusName = quote.RefundAmount >= payment.Amount ? PaymentRefunded : PaymentPartiallyRefunded;
+                var status = await _repo.GetOrCreatePaymentStatusAsync(statusName);
+                payment.PaymentStatusId = status.PaymentStatusId;
+                payment.PaymentStatus = status;
+                payment.RefundedAt = DateTime.UtcNow;
+                payment.RefundMethod = "WALLET";
+                payment.RefundReason = reason;
+                payment.RefundPendingReason = quote.Message;
+                payment.UpdatedAt = DateTime.UtcNow;
+
+                await _walletService.CreditCustomerRefundAsync(
+                    booking.CustomerId,
+                    quote.RefundAmount,
+                    booking.BookingId,
+                    $"Hoan tien Booking #{booking.BookingCode}: {quote.Message}");
+            }
+            else if (quote.CustomerChargeAmount > 0)
+            {
+                var status = await _repo.GetOrCreatePaymentStatusAsync(PaymentForfeited);
+                payment.PaymentStatusId = status.PaymentStatusId;
+                payment.PaymentStatus = status;
+                payment.RefundReason = reason;
+                payment.RefundPendingReason = quote.Message;
+                payment.UpdatedAt = DateTime.UtcNow;
+            }
+
+            if (quote.StudioCompensationAmount > 0)
+            {
+                await CreateSettlementIfNeededAsync(booking, quote.CustomerChargeAmount);
+                await _walletService.CreditStudioEarningAsync(
+                    booking.StudioId,
+                    quote.StudioCompensationAmount,
+                    booking.BookingId,
+                    $"Studio compensation for Booking #{booking.BookingCode}: {quote.PolicyCode}");
+            }
+        }
+
+        private async Task<bool> IsSlotUsableForRescheduleAsync(TimeSlot slot, long studioId)
+        {
+            if (slot.WorkingDay.StudioId != studioId) return false;
+            if (!slot.WorkingDay.IsAvailable) return false;
+            if (slot.Status != SlotOpen) return false;
+            if (IsSlotInPast(slot.WorkingDay.WorkingDate, slot.StartTime)) return false;
+            return !await _repo.SlotHasActiveBookingAsync(slot.SlotId);
+        }
+
+        private static BookingRescheduleRequestResponse BuildRescheduleRequestPayload(
+            long requestedBy,
+            string requestedByRole,
+            TimeSlot slot,
+            string? reason)
+            => new()
+            {
+                NewSlotId = slot.SlotId,
+                NewDate = slot.WorkingDay.WorkingDate.ToString("yyyy-MM-dd"),
+                NewStartTime = slot.StartTime.ToString("HH:mm"),
+                NewEndTime = slot.EndTime.ToString("HH:mm"),
+                RequestedBy = requestedBy,
+                RequestedByRole = requestedByRole,
+                Reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim(),
+                RequestedAt = DateTime.UtcNow.ToString("O")
+            };
+
+        private static BookingRescheduleRequestResponse? GetPendingRescheduleRequest(Booking booking)
+        {
+            var latestRequestLog = booking.BookingLogs
+                .Where(log => log.NewStatus == BookingRescheduleRequested)
+                .OrderByDescending(log => log.ChangedAt)
+                .FirstOrDefault();
+            if (latestRequestLog == null || string.IsNullOrWhiteSpace(latestRequestLog.Note)) return null;
+
+            var hasLaterDecision = booking.BookingLogs.Any(log =>
+                (log.NewStatus == BookingRescheduleApproved || log.NewStatus == BookingRescheduleRejected) &&
+                log.ChangedAt >= latestRequestLog.ChangedAt);
+            if (hasLaterDecision) return null;
+
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<BookingRescheduleRequestResponse>(latestRequestLog.Note);
+                if (parsed == null || parsed.NewSlotId <= 0) return null;
+                if (string.IsNullOrWhiteSpace(parsed.RequestedAt))
+                {
+                    parsed.RequestedAt = latestRequestLog.ChangedAt.ToString("O");
+                }
+                return parsed;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string BuildRescheduleDecisionNote(BookingRescheduleRequestResponse request, string reason)
+            => JsonSerializer.Serialize(new
+            {
+                request.NewSlotId,
+                request.NewDate,
+                request.NewStartTime,
+                request.NewEndTime,
+                Reason = reason
+            });
+
+        private async Task ReleasePendingRescheduleSlotAsync(Booking booking, long changedBy, string reason)
+        {
+            var pending = GetPendingRescheduleRequest(booking);
+            if (pending == null) return;
+
+            var slot = await _repo.GetSlotForUpdateWithWorkingDayAsync(pending.NewSlotId);
+            if (slot != null && slot.Status == SlotHolding)
+            {
+                slot.Status = SlotOpen;
+            }
+
+            AddBookingLogEntry(booking.BookingId, booking.Status.StatusName, BookingRescheduleRejected, changedBy, reason);
+        }
+
+        private static bool IsNoShowAllowed(Booking booking)
+            => GetLocalShootingStart(booking) <= DateTime.UtcNow.AddHours(7);
+
+        private static int GetDaysUntilShoot(Booking booking)
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            return booking.ShootingDate.DayNumber - today.DayNumber;
+        }
+
+        private static DateTime GetLocalShootingStart(Booking booking)
+            => booking.ShootingDate.ToDateTime(booking.Slot.StartTime);
+
+        private static Payment? GetLatestPaidPayment(Booking booking)
+            => booking.Payments
+                .Where(payment => payment.PaymentStatus.StatusName == PaymentPaid)
+                .OrderByDescending(payment => payment.CreatedAt)
+                .FirstOrDefault();
+
+        private static decimal CalculateStudioCompensation(Booking booking, decimal retainedAmount)
+        {
+            if (retainedAmount <= 0) return 0;
+            var platformFee = Math.Round(retainedAmount * booking.CommissionPercent / 100m, 0);
+            return Math.Max(0, retainedAmount - platformFee);
+        }
+
+        private static BookingCancellationPolicyResponse MapCancellationPolicy(BookingCancellationQuote quote)
+            => new()
+            {
+                RefundAmount = quote.RefundAmount,
+                CustomerChargeAmount = quote.CustomerChargeAmount,
+                StudioCompensationAmount = quote.StudioCompensationAmount,
+                PolicyCode = quote.PolicyCode,
+                Message = quote.Message
+            };
+
+        private static string BuildCancellationLogNote(string reason, BookingCancellationQuote quote)
+            => $"{reason} | Policy={quote.PolicyCode}; Refund={quote.RefundAmount}; CustomerCharge={quote.CustomerChargeAmount}; StudioCompensation={quote.StudioCompensationAmount}";
+
+        private static bool IsNoShowBooking(Booking booking)
+            => booking.Status.StatusName == BookingCancelled &&
+               booking.BookingLogs.Any(log => log.NewStatus == BookingNoShow);
+
+        private static string GetEffectiveBookingStatus(Booking booking)
+        {
+            if (IsDisputed(booking)) return "DISPUTED";
+            if (IsNoShowBooking(booking)) return BookingNoShow;
+            return booking.Status.StatusName;
+        }
+
+        private static bool CanCancelFromResponseStatus(string role, string status)
+            => role switch
+            {
+                "CUSTOMER" => status is BookingPendingPayment or BookingPendingConfirmation or BookingConfirmed,
+                "STUDIO_OWNER" => status is BookingPendingConfirmation or BookingConfirmed,
+                "ADMIN" => status is BookingPendingPayment or BookingPendingConfirmation or BookingConfirmed or BookingInProgress,
+                _ => false
+            };
+
+        private sealed record BookingCancellationQuote(
+            decimal RefundAmount,
+            decimal CustomerChargeAmount,
+            decimal StudioCompensationAmount,
+            string PolicyCode,
+            string Message);
 
         private static List<string> CleanPhotoUrls(IEnumerable<string>? urls)
             => urls?
@@ -1149,18 +1782,26 @@ namespace EXE201.Server.Services
                 .Select(log => log.Note)
                 .FirstOrDefault();
 
-        private async Task CreateSettlementIfNeededAsync(Booking booking)
+        private async Task CreateSettlementIfNeededAsync(Booking booking, decimal? grossAmountOverride = null)
         {
             if (await _repo.SettlementExistsAsync(booking.BookingId)) return;
+
+            var grossAmount = grossAmountOverride ?? booking.TotalPrice;
+            var platformFeeAmount = grossAmountOverride.HasValue
+                ? Math.Round(grossAmount * booking.CommissionPercent / 100m, 0)
+                : booking.CommissionAmount;
+            var studioAmount = grossAmountOverride.HasValue
+                ? Math.Max(0, grossAmount - platformFeeAmount)
+                : booking.StudioRevenue;
 
             _repo.AddSettlement(new Settlement
             {
                 BookingId = booking.BookingId,
                 StudioId = booking.StudioId,
-                GrossAmount = booking.TotalPrice,
+                GrossAmount = grossAmount,
                 PlatformFeePercent = booking.CommissionPercent,
-                PlatformFeeAmount = booking.CommissionAmount,
-                StudioAmount = booking.StudioRevenue,
+                PlatformFeeAmount = platformFeeAmount,
+                StudioAmount = studioAmount,
                 Status = "READY",
                 PayoutMethod = "MANUAL",
                 CreatedAt = DateTime.UtcNow,
@@ -1229,7 +1870,7 @@ namespace EXE201.Server.Services
                 booking.CustomerId,
                 booking.TotalPrice,
                 booking.BookingId,
-                $"Hoàn tiền Booking #{booking.BookingCode} (lý do: {reason})"
+                $"HoÃ n tiá»n Booking #{booking.BookingCode} (lÃ½ do: {reason})"
             );
         }
 
@@ -1317,7 +1958,11 @@ namespace EXE201.Server.Services
 
         private BookingResponse MapBooking(Booking b, string role)
         {
-            var status = IsDisputed(b) ? "DISPUTED" : b.Status.StatusName;
+            var status = GetEffectiveBookingStatus(b);
+            var pendingReschedule = GetPendingRescheduleRequest(b);
+            var cancellationPolicy = (status is BookingPendingPayment or BookingPendingConfirmation or BookingConfirmed)
+                ? MapCancellationPolicy(CalculateCancellationQuote(b, role))
+                : null;
             var review = b.Review == null ? null : new BookingReviewResponse
             {
                 Id = b.Review.ReviewId,
@@ -1351,7 +1996,12 @@ namespace EXE201.Server.Services
                 StudioId = b.StudioId,
                 StudioName = b.Studio.StudioName,
                 PackageId = b.PackageId,
-                PackageName = b.Package.PackageName,
+                PackageName = b.PackageNameSnapshot ?? b.Package.PackageName,
+                ServiceName = b.ServiceNameSnapshot ?? b.Package.Service?.ServiceName,
+                PackageDescription = b.PackageDescriptionSnapshot ?? b.Package.Description,
+                PackageDurationHours = b.PackageDurationHoursSnapshot ?? b.Package.DurationHours,
+                PackageMaxPhotos = b.PackageMaxPhotosSnapshot ?? b.Package.MaxPhotos,
+                PackageInclusions = b.PackageInclusionsSnapshot ?? b.Package.Inclusions,
                 SlotId = b.SlotId,
                 ShootingDate = b.ShootingDate.ToString("yyyy-MM-dd"),
                 StartTime = b.Slot.StartTime.ToString("HH:mm"),
@@ -1365,7 +2015,18 @@ namespace EXE201.Server.Services
                 CommissionAmount = b.CommissionAmount,
                 StudioRevenue = b.StudioRevenue,
                 PaymentExpiresAt = b.PaymentExpiresAt?.ToString("O"),
-                CanCancel = status is BookingPendingPayment or BookingPendingConfirmation,
+                CanCancel = CanCancelFromResponseStatus(role, status),
+                CanRequestReschedule = role == "CUSTOMER" &&
+                    status is BookingPendingConfirmation or BookingConfirmed &&
+                    pendingReschedule == null,
+                CanRespondReschedule = role == "STUDIO_OWNER" &&
+                    status is BookingPendingConfirmation or BookingConfirmed &&
+                    pendingReschedule != null,
+                CanMarkNoShow = role == "STUDIO_OWNER" &&
+                    status is BookingConfirmed or BookingInProgress &&
+                    IsNoShowAllowed(b),
+                CancellationPolicy = cancellationPolicy,
+                PendingReschedule = pendingReschedule,
                 DemoPhotoUrls = demoPhotoUrls,
                 FinalPhotoUrls = finalPhotoUrls,
                 CustomerFeedback = ParseCustomerFeedback(b.BookingLogs),
@@ -1457,7 +2118,7 @@ namespace EXE201.Server.Services
 
             if (payment != null && payment.PaymentStatus.StatusName == PaymentPending)
             {
-                // Cancel the old PayOS order via its stored ProviderRef (best-effort — ignore if already gone)
+                // Cancel the old PayOS order via its stored ProviderRef (best-effort â€” ignore if already gone)
                 if (!string.IsNullOrEmpty(payment.ProviderRef) &&
                     long.TryParse(payment.ProviderRef, out var oldOrderCode))
                 {

@@ -713,7 +713,7 @@ export default function PhotographerBookingsPage({ initialBooking, onChanged }: 
                   Bắt đầu chụp
                 </button>
               )}
-              {selected.status === 'IN_PROGRESS' && (
+              {selected.status === 'FINAL_DELIVERED' && (
                 <button disabled={actionLoadingId === selected.id} type="button" onClick={() => handleComplete(selected.id)} className="h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 text-xs font-black uppercase text-white shadow-md transition active:scale-95">
                   Gửi yêu cầu hoàn thành
                 </button>
@@ -849,14 +849,14 @@ function ActionButtons({
     )
   }
 
-  if (status === 'IN_PROGRESS') {
+  if (status === 'FINAL_DELIVERED') {
     return (
       <button
         type="button"
         onClick={onComplete}
         className={`${btnClass} bg-emerald-600 text-white hover:bg-emerald-700`}
       >
-        Hoàn thành
+        Gửi duyệt
       </button>
     )
   }

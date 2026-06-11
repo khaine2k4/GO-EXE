@@ -393,6 +393,16 @@ CREATE TABLE bookings (
     dispute_note          NVARCHAR(MAX),
     dispute_resolved_at   DATETIME2,
     dispute_resolved_by   BIGINT,
+    dispute_created_by    BIGINT,
+    dispute_created_by_role NVARCHAR(50),
+
+    -- Package / Service snapshot (lưu lại tại thời điểm booking để tránh mất dữ liệu khi package bị xóa)
+    package_name_snapshot         NVARCHAR(150) NULL,
+    service_name_snapshot         NVARCHAR(150) NULL,
+    package_description_snapshot  NVARCHAR(MAX) NULL,
+    package_duration_hours_snapshot INT          NULL,
+    package_max_photos_snapshot   INT            NULL,
+    package_inclusions_snapshot   NVARCHAR(MAX) NULL,
 
     -- Audit                                           [FIX-09]
     created_at         DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -406,7 +416,8 @@ CREATE TABLE bookings (
     CONSTRAINT FK_bookings_slot        FOREIGN KEY (slot_id)            REFERENCES time_slots(slot_id),
     CONSTRAINT FK_bookings_status      FOREIGN KEY (status_id)          REFERENCES booking_statuses(status_id),
     CONSTRAINT FK_bookings_cancel_by   FOREIGN KEY (cancelled_by)       REFERENCES users(user_id),
-    CONSTRAINT FK_bookings_dispute_by  FOREIGN KEY (dispute_resolved_by) REFERENCES users(user_id)
+    CONSTRAINT FK_bookings_dispute_by  FOREIGN KEY (dispute_resolved_by) REFERENCES users(user_id),
+    CONSTRAINT FK_bookings_dispute_created_by FOREIGN KEY (dispute_created_by) REFERENCES users(user_id)
     -- [FIX-07] Unique constraint removed — replaced by filtered index below
     --          to allow slot reuse after CANCELLED / REJECTED bookings.
 );
@@ -1079,24 +1090,36 @@ GO
 -- 18b. WALLET TRANSACTIONS
 -- ================================================================
 CREATE TABLE wallet_transactions (
-    tx_id         BIGINT        PRIMARY KEY IDENTITY(1,1),
-    wallet_id     BIGINT        NOT NULL,
-    tx_type       VARCHAR(20)   NOT NULL, -- 'CREDIT_REFUND' | 'CREDIT_EARNING' | 'DEBIT_WITHDRAW'
-    amount        DECIMAL(18,0) NOT NULL,
-    balance_after DECIMAL(18,0) NOT NULL,
-    booking_id    BIGINT        NULL,
-    payment_id    BIGINT        NULL,
-    description   NVARCHAR(500) NULL,
-    created_at    DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    tx_id                  BIGINT        PRIMARY KEY IDENTITY(1,1),
+    wallet_id              BIGINT        NOT NULL,
+    -- 'CREDIT_REFUND' | 'CREDIT_EARNING' | 'DEBIT_WITHDRAW' | 'DEBIT_CORRECTION'
+    tx_type                VARCHAR(20)   NOT NULL,
+    amount                 DECIMAL(18,0) NOT NULL,
+    balance_after          DECIMAL(18,0) NOT NULL,
+    booking_id             BIGINT        NULL,
+    payment_id             BIGINT        NULL,
+    description            NVARCHAR(500) NULL,
+    -- Cờ idempotency: 1 = row cũ/duplicate đã được xử lý, loại khỏi unique index
+    is_idempotency_exempt  BIT           NOT NULL DEFAULT 0,
+    created_at             DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
 
-    CONSTRAINT FK_wallet_transactions_wallets FOREIGN KEY (wallet_id) REFERENCES wallets(wallet_id),
+    CONSTRAINT FK_wallet_transactions_wallets  FOREIGN KEY (wallet_id)  REFERENCES wallets(wallet_id),
     CONSTRAINT FK_wallet_transactions_bookings FOREIGN KEY (booking_id) REFERENCES bookings(booking_id),
     CONSTRAINT FK_wallet_transactions_payments FOREIGN KEY (payment_id) REFERENCES payments(payment_id),
-    CONSTRAINT CK_wallet_tx_type CHECK (tx_type IN ('CREDIT_REFUND', 'CREDIT_EARNING', 'DEBIT_WITHDRAW'))
+    CONSTRAINT CK_wallet_tx_type CHECK (tx_type IN ('CREDIT_REFUND','CREDIT_EARNING','DEBIT_WITHDRAW','DEBIT_CORRECTION'))
 );
 GO
 
 CREATE INDEX IX_wallet_transactions_wallet ON wallet_transactions(wallet_id);
+
+-- Idempotency: ngăn credit trùng cho cùng booking_id / payment_id
+CREATE UNIQUE INDEX UX_wallet_transactions_idempotency_booking
+    ON wallet_transactions(wallet_id, tx_type, booking_id)
+    WHERE booking_id IS NOT NULL AND is_idempotency_exempt = 0;
+
+CREATE UNIQUE INDEX UX_wallet_transactions_idempotency_payment
+    ON wallet_transactions(wallet_id, tx_type, payment_id)
+    WHERE payment_id IS NOT NULL AND is_idempotency_exempt = 0;
 GO
 
 -- ================================================================

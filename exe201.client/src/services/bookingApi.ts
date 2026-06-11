@@ -35,6 +35,11 @@ export type BookingDto = {
   studioName: string
   packageId: number
   packageName: string
+  serviceName?: string
+  packageDescription?: string
+  packageDurationHours?: number
+  packageMaxPhotos?: number
+  packageInclusions?: string
   slotId: number
   shootingDate: string
   startTime: string
@@ -43,12 +48,17 @@ export type BookingDto = {
   shootingLat?: number
   shootingLng?: number
   note?: string
-  status: 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'DEMO_UPLOADED' | 'EDITING' | 'FINAL_DELIVERED' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'DISPUTED' | string
+  status: 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'DEMO_UPLOADED' | 'EDITING' | 'FINAL_DELIVERED' | 'AWAITING_CUSTOMER' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'DISPUTED' | 'NO_SHOW' | string
   totalPrice: number
   commissionAmount: number
   studioRevenue: number
   paymentExpiresAt?: string
   canCancel: boolean
+  canRequestReschedule?: boolean
+  canRespondReschedule?: boolean
+  canMarkNoShow?: boolean
+  cancellationPolicy?: BookingCancellationPolicyDto
+  pendingReschedule?: BookingRescheduleRequestDto
   demoPhotoUrls?: string[]
   finalPhotoUrls?: string[]
   customerFeedback?: string
@@ -56,6 +66,25 @@ export type BookingDto = {
   review?: BookingReviewDto
   createdAt: string
   latestPayment?: PaymentDto
+}
+
+export type BookingCancellationPolicyDto = {
+  refundAmount: number
+  customerChargeAmount: number
+  studioCompensationAmount: number
+  policyCode: string
+  message: string
+}
+
+export type BookingRescheduleRequestDto = {
+  newSlotId: number
+  newDate: string
+  newStartTime: string
+  newEndTime: string
+  requestedBy: number
+  requestedByRole: string
+  reason?: string
+  requestedAt: string
 }
 
 export type BookingReviewDto = {
@@ -91,6 +120,22 @@ export function cancelBooking(id: string | number, reason?: string) {
 
 export function disputeBooking(id: string | number, reason: string) {
   return api.put<BookingDto>(`/bookings/${id}/dispute`, { reason }).then((res) => res.data)
+}
+
+export function requestReschedule(id: string | number, payload: { newSlotId: number; reason?: string }) {
+  return api.put<BookingDto>(`/bookings/${id}/reschedule-request`, payload).then((res) => res.data)
+}
+
+export function approveReschedule(id: string | number, reason?: string) {
+  return api.put<BookingDto>(`/bookings/${id}/reschedule-approve`, { reason }).then((res) => res.data)
+}
+
+export function rejectReschedule(id: string | number, reason?: string) {
+  return api.put<BookingDto>(`/bookings/${id}/reschedule-reject`, { reason }).then((res) => res.data)
+}
+
+export function markNoShow(id: string | number, reason?: string) {
+  return api.put<BookingDto>(`/bookings/${id}/no-show`, { reason }).then((res) => res.data)
 }
 
 export function vnpayCreatePaymentUrl(bookingId: number) {

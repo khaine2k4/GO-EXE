@@ -13,13 +13,20 @@ import {
   Send,
   XCircle,
   Download,
-  ExternalLink
+  ExternalLink,
+  X,
+  Loader2
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import {
+  approveReschedule,
   confirmBooking,
+  completeBooking,
+  disputeBooking,
   getBooking,
+  markNoShow,
   markInProgress,
+  rejectReschedule,
   rejectBooking,
   uploadDemoPhotos,
   uploadFinalPhotos,
@@ -53,6 +60,8 @@ const STATUS_LABEL: Record<string, string> = {
   COMPLETED: 'Hoàn thành',
   CANCELLED: 'Đã hủy',
   REJECTED: 'Từ chối',
+  DISPUTED: 'Bị khiếu nại',
+  NO_SHOW: 'Khách không đến',
 }
 
 export default function PhotographerBookingDetailPage() {
@@ -65,6 +74,8 @@ export default function PhotographerBookingDetailPage() {
   const [error, setError] = useState('')
   const [deliveryForm, setDeliveryForm] = useState<{ type: 'demo' | 'final'; urls: string[]; note: string } | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [disputeDialogOpen, setDisputeDialogOpen] = useState(false)
+  const [noShowDialogOpen, setNoShowDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -98,6 +109,40 @@ export default function PhotographerBookingDetailPage() {
       'Đã từ chối đơn đặt lịch',
     )
     if (succeeded) setRejectDialogOpen(false)
+  }
+
+  async function handleDispute(reason: string) {
+    if (!booking) return
+    const succeeded = await runAction(
+      () => disputeBooking(booking.id, reason),
+      'Đã gửi khiếu nại khách hàng',
+    )
+    if (succeeded) setDisputeDialogOpen(false)
+  }
+
+  async function handleApproveReschedule() {
+    if (!booking) return
+    await runAction(
+      () => approveReschedule(booking.id, 'Studio approved reschedule'),
+      'Đã duyệt yêu cầu đổi lịch',
+    )
+  }
+
+  async function handleRejectReschedule() {
+    if (!booking) return
+    await runAction(
+      () => rejectReschedule(booking.id, 'Studio rejected reschedule'),
+      'Đã từ chối yêu cầu đổi lịch',
+    )
+  }
+
+  async function handleNoShow(reason: string) {
+    if (!booking) return
+    const succeeded = await runAction(
+      () => markNoShow(booking.id, reason.trim() || 'Khách hàng không đến buổi chụp'),
+      'Đã ghi nhận khách không đến',
+    )
+    if (succeeded) setNoShowDialogOpen(false)
   }
 
   async function submitDelivery() {
@@ -188,46 +233,7 @@ export default function PhotographerBookingDetailPage() {
             </div>
           )}
 
-          {/* Photo Delivery Form */}
-          {deliveryForm && (
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/40 p-6 animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-                <div>
-                  <h2 className="text-base font-black text-slate-900">
-                    {deliveryForm.type === 'demo' ? '⚡ Tải lên bộ ảnh mẫu (Demo)' : '⚡ Giao bộ ảnh hoàn thiện (Final)'}
-                  </h2>
-                  <p className="mt-1 text-xs font-semibold text-slate-400">Tải ảnh chất lượng cao lên hệ thống để bàn giao cho khách hàng xem duyệt.</p>
-                </div>
-                <button type="button" onClick={() => setDeliveryForm(null)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black uppercase text-slate-500 hover:bg-slate-50 active:scale-95 transition-all">
-                  Hủy
-                </button>
-              </div>
 
-              <div className="mt-4">
-                <MultiImageUploader
-                  label={deliveryForm.type === 'demo' ? 'Ảnh mẫu (Demo)' : 'Ảnh hoàn thiện (Final)'}
-                  folder={deliveryForm.type === 'demo' ? 'exe201/bookings/demo' : 'exe201/bookings/final'}
-                  onUrlsChanged={(urls) => setDeliveryForm((prev) => prev ? { ...prev, urls } : null)}
-                  maxFiles={50}
-                />
-              </div>
-
-              <input
-                value={deliveryForm.note}
-                onChange={(event) => setDeliveryForm((prev) => prev ? { ...prev, note: event.target.value } : null)}
-                placeholder="Nhập ghi chú giao ảnh hoặc liên kết Drive/Fshare đính kèm (nếu có)..."
-                className="mt-4 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition"
-              />
-              <button
-                type="button"
-                disabled={actioning || deliveryForm.urls.length === 0}
-                onClick={submitDelivery}
-                className="mt-4 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="h-4 w-4" /> Bàn giao bộ ảnh ({deliveryForm.urls.length})
-              </button>
-            </div>
-          )}
         </section>
 
         {/* Sidebar Actions */}
@@ -236,6 +242,27 @@ export default function PhotographerBookingDetailPage() {
           <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b border-slate-50 pb-3">Thao tác nghiệp vụ</h2>
             <div className="mt-4 grid gap-3">
+              {booking.pendingReschedule && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-blue-700">Khách yêu cầu đổi lịch</div>
+                  <div className="mt-2 text-sm font-black text-blue-950">
+                    {formatDate(booking.pendingReschedule.newDate)} lúc {booking.pendingReschedule.newStartTime} - {booking.pendingReschedule.newEndTime}
+                  </div>
+                  {booking.pendingReschedule.reason && (
+                    <p className="mt-2 text-xs font-semibold leading-5 text-blue-800">{booking.pendingReschedule.reason}</p>
+                  )}
+                  {booking.canRespondReschedule && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button disabled={actioning} type="button" onClick={handleApproveReschedule} className="h-10 rounded-xl bg-blue-600 text-xs font-black uppercase text-white transition hover:bg-blue-700 active:scale-95 disabled:opacity-50">
+                        Duyệt
+                      </button>
+                      <button disabled={actioning} type="button" onClick={handleRejectReschedule} className="h-10 rounded-xl border border-blue-200 bg-white text-xs font-black uppercase text-blue-700 transition hover:bg-blue-50 active:scale-95 disabled:opacity-50">
+                        Từ chối
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               {booking.status === 'PENDING_CONFIRMATION' && (
                 <>
                   <button disabled={actioning} type="button" onClick={() => runAction(() => confirmBooking(booking.id), 'Đã xác nhận đơn đặt lịch')} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 hover:bg-slate-800 text-xs font-black uppercase text-white shadow-md active:scale-95 transition-all disabled:opacity-50">
@@ -262,8 +289,23 @@ export default function PhotographerBookingDetailPage() {
                 </button>
               )}
               {booking.status === 'FINAL_DELIVERED' && (
+                <button disabled={actioning} type="button" onClick={() => runAction(() => completeBooking(booking.id), 'Đã gửi yêu cầu khách hàng xác nhận hoàn tất')} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-xs font-black uppercase text-white shadow-lg shadow-emerald-600/10 active:scale-95 transition-all disabled:opacity-50">
+                  <CheckCircle2 className="h-4 w-4" /> Gửi yêu cầu hoàn tất
+                </button>
+              )}
+              {booking.status === 'AWAITING_CUSTOMER' && (
                 <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 text-xs font-black uppercase tracking-wider text-teal-700 text-center leading-relaxed">
                   ⏳ Đang chờ khách hàng xác nhận hoàn tất.
+                </div>
+              )}
+              {booking.canMarkNoShow && (
+                <button disabled={actioning} type="button" onClick={() => setNoShowDialogOpen(true)} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-black uppercase tracking-wider text-amber-700 active:scale-95 transition-all disabled:opacity-50">
+                  <XCircle className="h-4 w-4" /> Khách không đến
+                </button>
+              )}
+              {booking.status === 'DISPUTED' && (
+                <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-4 text-xs font-black uppercase tracking-wider text-rose-700 text-center leading-relaxed animate-pulse">
+                  ⚠️ Đơn hàng đang bị khiếu nại. Admin đang xử lý tranh chấp.
                 </div>
               )}
               {booking.status === 'COMPLETED' && (
@@ -275,6 +317,16 @@ export default function PhotographerBookingDetailPage() {
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs font-black uppercase tracking-wider text-slate-500 text-center leading-relaxed">
                   🚫 Đơn đặt lịch này đã bị hủy hoặc từ chối.
                 </div>
+              )}
+              {['CONFIRMED', 'IN_PROGRESS', 'DEMO_UPLOADED', 'EDITING', 'FINAL_DELIVERED', 'AWAITING_CUSTOMER'].includes(booking.status) && (
+                <button
+                  disabled={actioning}
+                  type="button"
+                  onClick={() => setDisputeDialogOpen(true)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white hover:bg-rose-50 text-xs font-black uppercase tracking-wider text-rose-600 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <XCircle className="h-4 w-4" /> Khiếu nại khách hàng
+                </button>
               )}
             </div>
           </div>
@@ -293,6 +345,79 @@ export default function PhotographerBookingDetailPage() {
           </div>
         </aside>
       </div>
+      {/* Dialog Bàn giao ảnh (Demo / Final) */}
+      {deliveryForm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+          <section className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-6 md:p-8 shadow-2xl shadow-slate-950/15 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200 animate-out fade-out zoom-out-95">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  {deliveryForm.type === 'demo' ? '⚡ Bàn giao bộ ảnh mẫu (Demo)' : '⚡ Bàn giao bộ ảnh hoàn thiện (Final)'}
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-slate-400">
+                  Tải ảnh chất lượng cao lên hệ thống để bàn giao cho khách hàng xem duyệt.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeliveryForm(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 active:scale-95"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <MultiImageUploader
+                label={deliveryForm.type === 'demo' ? 'Tải ảnh mẫu (Demo)' : 'Tải ảnh hoàn thiện (Final)'}
+                folder={deliveryForm.type === 'demo' ? 'exe201/bookings/demo' : 'exe201/bookings/final'}
+                onUrlsChanged={(urls) => setDeliveryForm((prev) => prev ? { ...prev, urls } : null)}
+                maxFiles={50}
+              />
+            </div>
+
+            <div className="mt-6">
+              <span className="mb-2 block text-xs font-black uppercase tracking-widest text-slate-400">
+                Ghi chú hoặc Liên kết đính kèm
+              </span>
+              <input
+                value={deliveryForm.note}
+                onChange={(event) => setDeliveryForm((prev) => prev ? { ...prev, note: event.target.value } : null)}
+                placeholder="Nhập ghi chú giao ảnh hoặc liên kết Drive/Fshare đính kèm (nếu có)..."
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-50 transition"
+              />
+            </div>
+
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end border-t border-slate-100 pt-5">
+              <button
+                type="button"
+                onClick={() => setDeliveryForm(null)}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-xs font-black uppercase tracking-wider text-slate-600 transition hover:bg-slate-50 active:scale-95"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={actioning || deliveryForm.urls.length === 0}
+                onClick={submitDelivery}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 px-6 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-600/10 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actioning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Đang giao ảnh...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" /> Bàn giao bộ ảnh ({deliveryForm.urls.length})
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       <ReasonDialog
         open={rejectDialogOpen}
         title="Từ chối nhận đơn đặt lịch"
@@ -306,6 +431,34 @@ export default function PhotographerBookingDetailPage() {
         onCancel={() => setRejectDialogOpen(false)}
         onSubmit={handleReject}
       />
+
+      <ReasonDialog
+        open={disputeDialogOpen}
+        title="Khiếu nại khách hàng"
+        description="Lý do này giúp Admin có cơ sở phân xử tranh chấp công bằng cho Studio và khách hàng."
+        label="Lý do khiếu nại"
+        placeholder="Ví dụ: Khách hàng không xác nhận hoàn tất sau khi nhận ảnh final hoặc yêu cầu vượt quá cam kết ban đầu..."
+        defaultReason="Studio yêu cầu khiếu nại đơn hàng"
+        confirmText="Gửi khiếu nại"
+        danger
+        loading={actioning}
+        onCancel={() => setDisputeDialogOpen(false)}
+        onSubmit={handleDispute}
+      />
+
+      <ReasonDialog
+        open={noShowDialogOpen}
+        title="Ghi nhận khách không đến"
+        description="Hành động này hủy booking theo chính sách no-show và ghi nhận phần doanh thu Studio được nhận theo commission."
+        label="Ghi chú no-show"
+        placeholder="Ví dụ: Khách không có mặt sau 30 phút, Studio đã gọi xác nhận..."
+        defaultReason="Khách hàng không đến buổi chụp"
+        confirmText="Xác nhận no-show"
+        danger
+        loading={actioning}
+        onCancel={() => setNoShowDialogOpen(false)}
+        onSubmit={handleNoShow}
+      />
     </div>
   )
 }
@@ -313,13 +466,17 @@ export default function PhotographerBookingDetailPage() {
 function StatusBadge({ status }: { status: string }) {
   const color = status === 'CANCELLED' || status === 'REJECTED'
     ? 'border-slate-200 bg-slate-50 text-slate-500'
+    : status === 'NO_SHOW'
+      ? 'border-amber-200 bg-amber-50 text-amber-700 shadow-sm shadow-amber-100/10'
     : status === 'COMPLETED'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100/10'
-      : status === 'FINAL_DELIVERED'
-        ? 'border-teal-200 bg-teal-50 text-teal-700 shadow-sm shadow-teal-100/10'
-        : status === 'DEMO_UPLOADED' || status === 'EDITING'
-          ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100/10'
-          : 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/10'
+      : status === 'DISPUTED'
+        ? 'border-rose-200 bg-rose-50 text-rose-700 shadow-sm shadow-rose-100/10 animate-pulse'
+        : status === 'FINAL_DELIVERED'
+          ? 'border-teal-200 bg-teal-50 text-teal-700 shadow-sm shadow-teal-100/10'
+          : status === 'DEMO_UPLOADED' || status === 'EDITING'
+            ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100/10'
+            : 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100/10'
 
   return (
     <span className={`inline-flex rounded-2xl border px-4 py-2 text-xs font-black uppercase tracking-wider ${color}`}>

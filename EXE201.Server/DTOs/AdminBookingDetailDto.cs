@@ -74,6 +74,9 @@ namespace EXE201.Server.DTOs
     {
         public string? Reason { get; set; }
         public string? DisputedAt { get; set; }
+        public long? CreatedBy { get; set; }
+        public string? CreatedByName { get; set; }
+        public string? CreatedByRole { get; set; }
         public string? ResolvedAt { get; set; }
         public long? ResolvedBy { get; set; }
         public string? ResolvedByName { get; set; }

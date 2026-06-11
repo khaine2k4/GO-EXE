@@ -27,11 +27,15 @@ namespace EXE201.Server.Services
         Task<BookingResponse?> ConfirmCompletionAsync(long customerId, long bookingId);
         Task<BookingReviewResponse?> CreateReviewAsync(long customerId, long bookingId, CreateBookingReviewRequest request);
         Task<BookingResponse?> CancelBookingAsync(long userId, string role, long bookingId, string? reason);
-        Task<BookingResponse?> DisputeBookingAsync(long customerId, long bookingId, string reason);
+        Task<BookingResponse?> RequestRescheduleAsync(long customerId, long bookingId, RescheduleBookingRequest request);
+        Task<BookingResponse?> RespondRescheduleAsync(long ownerId, long bookingId, bool approve, string? reason);
+        Task<BookingResponse?> MarkCustomerNoShowAsync(long ownerId, long bookingId, string? reason);
+        Task<BookingResponse?> DisputeBookingAsync(long userId, string role, long bookingId, string reason);
 
         Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role);
         Task<PaymentResponse?> PayBookingAsync(long customerId, PayBookingRequest request);
         Task<int> ExpirePendingBookingsAsync();
+        Task<int> AutoCompleteDeliveredBookingsAsync();
         Task<string?> CreateVnPayPaymentUrlAsync(long customerId, long bookingId, string ipAddress);
         Task<bool> ProcessVnPayReturnAsync(Dictionary<string, string> vnpayParams);
 

@@ -31,6 +31,7 @@ namespace EXE201.Server.Repositories
         /// Reload slot inside a transaction to check status before committing (race condition guard).
         /// </summary>
         Task<TimeSlot?> GetSlotForUpdateAsync(long slotId);
+        Task<TimeSlot?> GetSlotForUpdateWithWorkingDayAsync(long slotId);
         void AddSlot(TimeSlot slot);
 
         // ── Package ──────────────────────────────────────────────────────────
@@ -41,6 +42,7 @@ namespace EXE201.Server.Repositories
         Task<Booking?> GetBookingForUpdateAsync(long bookingId);
         Task<bool> SlotHasActiveBookingAsync(long slotId);
         Task<List<Booking>> GetExpiredPendingPaymentBookingsAsync(long pendingPaymentStatusId, DateTime now, int batchSize);
+        Task<List<Booking>> GetExpiredFinalDeliveredBookingsAsync(long finalDeliveredStatusId, long awaitingCustomerStatusId, DateTime threshold, int batchSize);
         Task<List<Booking>> GetBookingsByCustomerAsync(long customerId, string? status);
         Task<List<Booking>> GetBookingsByStudioAsync(long studioId, string? status);
         void AddBooking(Booking booking);
@@ -59,6 +61,7 @@ namespace EXE201.Server.Repositories
         Task<List<Payment>> GetPaymentsByStudioAsync(long studioId);
         Task<PaymentMethod?> GetPaymentMethodAsync(string methodName);
         Task<PaymentStatus?> GetPaymentStatusAsync(string statusName);
+        Task<PaymentStatus> GetOrCreatePaymentStatusAsync(string statusName);
         void AddPayment(Payment payment);
 
         // Settlement
@@ -68,5 +71,6 @@ namespace EXE201.Server.Repositories
         // Review
         void AddReview(Review review);
         Task<bool> ReviewExistsAsync(long bookingId);
+        Task RecalculateStudioRatingAsync(long studioId);
     }
 }

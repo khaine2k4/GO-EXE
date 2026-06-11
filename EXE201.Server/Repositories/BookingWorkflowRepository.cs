@@ -97,6 +97,14 @@ namespace EXE201.Server.Repositories
                 .FromSqlInterpolated($"SELECT * FROM time_slots WITH (UPDLOCK, ROWLOCK) WHERE slot_id = {slotId}")
                 .FirstOrDefaultAsync();
 
+        public async Task<TimeSlot?> GetSlotForUpdateWithWorkingDayAsync(long slotId)
+            => await _context.TimeSlots
+                .FromSqlInterpolated($"SELECT * FROM time_slots WITH (UPDLOCK, ROWLOCK) WHERE slot_id = {slotId}")
+                .Include(s => s.WorkingDay)
+                .Include(s => s.Bookings)
+                    .ThenInclude(b => b.Status)
+                .FirstOrDefaultAsync();
+
         public void AddSlot(TimeSlot slot)
             => _context.TimeSlots.Add(slot);
 
@@ -117,7 +125,7 @@ namespace EXE201.Server.Repositories
                 .FromSqlInterpolated($"SELECT * FROM bookings WITH (UPDLOCK, ROWLOCK) WHERE booking_id = {bookingId}")
                 .Include(b => b.Customer)
                 .Include(b => b.Studio)
-                .Include(b => b.Package)
+                .Include(b => b.Package).ThenInclude(p => p.Service)
                 .Include(b => b.Status)
                 .Include(b => b.Slot).ThenInclude(s => s.WorkingDay)
                 .Include(b => b.BookingLogs)
@@ -139,6 +147,19 @@ namespace EXE201.Server.Repositories
                             b.PaymentExpiresAt != null &&
                             b.PaymentExpiresAt <= now)
                 .OrderBy(b => b.PaymentExpiresAt)
+                .Take(batchSize)
+                .ToListAsync();
+
+        public async Task<List<Booking>> GetExpiredFinalDeliveredBookingsAsync(long finalDeliveredStatusId, long awaitingCustomerStatusId, DateTime threshold, int batchSize)
+            => await BookingQuery()
+                .AsNoTracking()
+                .Where(b => (b.StatusId == finalDeliveredStatusId || b.StatusId == awaitingCustomerStatusId) &&
+                            (b.BookingLogs
+                                .Where(l => l.NewStatus == "FINAL_DELIVERED" || l.NewStatus == "AWAITING_CUSTOMER")
+                                .Select(l => (DateTime?)l.ChangedAt)
+                                .Max() ?? b.UpdatedAt) <= threshold &&
+                            b.DisputedAt == null)
+                .OrderBy(b => b.UpdatedAt)
                 .Take(batchSize)
                 .ToListAsync();
 
@@ -222,6 +243,17 @@ namespace EXE201.Server.Repositories
         public async Task<PaymentStatus?> GetPaymentStatusAsync(string statusName)
             => await _context.PaymentStatuses.FirstOrDefaultAsync(s => s.StatusName == statusName);
 
+        public async Task<PaymentStatus> GetOrCreatePaymentStatusAsync(string statusName)
+        {
+            var status = await _context.PaymentStatuses.FirstOrDefaultAsync(s => s.StatusName == statusName);
+            if (status != null) return status;
+
+            status = new PaymentStatus { StatusName = statusName };
+            _context.PaymentStatuses.Add(status);
+            await _context.SaveChangesAsync();
+            return status;
+        }
+
         public void AddPayment(Payment payment)
             => _context.Payments.Add(payment);
 
@@ -239,13 +271,29 @@ namespace EXE201.Server.Repositories
         public async Task<bool> ReviewExistsAsync(long bookingId)
             => await _context.Reviews.AnyAsync(r => r.BookingId == bookingId);
 
+        public async Task RecalculateStudioRatingAsync(long studioId)
+        {
+            var studio = await _context.Studios.FirstOrDefaultAsync(s => s.StudioId == studioId);
+            if (studio == null) return;
+
+            var visibleReviews = _context.Reviews.Where(r => r.StudioId == studioId && !r.IsHidden);
+            var totalReviews = await visibleReviews.CountAsync();
+            var avgRating = totalReviews == 0
+                ? 0m
+                : Math.Round(await visibleReviews.AverageAsync(r => (decimal)r.Rating), 1);
+
+            studio.TotalReviews = totalReviews;
+            studio.AvgRating = avgRating;
+            studio.UpdatedAt = DateTime.UtcNow;
+        }
+
         // ── Private helpers ──────────────────────────────────────────────────
 
         private IQueryable<Booking> BookingQuery()
             => _context.Bookings
                 .Include(b => b.Customer)
                 .Include(b => b.Studio)
-                .Include(b => b.Package)
+                .Include(b => b.Package).ThenInclude(p => p.Service)
                 .Include(b => b.Status)
                 .Include(b => b.Slot).ThenInclude(s => s.WorkingDay)
                 .Include(b => b.BookingLogs)

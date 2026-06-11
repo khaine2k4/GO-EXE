@@ -34,6 +34,12 @@ namespace EXE201.Server.Services
                     {
                         _logger.LogInformation("Expired {ExpiredCount} pending booking holds.", expiredCount);
                     }
+
+                    var completedCount = await service.AutoCompleteDeliveredBookingsAsync();
+                    if (completedCount > 0)
+                    {
+                        _logger.LogInformation("Auto-completed {CompletedCount} finalized bookings.", completedCount);
+                    }
                 }
                 catch (Exception ex)
                 {
