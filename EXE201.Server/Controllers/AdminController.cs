@@ -500,7 +500,7 @@ namespace EXE201.Server.Controllers
             try
             {
                 var settlement = await _adminService.MarkSettlementPaidAsync(id, request ?? new SettlementPayoutRequestDto(), GetAdminId());
-                return settlement == null ? NotFound("Settlement not found.") : Ok(new { message = "Settlement marked as paid.", settlement });
+                return settlement == null ? NotFound("Settlement not found.") : Ok(new { message = "Settlement reconciled.", settlement });
             }
             catch (InvalidOperationException ex)
             {

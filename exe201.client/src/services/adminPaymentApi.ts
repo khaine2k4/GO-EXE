@@ -1,6 +1,6 @@
 import api from './api'
 
-export type AdminPaymentStatus = 'ALL' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CANCELLED' | 'REFUND_PENDING'
+export type AdminPaymentStatus = 'ALL' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED' | 'FORFEITED' | 'CANCELLED' | 'REFUND_PENDING'
 export type AdminPaymentMethod = 'ALL' | 'CASH' | 'VNPAY' | 'BANK_TRANSFER' | 'MOMO' | 'PAYPAL' | 'PAYOS'
 
 export type AdminPaymentItem = {
@@ -22,6 +22,11 @@ export type AdminPaymentItem = {
   failureReason?: string
   paidAt?: string
   refundedAt?: string
+  refundAmount?: number
+  retainedAmount?: number
+  studioCompensationAmount?: number
+  policyCode?: string
+  policyNote?: string
   createdAt: string
   updatedAt: string
 }

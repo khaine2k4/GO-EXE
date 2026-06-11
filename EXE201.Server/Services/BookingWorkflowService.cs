@@ -1563,6 +1563,11 @@ namespace EXE201.Server.Services
                 payment.RefundMethod = "WALLET";
                 payment.RefundReason = reason;
                 payment.RefundPendingReason = quote.Message;
+                payment.RefundAmount = quote.RefundAmount;
+                payment.RetainedAmount = quote.CustomerChargeAmount;
+                payment.StudioCompensationAmount = quote.StudioCompensationAmount;
+                payment.PolicyCode = quote.PolicyCode;
+                payment.PolicyNote = quote.Message;
                 payment.UpdatedAt = DateTime.UtcNow;
 
                 await _walletService.CreditCustomerRefundAsync(
@@ -1578,6 +1583,11 @@ namespace EXE201.Server.Services
                 payment.PaymentStatus = status;
                 payment.RefundReason = reason;
                 payment.RefundPendingReason = quote.Message;
+                payment.RefundAmount = 0;
+                payment.RetainedAmount = quote.CustomerChargeAmount;
+                payment.StudioCompensationAmount = quote.StudioCompensationAmount;
+                payment.PolicyCode = quote.PolicyCode;
+                payment.PolicyNote = quote.Message;
                 payment.UpdatedAt = DateTime.UtcNow;
             }
 
@@ -1863,6 +1873,11 @@ namespace EXE201.Server.Services
             payment.RefundedAt = DateTime.UtcNow;
             payment.RefundMethod = "WALLET";
             payment.RefundReason = reason;
+            payment.RefundAmount = booking.TotalPrice;
+            payment.RetainedAmount = 0;
+            payment.StudioCompensationAmount = 0;
+            payment.PolicyCode = "FULL_REFUND";
+            payment.PolicyNote = reason;
             payment.UpdatedAt = DateTime.UtcNow;
 
             // Credit the customer's wallet
@@ -2098,6 +2113,11 @@ namespace EXE201.Server.Services
             RefundedAt = p.RefundedAt?.ToString("O"),
             RefundMethod = p.RefundMethod,
             RefundPendingReason = p.RefundPendingReason,
+            RefundAmount = p.RefundAmount,
+            RetainedAmount = p.RetainedAmount,
+            StudioCompensationAmount = p.StudioCompensationAmount,
+            PolicyCode = p.PolicyCode,
+            PolicyNote = p.PolicyNote,
             CreatedAt = p.CreatedAt.ToString("O")
         };
 

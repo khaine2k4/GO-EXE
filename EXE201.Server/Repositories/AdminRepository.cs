@@ -228,14 +228,18 @@ namespace EXE201.Server.Repositories
                 booking.CancelReason = string.IsNullOrWhiteSpace(adminNote) ? "Dispute resolved with customer refund" : adminNote;
                 booking.Slot.Status = "OPEN";
 
-                await MarkLatestPaidPaymentForRefundAsync(booking, adminNote ?? "Dispute resolved with customer refund");
+                var refundAmount = await MarkLatestPaidPaymentForRefundAsync(booking, adminNote ?? "Dispute resolved with customer refund");
+                if (refundAmount > 0)
+                {
                 
                 // ── HOÀN TIỀN VÀO VÍ KHÁCH HÀNG KHI ĐƯỢC ADMIN PHÂN XỬ ────────────────
                 await _walletService.CreditCustomerRefundAsync(
                     booking.CustomerId,
-                    booking.TotalPrice,
+                    refundAmount,
                     booking.BookingId,
                     $"[Khiếu nại] Hoàn tiền Booking #{booking.BookingCode} theo quyết định phân xử của Admin");
+
+                }
 
                 AddBookingLog(booking.BookingId, oldStatus, "CANCELLED", adminId, BuildAdminDisputeNote("Refund customer", adminNote));
             }
@@ -523,6 +527,7 @@ namespace EXE201.Server.Repositories
             var payment = await PaymentQuery().FirstOrDefaultAsync(p => p.PaymentId == paymentId);
             if (payment == null) return null;
 
+            var previousPaymentStatus = payment.PaymentStatus.StatusName;
             var status = await _context.PaymentStatuses.FirstOrDefaultAsync(s => s.StatusName == normalizedStatus);
             if (status == null)
                 throw new InvalidOperationException("Payment status does not exist in database.");
@@ -548,6 +553,11 @@ namespace EXE201.Server.Repositories
                 payment.RefundedAt ??= DateTime.UtcNow;
                 payment.RefundMethod = "WALLET";
                 payment.RefundReason = request.Reason;
+                payment.RefundAmount = previousPaymentStatus == "PAID" ? payment.Amount : 0;
+                payment.RetainedAmount = 0;
+                payment.StudioCompensationAmount = 0;
+                payment.PolicyCode = previousPaymentStatus == "PAID" ? "ADMIN_MANUAL_FULL_REFUND" : "ADMIN_MANUAL_STATUS_ONLY";
+                payment.PolicyNote = request.Reason;
             }
             else if (normalizedStatus == "REFUND_PENDING")
             {
@@ -565,7 +575,7 @@ namespace EXE201.Server.Repositories
             }
 
             await SyncBookingForManualPaymentStatusAsync(payment, normalizedStatus, request.Reason, adminId);
-            if (normalizedStatus == "REFUNDED" && payment.Method.MethodName != "CASH")
+            if (normalizedStatus == "REFUNDED" && previousPaymentStatus == "PAID" && payment.Method.MethodName != "CASH")
             {
                 await _walletService.CreditCustomerRefundAsync(
                     payment.Booking.CustomerId,
@@ -692,8 +702,8 @@ namespace EXE201.Server.Repositories
                 .FirstOrDefaultAsync(s => s.SettlementId == settlementId);
 
             if (settlement == null) return null;
-            if (settlement.Status is "PAID" or "CANCELLED")
-                throw new InvalidOperationException("Settlement cannot be paid in its current status.");
+            if (settlement.Status is "RECONCILED" or "PAID" or "CANCELLED")
+                throw new InvalidOperationException("Settlement cannot be reconciled in its current status.");
 
             var normPayoutMethod = payoutMethod?.Trim().ToUpperInvariant() ?? "MANUAL";
 
@@ -704,16 +714,15 @@ namespace EXE201.Server.Repositories
                 normPayoutMethod = "WALLET";
             }
 
-            settlement.Status = "PAID";
-            settlement.PayoutMethod = normPayoutMethod;
+            settlement.Status = "RECONCILED";
+            settlement.PayoutMethod = normPayoutMethod == "MANUAL" ? "RECONCILIATION" : normPayoutMethod;
             settlement.PaidAt = DateTime.UtcNow;
             settlement.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
-            // NOTE: Tiền studio đã được cộng vào ví khi booking chuyển sang COMPLETED
-            // (ConfirmCompletionAsync / AutoCompleteDeliveredBookingsAsync).
-            // Settlement ở đây chỉ là tracking trạng thái payout/accounting, không credit lại.
+            // NOTE: Studio money is credited to the wallet when the booking is completed/released.
+            // Settlement reconciliation is only accounting, not a real bank payout.
 
             return MapSettlement(settlement);
         }
@@ -870,12 +879,12 @@ namespace EXE201.Server.Repositories
             }
         }
 
-        private async Task MarkLatestPaidPaymentForRefundAsync(Booking booking, string reason)
+        private async Task<decimal> MarkLatestPaidPaymentForRefundAsync(Booking booking, string reason)
         {
             var payment = booking.Payments
                 .OrderByDescending(p => p.CreatedAt)
                 .FirstOrDefault(p => p.PaymentStatus.StatusName == "PAID");
-            if (payment == null || payment.Method.MethodName == "CASH") return;
+            if (payment == null || payment.Method.MethodName == "CASH") return 0;
 
             var refunded = await GetPaymentStatusAsync("REFUNDED");
             payment.PaymentStatusId = refunded.PaymentStatusId;
@@ -884,7 +893,13 @@ namespace EXE201.Server.Repositories
             payment.RefundMethod = "WALLET";
             payment.RefundPendingReason = reason;
             payment.RefundReason = reason;
+            payment.RefundAmount = payment.Amount;
+            payment.RetainedAmount = 0;
+            payment.StudioCompensationAmount = 0;
+            payment.PolicyCode = "DISPUTE_ADMIN_FULL_REFUND";
+            payment.PolicyNote = reason;
             payment.UpdatedAt = DateTime.UtcNow;
+            return payment.Amount;
         }
 
         private void AddBookingLog(long bookingId, string? oldStatus, string newStatus, long changedBy, string? note)
@@ -922,6 +937,11 @@ namespace EXE201.Server.Repositories
             RefundedAt = payment.RefundedAt?.ToString("O"),
             RefundMethod = payment.RefundMethod,
             RefundPendingReason = payment.RefundPendingReason,
+            RefundAmount = payment.RefundAmount,
+            RetainedAmount = payment.RetainedAmount,
+            StudioCompensationAmount = payment.StudioCompensationAmount,
+            PolicyCode = payment.PolicyCode,
+            PolicyNote = payment.PolicyNote,
             CreatedAt = payment.CreatedAt.ToString("O")
         };
 
@@ -1070,6 +1090,11 @@ namespace EXE201.Server.Repositories
                 FailureReason = payment.FailureReason,
                 PaidAt = payment.PaidAt?.ToString("O"),
                 RefundedAt = payment.RefundedAt?.ToString("O"),
+                RefundAmount = payment.RefundAmount,
+                RetainedAmount = payment.RetainedAmount,
+                StudioCompensationAmount = payment.StudioCompensationAmount,
+                PolicyCode = payment.PolicyCode,
+                PolicyNote = payment.PolicyNote,
                 CreatedAt = payment.CreatedAt.ToString("O"),
                 UpdatedAt = payment.UpdatedAt.ToString("O")
             };
@@ -1098,6 +1123,11 @@ namespace EXE201.Server.Repositories
                 FailureReason = summary.FailureReason,
                 PaidAt = summary.PaidAt,
                 RefundedAt = summary.RefundedAt,
+                RefundAmount = summary.RefundAmount,
+                RetainedAmount = summary.RetainedAmount,
+                StudioCompensationAmount = summary.StudioCompensationAmount,
+                PolicyCode = summary.PolicyCode,
+                PolicyNote = summary.PolicyNote,
                 CreatedAt = summary.CreatedAt,
                 UpdatedAt = summary.UpdatedAt,
                 BookingStatus = payment.Booking.Status.StatusName,

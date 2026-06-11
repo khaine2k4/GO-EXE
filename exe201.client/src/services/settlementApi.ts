@@ -1,6 +1,6 @@
 import api from './api'
 
-export type SettlementStatus = 'ALL' | 'PENDING' | 'READY' | 'PAID' | 'FAILED' | 'CANCELLED'
+export type SettlementStatus = 'ALL' | 'PENDING' | 'READY' | 'RECONCILED' | 'PAID' | 'FAILED' | 'CANCELLED'
 
 export type SettlementItem = {
   settlementId: number
@@ -33,9 +33,11 @@ export function getAdminSettlements(params: SettlementParams = {}) {
   return api.get<SettlementItem[]>('/admin/settlements', { params }).then((res) => res.data)
 }
 
-export function markSettlementPaid(id: number, payoutMethod = 'MANUAL') {
+export function reconcileSettlement(id: number, payoutMethod = 'RECONCILIATION') {
   return api.post<{ message: string; settlement: SettlementItem }>(`/admin/settlements/${id}/payout`, { payoutMethod }).then((res) => res.data)
 }
+
+export const markSettlementPaid = reconcileSettlement
 
 export function getStudioSettlements(params: Pick<SettlementParams, 'status'> = {}) {
   return api.get<SettlementItem[]>('/studio/settlements', { params }).then((res) => res.data)

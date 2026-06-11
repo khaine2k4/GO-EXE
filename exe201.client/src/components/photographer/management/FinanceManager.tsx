@@ -12,7 +12,8 @@ const SETTLEMENT_LABEL: Record<string, string> = {
   ALL: 'Tất cả trạng thái',
   READY: 'Chờ đối soát',
   PENDING: 'Đang xử lý',
-  PAID: 'Đã chi trả',
+  RECONCILED: 'Đã đối soát',
+  PAID: 'Đã đối soát',
   FAILED: 'Thất bại',
   CANCELLED: 'Đã hủy',
 }
@@ -20,6 +21,7 @@ const SETTLEMENT_LABEL: Record<string, string> = {
 const SETTLEMENT_BADGE: Record<string, string> = {
   READY: 'bg-blue-50 text-blue-700 border border-blue-200/50',
   PENDING: 'bg-amber-50 text-amber-700 border border-amber-200/50',
+  RECONCILED: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50',
   PAID: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50',
   FAILED: 'bg-rose-50 text-rose-700 border border-rose-200/50',
   CANCELLED: 'bg-slate-50 text-slate-500 border border-slate-200',
@@ -278,7 +280,7 @@ export default function FinanceManager() {
 
   const settlementTotals = useMemo(() => ({
     ready: settlements.filter((item) => item.status === 'READY').reduce((sum, item) => sum + item.studioAmount, 0),
-    paid: settlements.filter((item) => item.status === 'PAID').reduce((sum, item) => sum + item.studioAmount, 0),
+    paid: settlements.filter((item) => item.status === 'PAID' || item.status === 'RECONCILED').reduce((sum, item) => sum + item.studioAmount, 0),
   }), [settlements])
 
   // Pagination calculations
@@ -310,7 +312,7 @@ export default function FinanceManager() {
           <Metric label="Tổng doanh thu" value={revenue ? formatVnd(revenue.grossRevenue) : '0 VND'} tone="slate" sub="Doanh thu thô" />
           <Metric label="Phí nền tảng" value={revenue ? formatVnd(revenue.commissionDeducted) : '0 VND'} tone="rose" sub="Chiết khấu giữ lại" />
           <Metric label="Thực nhận tổng" value={revenue ? formatVnd(revenue.netRevenue) : '0 VND'} tone="indigo" sub="Sau khi trừ phí" />
-          <Metric label="Đã đối soát" value={formatVnd(settlementTotals.paid)} tone="emerald" sub="Chuyển vào số dư ví" />
+          <Metric label="Đã đối soát" value={formatVnd(settlementTotals.paid)} tone="emerald" sub="Tiền đã ở ví Studio" />
         </div>
       </SectionPanel>
 
@@ -597,7 +599,7 @@ export default function FinanceManager() {
       {/* Admin Settlements with Top Right Pagination */}
       <SectionPanel
         title="Đối soát hệ thống"
-        subtitle="Danh sách các đơn đặt lịch chụp ảnh hoàn thành đang chờ hoặc đã được chi trả từ Admin."
+        subtitle="Danh sách các đơn hoàn thành đang chờ hoặc đã được Admin ghi nhận đối soát."
         actions={
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <select
@@ -608,7 +610,7 @@ export default function FinanceManager() {
               }}
               className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black uppercase tracking-wider text-slate-700 outline-none focus:border-indigo-500"
             >
-              {['ALL', 'READY', 'PENDING', 'PAID', 'FAILED', 'CANCELLED'].map((item) => (
+              {['ALL', 'READY', 'RECONCILED', 'PAID', 'PENDING', 'FAILED', 'CANCELLED'].map((item) => (
                 <option key={item} value={item}>{SETTLEMENT_LABEL[item] ?? item}</option>
               ))}
             </select>

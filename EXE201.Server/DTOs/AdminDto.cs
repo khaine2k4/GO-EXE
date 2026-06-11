@@ -125,6 +125,11 @@ namespace EXE201.Server.DTOs
         public string? FailureReason { get; set; }
         public string? PaidAt { get; set; }
         public string? RefundedAt { get; set; }
+        public decimal? RefundAmount { get; set; }
+        public decimal? RetainedAmount { get; set; }
+        public decimal? StudioCompensationAmount { get; set; }
+        public string? PolicyCode { get; set; }
+        public string? PolicyNote { get; set; }
         public string CreatedAt { get; set; } = null!;
         public string UpdatedAt { get; set; } = null!;
     }

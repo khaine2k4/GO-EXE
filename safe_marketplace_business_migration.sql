@@ -165,3 +165,33 @@ BEGIN
     INSERT INTO dbo.payment_statuses(status_name) VALUES ('FORFEITED');
 END
 GO
+
+IF COL_LENGTH('dbo.payments', 'refund_amount') IS NULL
+BEGIN
+    ALTER TABLE dbo.payments ADD refund_amount DECIMAL(12, 0) NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.payments', 'retained_amount') IS NULL
+BEGIN
+    ALTER TABLE dbo.payments ADD retained_amount DECIMAL(12, 0) NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.payments', 'studio_compensation_amount') IS NULL
+BEGIN
+    ALTER TABLE dbo.payments ADD studio_compensation_amount DECIMAL(12, 0) NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.payments', 'policy_code') IS NULL
+BEGIN
+    ALTER TABLE dbo.payments ADD policy_code VARCHAR(80) NULL;
+END
+GO
+
+IF COL_LENGTH('dbo.payments', 'policy_note') IS NULL
+BEGIN
+    ALTER TABLE dbo.payments ADD policy_note NVARCHAR(MAX) NULL;
+END
+GO

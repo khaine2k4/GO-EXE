@@ -19,6 +19,8 @@ const statusOptions: { value: AdminPaymentStatus; label: string }[] = [
   { value: 'PAID', label: 'Đã thanh toán' },
   { value: 'FAILED', label: 'Thất bại' },
   { value: 'REFUNDED', label: 'Đã hoàn tiền' },
+  { value: 'PARTIALLY_REFUNDED', label: 'Hoàn một phần' },
+  { value: 'FORFEITED', label: 'Mất phí' },
   { value: 'CANCELLED', label: 'Đã hủy' },
   { value: 'REFUND_PENDING', label: 'Chờ hoàn tiền' },
 ]
@@ -40,6 +42,8 @@ const paymentStatusLabels: Record<string, string> = {
   PAID: 'Đã thanh toán',
   FAILED: 'Thất bại',
   REFUNDED: 'Đã hoàn tiền',
+  PARTIALLY_REFUNDED: 'Hoàn một phần',
+  FORFEITED: 'Mất phí',
   CANCELLED: 'Đã hủy',
   REFUND_PENDING: 'Chờ hoàn tiền',
 }
@@ -327,6 +331,11 @@ function PaymentDetailModal({ payment, onClose, onUpdate }: { payment: AdminPaym
           <InfoRow label="Lý do thất bại" value={payment.failureReason || '-'} />
           <InfoRow label="Đã trả lúc" value={formatDate(payment.paidAt)} />
           <InfoRow label="Đã hoàn tiền lúc" value={formatDate(payment.refundedAt)} />
+          <InfoRow label="Số tiền hoàn" value={payment.refundAmount != null ? formatVnd(payment.refundAmount) : '-'} />
+          <InfoRow label="Số tiền giữ lại" value={payment.retainedAmount != null ? formatVnd(payment.retainedAmount) : '-'} />
+          <InfoRow label="Studio nhận do policy" value={payment.studioCompensationAmount != null ? formatVnd(payment.studioCompensationAmount) : '-'} />
+          <InfoRow label="Policy" value={payment.policyCode || '-'} />
+          <InfoRow label="Ghi chú policy" value={payment.policyNote || '-'} />
           <InfoRow label="Booking" value={`${payment.bookingCode} · ${payment.bookingStatus}`} />
           <InfoRow label="Gói chụp" value={payment.packageName} />
           <InfoRow label="Khách hàng" value={`${payment.customerName} · ${payment.customerEmail}`} />
@@ -453,6 +462,8 @@ function PaymentStatusBadge({ status }: { status: string }) {
     PAID: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     FAILED: 'border-rose-200 bg-rose-50 text-rose-700',
     REFUNDED: 'border-slate-200 bg-slate-50 text-slate-600',
+    PARTIALLY_REFUNDED: 'border-blue-200 bg-blue-50 text-blue-700',
+    FORFEITED: 'border-amber-200 bg-amber-50 text-amber-700',
     CANCELLED: 'border-slate-200 bg-slate-50 text-slate-500',
     REFUND_PENDING: 'border-indigo-200 bg-indigo-50 text-indigo-700',
   }

@@ -188,6 +188,11 @@ namespace EXE201.Server.DTOs
         public string? RefundedAt { get; set; }
         public string? RefundMethod { get; set; }
         public string? RefundPendingReason { get; set; }
+        public decimal? RefundAmount { get; set; }
+        public decimal? RetainedAmount { get; set; }
+        public decimal? StudioCompensationAmount { get; set; }
+        public string? PolicyCode { get; set; }
+        public string? PolicyNote { get; set; }
         public string CreatedAt { get; set; } = null!;
     }
 

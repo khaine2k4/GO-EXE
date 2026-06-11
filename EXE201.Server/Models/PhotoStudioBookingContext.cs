@@ -567,6 +567,20 @@ public partial class PhotoStudioBookingContext : DbContext
             entity.Property(e => e.RefundPendingReason)
                 .HasMaxLength(255)
                 .HasColumnName("refund_pending_reason");
+            entity.Property(e => e.RefundAmount)
+                .HasColumnType("decimal(12, 0)")
+                .HasColumnName("refund_amount");
+            entity.Property(e => e.RetainedAmount)
+                .HasColumnType("decimal(12, 0)")
+                .HasColumnName("retained_amount");
+            entity.Property(e => e.StudioCompensationAmount)
+                .HasColumnType("decimal(12, 0)")
+                .HasColumnName("studio_compensation_amount");
+            entity.Property(e => e.PolicyCode)
+                .HasMaxLength(80)
+                .IsUnicode(false)
+                .HasColumnName("policy_code");
+            entity.Property(e => e.PolicyNote).HasColumnName("policy_note");
             entity.Property(e => e.RefundedAt).HasColumnName("refunded_at");
             entity.Property(e => e.TransactionCode)
                 .HasMaxLength(255)

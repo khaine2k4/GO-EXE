@@ -37,6 +37,16 @@ public partial class Payment
 
     public string? RefundPendingReason { get; set; }
 
+    public decimal? RefundAmount { get; set; }
+
+    public decimal? RetainedAmount { get; set; }
+
+    public decimal? StudioCompensationAmount { get; set; }
+
+    public string? PolicyCode { get; set; }
+
+    public string? PolicyNote { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

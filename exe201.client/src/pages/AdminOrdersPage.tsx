@@ -42,6 +42,11 @@ type PaymentDto = {
   refundedAt?: string
   refundMethod?: string
   refundPendingReason?: string
+  refundAmount?: number
+  retainedAmount?: number
+  studioCompensationAmount?: number
+  policyCode?: string
+  policyNote?: string
   createdAt: string
 }
 
