@@ -17,6 +17,8 @@ public partial class PhotoStudioBookingContext : DbContext
 
     public virtual DbSet<Booking> Bookings { get; set; }
 
+    public virtual DbSet<BookingDisputeEvidence> BookingDisputeEvidences { get; set; }
+
     public virtual DbSet<BookingLog> BookingLogs { get; set; }
 
     public virtual DbSet<BookingStatus> BookingStatuses { get; set; }
@@ -236,6 +238,46 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasForeignKey(d => d.StudioId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_bookings_studio");
+        });
+
+        modelBuilder.Entity<BookingDisputeEvidence>(entity =>
+        {
+            entity.HasKey(e => e.EvidenceId).HasName("PK_booking_dispute_evidences");
+
+            entity.ToTable("booking_dispute_evidences");
+
+            entity.HasIndex(e => e.BookingId, "IX_booking_dispute_evidences_booking");
+
+            entity.HasIndex(e => new { e.BookingId, e.CreatedAt }, "IX_booking_dispute_evidences_booking_created");
+
+            entity.HasIndex(e => e.UploadedBy, "IX_booking_dispute_evidences_uploaded_by");
+
+            entity.Property(e => e.EvidenceId).HasColumnName("evidence_id");
+            entity.Property(e => e.BookingId).HasColumnName("booking_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+            entity.Property(e => e.FileType)
+                .HasMaxLength(100)
+                .HasColumnName("file_type");
+            entity.Property(e => e.FileUrl)
+                .HasMaxLength(1000)
+                .HasColumnName("file_url");
+            entity.Property(e => e.Note).HasColumnName("note");
+            entity.Property(e => e.UploadedBy).HasColumnName("uploaded_by");
+            entity.Property(e => e.UploadedByRole)
+                .HasMaxLength(50)
+                .HasColumnName("uploaded_by_role");
+
+            entity.HasOne(d => d.Booking).WithMany(p => p.BookingDisputeEvidences)
+                .HasForeignKey(d => d.BookingId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_booking_dispute_evidences_bookings");
+
+            entity.HasOne(d => d.UploadedByNavigation).WithMany(p => p.BookingDisputeEvidences)
+                .HasForeignKey(d => d.UploadedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_booking_dispute_evidences_users");
         });
 
         modelBuilder.Entity<BookingLog>(entity =>

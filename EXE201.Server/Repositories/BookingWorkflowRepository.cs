@@ -198,6 +198,16 @@ namespace EXE201.Server.Repositories
             => await BookingQuery()
                 .FirstOrDefaultAsync(b => b.Payments.Any(p => p.ProviderRef == providerRef));
 
+        public async Task<List<BookingDisputeEvidence>> GetDisputeEvidencesByBookingAsync(long bookingId)
+            => await _context.BookingDisputeEvidences
+                .Include(e => e.UploadedByNavigation)
+                .Where(e => e.BookingId == bookingId)
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
+
+        public void AddDisputeEvidence(BookingDisputeEvidence evidence)
+            => _context.BookingDisputeEvidences.Add(evidence);
+
 
         // ── Booking Status ───────────────────────────────────────────────────
 

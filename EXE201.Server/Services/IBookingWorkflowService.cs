@@ -31,6 +31,8 @@ namespace EXE201.Server.Services
         Task<BookingResponse?> RespondRescheduleAsync(long ownerId, long bookingId, bool approve, string? reason);
         Task<BookingResponse?> MarkCustomerNoShowAsync(long ownerId, long bookingId, string? reason);
         Task<BookingResponse?> DisputeBookingAsync(long userId, string role, long bookingId, string reason);
+        Task<List<BookingDisputeEvidenceResponse>?> GetDisputeEvidencesAsync(long userId, string role, long bookingId);
+        Task<BookingDisputeEvidenceResponse?> AddDisputeEvidenceAsync(long userId, string role, long bookingId, CreateBookingDisputeEvidenceRequest request);
 
         Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role);
         Task<PaymentResponse?> PayBookingAsync(long customerId, PayBookingRequest request);

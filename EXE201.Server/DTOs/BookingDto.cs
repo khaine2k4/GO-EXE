@@ -121,6 +121,26 @@ namespace EXE201.Server.DTOs
         public string? Note { get; set; }
     }
 
+    public class CreateBookingDisputeEvidenceRequest
+    {
+        public string FileUrl { get; set; } = null!;
+        public string? FileType { get; set; }
+        public string? Note { get; set; }
+    }
+
+    public class BookingDisputeEvidenceResponse
+    {
+        public long Id { get; set; }
+        public long BookingId { get; set; }
+        public long UploadedBy { get; set; }
+        public string? UploadedByName { get; set; }
+        public string UploadedByRole { get; set; } = null!;
+        public string FileUrl { get; set; } = null!;
+        public string FileType { get; set; } = null!;
+        public string? Note { get; set; }
+        public string CreatedAt { get; set; } = null!;
+    }
+
     public class RescheduleBookingRequest
     {
         public long NewSlotId { get; set; }

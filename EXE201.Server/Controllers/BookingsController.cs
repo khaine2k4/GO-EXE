@@ -185,6 +185,22 @@ namespace EXE201.Server.Controllers
             return booking == null ? BadRequest("Booking cannot be disputed.") : Ok(booking);
         }
 
+        [HttpGet("{id:long}/dispute-evidences")]
+        [Authorize(Roles = "CUSTOMER,STUDIO_OWNER,ADMIN")]
+        public async Task<IActionResult> GetDisputeEvidences(long id)
+        {
+            var evidences = await _bookingService.GetDisputeEvidencesAsync(GetCurrentUserId(), GetCurrentRole(), id);
+            return evidences == null ? NotFound() : Ok(evidences);
+        }
+
+        [HttpPost("{id:long}/dispute-evidences")]
+        [Authorize(Roles = "CUSTOMER,STUDIO_OWNER")]
+        public async Task<IActionResult> AddDisputeEvidence(long id, [FromBody] CreateBookingDisputeEvidenceRequest request)
+        {
+            var evidence = await _bookingService.AddDisputeEvidenceAsync(GetCurrentUserId(), GetCurrentRole(), id, request);
+            return evidence == null ? BadRequest("Dispute evidence cannot be added.") : Ok(evidence);
+        }
+
         private long GetCurrentUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         private string GetCurrentRole() => User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
     }

@@ -48,6 +48,8 @@ namespace EXE201.Server.Repositories
         void AddBooking(Booking booking);
         Task<Booking?> GetBookingByPaymentCodeAsync(string paymentCode);
         Task<Booking?> GetBookingByProviderRefAsync(string providerRef);
+        Task<List<BookingDisputeEvidence>> GetDisputeEvidencesByBookingAsync(long bookingId);
+        void AddDisputeEvidence(BookingDisputeEvidence evidence);
 
         // ── Booking Status ───────────────────────────────────────────────────
         Task<long?> GetBookingStatusIdAsync(string statusName);

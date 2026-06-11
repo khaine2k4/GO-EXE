@@ -1088,6 +1088,63 @@ namespace EXE201.Server.Services
             return await GetBookingForUserAsync(userId, role, booking.BookingId);
         }
 
+        public async Task<List<BookingDisputeEvidenceResponse>?> GetDisputeEvidencesAsync(long userId, string role, long bookingId)
+        {
+            var booking = await _repo.GetFullBookingAsync(bookingId);
+            if (booking == null) return null;
+            if (!await CanAccessDisputeEvidenceAsync(userId, role, booking)) return null;
+
+            var evidences = await _repo.GetDisputeEvidencesByBookingAsync(bookingId);
+            return evidences.Select(MapDisputeEvidence).ToList();
+        }
+
+        public async Task<BookingDisputeEvidenceResponse?> AddDisputeEvidenceAsync(long userId, string role, long bookingId, CreateBookingDisputeEvidenceRequest request)
+        {
+            if (role is not ("CUSTOMER" or "STUDIO_OWNER")) return null;
+
+            var fileUrl = request.FileUrl?.Trim();
+            if (!IsValidEvidenceUrl(fileUrl)) return null;
+
+            await using var tx = await _repo.BeginTransactionAsync();
+
+            var booking = await _repo.GetBookingForUpdateAsync(bookingId);
+            if (booking == null) return null;
+            if (!await CanAccessDisputeEvidenceAsync(userId, role, booking)) return null;
+            if (!IsDisputed(booking)) return null;
+
+            var now = DateTime.UtcNow;
+            var fileType = NormalizeEvidenceFileType(request.FileType, fileUrl!);
+            var note = TrimToNull(request.Note, 2000);
+
+            var evidence = new BookingDisputeEvidence
+            {
+                BookingId = booking.BookingId,
+                UploadedBy = userId,
+                UploadedByRole = role,
+                FileUrl = fileUrl!,
+                FileType = fileType,
+                Note = note,
+                CreatedAt = now
+            };
+
+            _repo.AddDisputeEvidence(evidence);
+            booking.UpdatedAt = now;
+            booking.UpdatedBy = userId;
+
+            var logNote = string.IsNullOrWhiteSpace(note)
+                ? $"Dispute evidence uploaded ({fileType})"
+                : $"Dispute evidence uploaded ({fileType}): {note}";
+            AddBookingLogEntry(booking.BookingId, "DISPUTED", "DISPUTE_EVIDENCE", userId, logNote);
+
+            await _repo.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            var saved = (await _repo.GetDisputeEvidencesByBookingAsync(booking.BookingId))
+                .FirstOrDefault(e => e.EvidenceId == evidence.EvidenceId);
+
+            return MapDisputeEvidence(saved ?? evidence);
+        }
+
         public async Task<List<PaymentResponse>> GetPaymentsForUserAsync(long userId, string role)
         {
             if (role == "CUSTOMER")
@@ -1441,6 +1498,37 @@ namespace EXE201.Server.Services
             if (role == "CUSTOMER") return booking.CustomerId == userId;
             if (role == "STUDIO_OWNER") return await _repo.IsStudioOwnerAsync(booking.StudioId, userId);
             return false;
+        }
+
+        private async Task<bool> CanAccessDisputeEvidenceAsync(long userId, string role, Booking booking)
+            => role == "ADMIN" || await CanAccessBookingAsync(userId, role, booking);
+
+        private static bool IsValidEvidenceUrl(string? fileUrl)
+        {
+            if (string.IsNullOrWhiteSpace(fileUrl) || fileUrl.Length > 1000) return false;
+            return Uri.TryCreate(fileUrl, UriKind.Absolute, out var uri) &&
+                   (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
+        }
+
+        private static string NormalizeEvidenceFileType(string? fileType, string fileUrl)
+        {
+            var normalized = TrimToNull(fileType, 100);
+            if (!string.IsNullOrWhiteSpace(normalized)) return normalized!;
+
+            var extension = Path.GetExtension(fileUrl);
+            if (!string.IsNullOrWhiteSpace(extension))
+            {
+                return extension.TrimStart('.').ToLowerInvariant();
+            }
+
+            return "file";
+        }
+
+        private static string? TrimToNull(string? value, int maxLength)
+        {
+            var trimmed = value?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) return null;
+            return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
         }
 
         private static bool IsDisputed(Booking booking)
@@ -2119,6 +2207,19 @@ namespace EXE201.Server.Services
             PolicyCode = p.PolicyCode,
             PolicyNote = p.PolicyNote,
             CreatedAt = p.CreatedAt.ToString("O")
+        };
+
+        private static BookingDisputeEvidenceResponse MapDisputeEvidence(BookingDisputeEvidence evidence) => new()
+        {
+            Id = evidence.EvidenceId,
+            BookingId = evidence.BookingId,
+            UploadedBy = evidence.UploadedBy,
+            UploadedByName = evidence.UploadedByNavigation?.FullName,
+            UploadedByRole = evidence.UploadedByRole,
+            FileUrl = evidence.FileUrl,
+            FileType = evidence.FileType,
+            Note = evidence.Note,
+            CreatedAt = evidence.CreatedAt.ToString("O")
         };
 
         // payOS

@@ -57,6 +57,8 @@ public partial class User
 
     public virtual ICollection<Booking> BookingDisputeResolvedByNavigations { get; set; } = new List<Booking>();
 
+    public virtual ICollection<BookingDisputeEvidence> BookingDisputeEvidences { get; set; } = new List<BookingDisputeEvidence>();
+
     public virtual ICollection<BookingLog> BookingLogs { get; set; } = new List<BookingLog>();
 
     public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
