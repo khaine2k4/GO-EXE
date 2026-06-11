@@ -97,6 +97,14 @@ namespace EXE201.Server.Repositories
                 .FromSqlInterpolated($"SELECT * FROM time_slots WITH (UPDLOCK, ROWLOCK) WHERE slot_id = {slotId}")
                 .FirstOrDefaultAsync();
 
+        public async Task<TimeSlot?> GetSlotForUpdateWithWorkingDayAsync(long slotId)
+            => await _context.TimeSlots
+                .FromSqlInterpolated($"SELECT * FROM time_slots WITH (UPDLOCK, ROWLOCK) WHERE slot_id = {slotId}")
+                .Include(s => s.WorkingDay)
+                .Include(s => s.Bookings)
+                    .ThenInclude(b => b.Status)
+                .FirstOrDefaultAsync();
+
         public void AddSlot(TimeSlot slot)
             => _context.TimeSlots.Add(slot);
 
@@ -117,7 +125,7 @@ namespace EXE201.Server.Repositories
                 .FromSqlInterpolated($"SELECT * FROM bookings WITH (UPDLOCK, ROWLOCK) WHERE booking_id = {bookingId}")
                 .Include(b => b.Customer)
                 .Include(b => b.Studio)
-                .Include(b => b.Package)
+                .Include(b => b.Package).ThenInclude(p => p.Service)
                 .Include(b => b.Status)
                 .Include(b => b.Slot).ThenInclude(s => s.WorkingDay)
                 .Include(b => b.BookingLogs)
@@ -235,6 +243,17 @@ namespace EXE201.Server.Repositories
         public async Task<PaymentStatus?> GetPaymentStatusAsync(string statusName)
             => await _context.PaymentStatuses.FirstOrDefaultAsync(s => s.StatusName == statusName);
 
+        public async Task<PaymentStatus> GetOrCreatePaymentStatusAsync(string statusName)
+        {
+            var status = await _context.PaymentStatuses.FirstOrDefaultAsync(s => s.StatusName == statusName);
+            if (status != null) return status;
+
+            status = new PaymentStatus { StatusName = statusName };
+            _context.PaymentStatuses.Add(status);
+            await _context.SaveChangesAsync();
+            return status;
+        }
+
         public void AddPayment(Payment payment)
             => _context.Payments.Add(payment);
 
@@ -274,7 +293,7 @@ namespace EXE201.Server.Repositories
             => _context.Bookings
                 .Include(b => b.Customer)
                 .Include(b => b.Studio)
-                .Include(b => b.Package)
+                .Include(b => b.Package).ThenInclude(p => p.Service)
                 .Include(b => b.Status)
                 .Include(b => b.Slot).ThenInclude(s => s.WorkingDay)
                 .Include(b => b.BookingLogs)

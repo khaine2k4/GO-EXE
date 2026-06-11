@@ -7,8 +7,8 @@ import { useToast } from '../components/Toast'
 import CustomDialog from '../components/CustomDialog'
 import { useSearchParams } from 'react-router-dom'
 
-type BookingStatus = 'ALL' | 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'DISPUTED'
-type PaymentStatus = 'ALL' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUND_PENDING' | 'REFUNDED' | 'DISPUTED'
+type BookingStatus = 'ALL' | 'PENDING_PAYMENT' | 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'DISPUTED' | 'NO_SHOW'
+type PaymentStatus = 'ALL' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUND_PENDING' | 'REFUNDED' | 'PARTIALLY_REFUNDED' | 'FORFEITED' | 'DISPUTED'
 
 interface AdminBookingDto {
   id: number
@@ -100,6 +100,7 @@ const bookingStatusOptions: { value: BookingStatus; label: string }[] = [
   { value: 'CONFIRMED', label: 'Đã xác nhận' },
   { value: 'IN_PROGRESS', label: 'Đang chụp' },
   { value: 'DISPUTED', label: 'Khiếu nại' },
+  { value: 'NO_SHOW', label: 'Khách không đến' },
   { value: 'COMPLETED', label: 'Hoàn thành' },
   { value: 'CANCELLED', label: 'Đã hủy' },
   { value: 'REJECTED', label: 'Từ chối' },
@@ -112,6 +113,8 @@ const paymentStatusOptions: { value: PaymentStatus; label: string }[] = [
   { value: 'FAILED', label: 'Thất bại' },
   { value: 'REFUND_PENDING', label: 'Chờ hoàn tiền' },
   { value: 'REFUNDED', label: 'Đã hoàn tiền' },
+  { value: 'PARTIALLY_REFUNDED', label: 'Hoàn một phần' },
+  { value: 'FORFEITED', label: 'Mất phí' },
   { value: 'DISPUTED', label: 'Tranh chấp' },
 ]
 
@@ -124,6 +127,7 @@ const statusLabels: Record<string, string> = {
   CANCELLED: 'Đã hủy',
   REJECTED: 'Từ chối',
   DISPUTED: 'Khiếu nại',
+  NO_SHOW: 'Khách không đến',
 }
 
 const paymentLabels: Record<string, string> = {
@@ -132,6 +136,8 @@ const paymentLabels: Record<string, string> = {
   FAILED: 'Thất bại',
   REFUND_PENDING: 'Chờ hoàn tiền',
   REFUNDED: 'Đã hoàn tiền',
+  PARTIALLY_REFUNDED: 'Hoàn một phần',
+  FORFEITED: 'Mất phí',
   DISPUTED: 'Tranh chấp',
 }
 
@@ -722,6 +728,7 @@ function StatusBadge({ status }: { status: string }) {
     IN_PROGRESS: 'border-cyan-200 bg-cyan-50 text-cyan-700',
     COMPLETED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     DISPUTED: 'border-rose-200 bg-rose-50 text-rose-700',
+    NO_SHOW: 'border-amber-200 bg-amber-50 text-amber-700',
     CANCELLED: 'border-slate-200 bg-slate-50 text-slate-500',
     REJECTED: 'border-rose-200 bg-rose-50 text-rose-700',
   }
@@ -736,6 +743,8 @@ function PaymentBadge({ status }: { status?: string }) {
     FAILED: 'border-rose-200 bg-rose-50 text-rose-700',
     REFUND_PENDING: 'border-indigo-200 bg-indigo-50 text-indigo-700',
     REFUNDED: 'border-slate-200 bg-slate-50 text-slate-600',
+    PARTIALLY_REFUNDED: 'border-blue-200 bg-blue-50 text-blue-700',
+    FORFEITED: 'border-amber-200 bg-amber-50 text-amber-700',
     DISPUTED: 'border-rose-200 bg-rose-50 text-rose-700',
   }
   return <span className={`mt-2 inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${config[normalized] ?? config.PENDING}`}>{paymentLabels[normalized] ?? normalized}</span>

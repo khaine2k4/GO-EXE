@@ -139,6 +139,38 @@ namespace EXE201.Server.Controllers
             return booking == null ? BadRequest("Booking cannot be cancelled.") : Ok(booking);
         }
 
+        [HttpPut("{id:long}/reschedule-request")]
+        [Authorize(Roles = "CUSTOMER")]
+        public async Task<IActionResult> RequestReschedule(long id, [FromBody] RescheduleBookingRequest request)
+        {
+            var booking = await _bookingService.RequestRescheduleAsync(GetCurrentUserId(), id, request);
+            return booking == null ? BadRequest("Reschedule request cannot be created.") : Ok(booking);
+        }
+
+        [HttpPut("{id:long}/reschedule-approve")]
+        [Authorize(Roles = "STUDIO_OWNER")]
+        public async Task<IActionResult> ApproveReschedule(long id, [FromBody] BookingActionRequest request)
+        {
+            var booking = await _bookingService.RespondRescheduleAsync(GetCurrentUserId(), id, true, request.Reason ?? request.Note);
+            return booking == null ? BadRequest("Reschedule request cannot be approved.") : Ok(booking);
+        }
+
+        [HttpPut("{id:long}/reschedule-reject")]
+        [Authorize(Roles = "STUDIO_OWNER")]
+        public async Task<IActionResult> RejectReschedule(long id, [FromBody] BookingActionRequest request)
+        {
+            var booking = await _bookingService.RespondRescheduleAsync(GetCurrentUserId(), id, false, request.Reason ?? request.Note);
+            return booking == null ? BadRequest("Reschedule request cannot be rejected.") : Ok(booking);
+        }
+
+        [HttpPut("{id:long}/no-show")]
+        [Authorize(Roles = "STUDIO_OWNER")]
+        public async Task<IActionResult> MarkNoShow(long id, [FromBody] BookingActionRequest request)
+        {
+            var booking = await _bookingService.MarkCustomerNoShowAsync(GetCurrentUserId(), id, request.Reason ?? request.Note);
+            return booking == null ? BadRequest("Booking cannot be marked as no-show.") : Ok(booking);
+        }
+
         [HttpPut("{id:long}/dispute")]
         [Authorize(Roles = "CUSTOMER,STUDIO_OWNER")]
         public async Task<IActionResult> Dispute(long id, [FromBody] BookingActionRequest request)

@@ -82,6 +82,11 @@ namespace EXE201.Server.DTOs
         public string StudioName { get; set; } = null!;
         public long PackageId { get; set; }
         public string PackageName { get; set; } = null!;
+        public string? ServiceName { get; set; }
+        public string? PackageDescription { get; set; }
+        public int? PackageDurationHours { get; set; }
+        public int? PackageMaxPhotos { get; set; }
+        public string? PackageInclusions { get; set; }
         public long SlotId { get; set; }
         public string ShootingDate { get; set; } = null!;
         public string StartTime { get; set; } = null!;
@@ -96,6 +101,11 @@ namespace EXE201.Server.DTOs
         public decimal StudioRevenue { get; set; }
         public string? PaymentExpiresAt { get; set; }
         public bool CanCancel { get; set; }
+        public bool CanRequestReschedule { get; set; }
+        public bool CanRespondReschedule { get; set; }
+        public bool CanMarkNoShow { get; set; }
+        public BookingCancellationPolicyResponse? CancellationPolicy { get; set; }
+        public BookingRescheduleRequestResponse? PendingReschedule { get; set; }
         public List<string> DemoPhotoUrls { get; set; } = new();
         public List<string> FinalPhotoUrls { get; set; } = new();
         public string? CustomerFeedback { get; set; }
@@ -109,6 +119,33 @@ namespace EXE201.Server.DTOs
     {
         public string? Reason { get; set; }
         public string? Note { get; set; }
+    }
+
+    public class RescheduleBookingRequest
+    {
+        public long NewSlotId { get; set; }
+        public string? Reason { get; set; }
+    }
+
+    public class BookingCancellationPolicyResponse
+    {
+        public decimal RefundAmount { get; set; }
+        public decimal CustomerChargeAmount { get; set; }
+        public decimal StudioCompensationAmount { get; set; }
+        public string PolicyCode { get; set; } = null!;
+        public string Message { get; set; } = null!;
+    }
+
+    public class BookingRescheduleRequestResponse
+    {
+        public long NewSlotId { get; set; }
+        public string NewDate { get; set; } = null!;
+        public string NewStartTime { get; set; } = null!;
+        public string NewEndTime { get; set; } = null!;
+        public long RequestedBy { get; set; }
+        public string RequestedByRole { get; set; } = null!;
+        public string? Reason { get; set; }
+        public string RequestedAt { get; set; } = null!;
     }
 
     public class PhotoDeliveryRequest

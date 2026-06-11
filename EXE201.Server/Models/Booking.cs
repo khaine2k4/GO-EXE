@@ -37,6 +37,18 @@ public partial class Booking
 
     public decimal StudioRevenue { get; set; }
 
+    public string? PackageNameSnapshot { get; set; }
+
+    public string? ServiceNameSnapshot { get; set; }
+
+    public string? PackageDescriptionSnapshot { get; set; }
+
+    public int? PackageDurationHoursSnapshot { get; set; }
+
+    public int? PackageMaxPhotosSnapshot { get; set; }
+
+    public string? PackageInclusionsSnapshot { get; set; }
+
     public DateTime? PaymentExpiresAt { get; set; }
 
     public DateTime? ConfirmedAt { get; set; }

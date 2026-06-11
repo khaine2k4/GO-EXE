@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, CircleDollarSign, Clock, CreditCard, MapPin, MessageCircle, RotateCcw, Send, Star, X } from 'lucide-react'
-import { cancelBooking, confirmCompletion, createBookingReview, disputeBooking, getBooking, payosCreatePaymentUrl, submitPhotoFeedback, type BookingDto } from '../services/bookingApi'
+import { cancelBooking, confirmCompletion, createBookingReview, disputeBooking, getBooking, getStudioSlots, payosCreatePaymentUrl, requestReschedule, submitPhotoFeedback, type BookingDto, type TimeSlotDto } from '../services/bookingApi'
 import { useToast } from '../components/Toast'
 import BookingLocationMap from '../components/map/BookingLocationMap'
 import ReasonDialog from '../components/ReasonDialog'
@@ -28,6 +28,7 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: 'Đã hủy',
   REJECTED: 'Bị từ chối',
   DISPUTED: 'Đang báo cáo',
+  NO_SHOW: 'Không đến',
 }
 
 export default function CustomerBookingDetailPage() {
@@ -46,6 +47,12 @@ export default function CustomerBookingDetailPage() {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewComment, setReviewComment] = useState('')
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduleSlots, setRescheduleSlots] = useState<TimeSlotDto[]>([])
+  const [rescheduleSlotId, setRescheduleSlotId] = useState<number | null>(null)
+  const [rescheduleReason, setRescheduleReason] = useState('')
+  const [loadingSlots, setLoadingSlots] = useState(false)
   const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string; locked: boolean } | null>(null)
 
   async function refreshBooking() {
@@ -106,6 +113,50 @@ export default function CustomerBookingDetailPage() {
       toast.push({ type: 'info', title: 'Đã hủy booking', message: 'Slot đã được giải phóng.' })
     } catch {
       toast.push({ type: 'error', title: 'Không thể hủy booking', message: 'Chỉ có thể tự hủy trước khi Studio xác nhận.' })
+    } finally {
+      setActioning(false)
+    }
+  }
+
+  async function loadRescheduleSlots(date: string) {
+    if (!booking || !date) return
+    setLoadingSlots(true)
+    try {
+      const slots = await getStudioSlots(booking.studioId, date)
+      const openSlots = slots.filter((slot) => slot.status === 'OPEN' && slot.id !== booking.slotId)
+      setRescheduleSlots(openSlots)
+      setRescheduleSlotId(openSlots[0]?.id ?? null)
+    } catch {
+      setRescheduleSlots([])
+      setRescheduleSlotId(null)
+      toast.push({ type: 'error', title: 'Không tải được slot', message: 'Vui lòng chọn ngày khác hoặc thử lại.' })
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
+  async function openRescheduleDialog() {
+    if (!booking) return
+    setRescheduleOpen(true)
+    setRescheduleDate(booking.shootingDate)
+    setRescheduleReason('')
+    setRescheduleSlotId(null)
+    await loadRescheduleSlots(booking.shootingDate)
+  }
+
+  async function handleRequestReschedule() {
+    if (!booking || !rescheduleSlotId) return
+    setActioning(true)
+    try {
+      const updated = await requestReschedule(booking.id, {
+        newSlotId: rescheduleSlotId,
+        reason: rescheduleReason.trim() || undefined,
+      })
+      setBooking(updated)
+      setRescheduleOpen(false)
+      toast.push({ type: 'success', title: 'Đã gửi yêu cầu đổi lịch', message: 'Studio sẽ duyệt hoặc từ chối slot mới.' })
+    } catch {
+      toast.push({ type: 'error', title: 'Không thể đổi lịch', message: 'Slot mới có thể đã bị giữ hoặc booking không còn cho phép đổi lịch.' })
     } finally {
       setActioning(false)
     }
@@ -254,6 +305,11 @@ export default function CustomerBookingDetailPage() {
                 <RotateCcw className="h-4 w-4" /> Hủy booking
               </button>
             )}
+            {booking.canRequestReschedule && (
+              <button type="button" onClick={openRescheduleDialog} disabled={actioning} className="inline-flex h-11 items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 text-xs font-black uppercase tracking-widest text-blue-700 disabled:opacity-50">
+                <CalendarDays className="h-4 w-4" /> Đổi lịch
+              </button>
+            )}
             {(booking.status === 'FINAL_DELIVERED' || booking.status === 'AWAITING_CUSTOMER') && (
               <button type="button" onClick={handleConfirmCompletion} disabled={actioning} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--color-azure)] px-4 text-xs font-black uppercase tracking-widest text-white transition hover:bg-sky-600 active:scale-95 disabled:opacity-50">
                 <CheckCircle2 className="h-4 w-4" /> Xác nhận đã nhận ảnh
@@ -286,6 +342,16 @@ export default function CustomerBookingDetailPage() {
             <span className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng tiền</span>
             <span className="text-3xl font-black text-[var(--color-azure)]">{formatVnd(booking.totalPrice)}</span>
           </div>
+          {booking.cancellationPolicy && (
+            <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-800">
+              Chính sách hủy hiện tại: {booking.cancellationPolicy.message} Hoàn dự kiến {formatVnd(booking.cancellationPolicy.refundAmount)}, phí giữ lại {formatVnd(booking.cancellationPolicy.customerChargeAmount)}.
+            </div>
+          )}
+          {booking.pendingReschedule && (
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-800">
+              Đang chờ Studio duyệt đổi lịch sang {formatDate(booking.pendingReschedule.newDate)} - {booking.pendingReschedule.newStartTime} đến {booking.pendingReschedule.newEndTime}.
+            </div>
+          )}
           {booking.note && (
             <div className="mt-3 border-t border-slate-200/60 pt-3 text-sm font-semibold text-slate-600">
               Ghi chú đặt lịch: {booking.note}
@@ -381,6 +447,72 @@ export default function CustomerBookingDetailPage() {
         onCancel={() => setCancelDialogOpen(false)}
         onSubmit={handleCancel}
       />
+      {rescheduleOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+          <section className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-950/15">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-black text-slate-950">Yêu cầu đổi lịch</h2>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Chọn một slot còn mở. Slot mới sẽ được giữ tạm cho đến khi Studio duyệt hoặc từ chối.</p>
+              </div>
+              <button type="button" onClick={() => setRescheduleOpen(false)} disabled={actioning} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 disabled:opacity-50" aria-label="Đóng">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <label className="mt-5 block">
+              <span className="text-xs font-black uppercase tracking-widest text-slate-400">Ngày mới</span>
+              <input
+                type="date"
+                value={rescheduleDate}
+                onChange={(event) => {
+                  setRescheduleDate(event.target.value)
+                  void loadRescheduleSlots(event.target.value)
+                }}
+                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-[var(--color-azure)] focus:bg-white focus:ring-4 focus:ring-blue-50"
+              />
+            </label>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-black uppercase tracking-widest text-slate-400">Slot mới</span>
+              <select
+                value={rescheduleSlotId ?? ''}
+                onChange={(event) => setRescheduleSlotId(Number(event.target.value) || null)}
+                disabled={loadingSlots || rescheduleSlots.length === 0}
+                className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-[var(--color-azure)] focus:bg-white focus:ring-4 focus:ring-blue-50 disabled:opacity-60"
+              >
+                {rescheduleSlots.length === 0 ? (
+                  <option value="">{loadingSlots ? 'Đang tải slot...' : 'Không có slot mở'}</option>
+                ) : (
+                  rescheduleSlots.map((slot) => (
+                    <option key={slot.id} value={slot.id}>{slot.startTime} - {slot.endTime}</option>
+                  ))
+                )}
+              </select>
+            </label>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-black uppercase tracking-widest text-slate-400">Lý do</span>
+              <textarea
+                value={rescheduleReason}
+                onChange={(event) => setRescheduleReason(event.target.value)}
+                rows={3}
+                placeholder="Ví dụ: Tôi bận lịch cũ, muốn chuyển sang slot này..."
+                className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[var(--color-azure)] focus:bg-white focus:ring-4 focus:ring-blue-50"
+              />
+            </label>
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setRescheduleOpen(false)} disabled={actioning} className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-xs font-black uppercase tracking-wider text-slate-600 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50">
+                Hủy
+              </button>
+              <button type="button" onClick={handleRequestReschedule} disabled={actioning || !rescheduleSlotId} className="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--color-azure)] px-5 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-blue-600/15 transition hover:bg-sky-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+                {actioning ? 'Đang gửi...' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {previewPhoto && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
@@ -483,6 +615,8 @@ function PhotoDeliveryPanel({
 function StatusBadge({ status }: { status: string }) {
   const color = status === 'CANCELLED' || status === 'REJECTED'
     ? 'bg-slate-100 text-slate-500'
+    : status === 'NO_SHOW'
+      ? 'bg-amber-50 text-amber-700'
     : status === 'COMPLETED'
       ? 'bg-emerald-50 text-emerald-700'
       : status === 'DISPUTED'

@@ -19,11 +19,14 @@ import {
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import {
+  approveReschedule,
   confirmBooking,
   completeBooking,
   disputeBooking,
   getBooking,
+  markNoShow,
   markInProgress,
+  rejectReschedule,
   rejectBooking,
   uploadDemoPhotos,
   uploadFinalPhotos,
@@ -58,6 +61,7 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: 'Đã hủy',
   REJECTED: 'Từ chối',
   DISPUTED: 'Bị khiếu nại',
+  NO_SHOW: 'Khách không đến',
 }
 
 export default function PhotographerBookingDetailPage() {
@@ -71,6 +75,7 @@ export default function PhotographerBookingDetailPage() {
   const [deliveryForm, setDeliveryForm] = useState<{ type: 'demo' | 'final'; urls: string[]; note: string } | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [disputeDialogOpen, setDisputeDialogOpen] = useState(false)
+  const [noShowDialogOpen, setNoShowDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -113,6 +118,31 @@ export default function PhotographerBookingDetailPage() {
       'Đã gửi khiếu nại khách hàng',
     )
     if (succeeded) setDisputeDialogOpen(false)
+  }
+
+  async function handleApproveReschedule() {
+    if (!booking) return
+    await runAction(
+      () => approveReschedule(booking.id, 'Studio approved reschedule'),
+      'Đã duyệt yêu cầu đổi lịch',
+    )
+  }
+
+  async function handleRejectReschedule() {
+    if (!booking) return
+    await runAction(
+      () => rejectReschedule(booking.id, 'Studio rejected reschedule'),
+      'Đã từ chối yêu cầu đổi lịch',
+    )
+  }
+
+  async function handleNoShow(reason: string) {
+    if (!booking) return
+    const succeeded = await runAction(
+      () => markNoShow(booking.id, reason.trim() || 'Khách hàng không đến buổi chụp'),
+      'Đã ghi nhận khách không đến',
+    )
+    if (succeeded) setNoShowDialogOpen(false)
   }
 
   async function submitDelivery() {
@@ -212,6 +242,27 @@ export default function PhotographerBookingDetailPage() {
           <div className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 border-b border-slate-50 pb-3">Thao tác nghiệp vụ</h2>
             <div className="mt-4 grid gap-3">
+              {booking.pendingReschedule && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-blue-700">Khách yêu cầu đổi lịch</div>
+                  <div className="mt-2 text-sm font-black text-blue-950">
+                    {formatDate(booking.pendingReschedule.newDate)} lúc {booking.pendingReschedule.newStartTime} - {booking.pendingReschedule.newEndTime}
+                  </div>
+                  {booking.pendingReschedule.reason && (
+                    <p className="mt-2 text-xs font-semibold leading-5 text-blue-800">{booking.pendingReschedule.reason}</p>
+                  )}
+                  {booking.canRespondReschedule && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button disabled={actioning} type="button" onClick={handleApproveReschedule} className="h-10 rounded-xl bg-blue-600 text-xs font-black uppercase text-white transition hover:bg-blue-700 active:scale-95 disabled:opacity-50">
+                        Duyệt
+                      </button>
+                      <button disabled={actioning} type="button" onClick={handleRejectReschedule} className="h-10 rounded-xl border border-blue-200 bg-white text-xs font-black uppercase text-blue-700 transition hover:bg-blue-50 active:scale-95 disabled:opacity-50">
+                        Từ chối
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               {booking.status === 'PENDING_CONFIRMATION' && (
                 <>
                   <button disabled={actioning} type="button" onClick={() => runAction(() => confirmBooking(booking.id), 'Đã xác nhận đơn đặt lịch')} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 hover:bg-slate-800 text-xs font-black uppercase text-white shadow-md active:scale-95 transition-all disabled:opacity-50">
@@ -246,6 +297,11 @@ export default function PhotographerBookingDetailPage() {
                 <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-4 text-xs font-black uppercase tracking-wider text-teal-700 text-center leading-relaxed">
                   ⏳ Đang chờ khách hàng xác nhận hoàn tất.
                 </div>
+              )}
+              {booking.canMarkNoShow && (
+                <button disabled={actioning} type="button" onClick={() => setNoShowDialogOpen(true)} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-black uppercase tracking-wider text-amber-700 active:scale-95 transition-all disabled:opacity-50">
+                  <XCircle className="h-4 w-4" /> Khách không đến
+                </button>
               )}
               {booking.status === 'DISPUTED' && (
                 <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-4 text-xs font-black uppercase tracking-wider text-rose-700 text-center leading-relaxed animate-pulse">
@@ -389,6 +445,20 @@ export default function PhotographerBookingDetailPage() {
         onCancel={() => setDisputeDialogOpen(false)}
         onSubmit={handleDispute}
       />
+
+      <ReasonDialog
+        open={noShowDialogOpen}
+        title="Ghi nhận khách không đến"
+        description="Hành động này hủy booking theo chính sách no-show và ghi nhận phần doanh thu Studio được nhận theo commission."
+        label="Ghi chú no-show"
+        placeholder="Ví dụ: Khách không có mặt sau 30 phút, Studio đã gọi xác nhận..."
+        defaultReason="Khách hàng không đến buổi chụp"
+        confirmText="Xác nhận no-show"
+        danger
+        loading={actioning}
+        onCancel={() => setNoShowDialogOpen(false)}
+        onSubmit={handleNoShow}
+      />
     </div>
   )
 }
@@ -396,6 +466,8 @@ export default function PhotographerBookingDetailPage() {
 function StatusBadge({ status }: { status: string }) {
   const color = status === 'CANCELLED' || status === 'REJECTED'
     ? 'border-slate-200 bg-slate-50 text-slate-500'
+    : status === 'NO_SHOW'
+      ? 'border-amber-200 bg-amber-50 text-amber-700 shadow-sm shadow-amber-100/10'
     : status === 'COMPLETED'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100/10'
       : status === 'DISPUTED'

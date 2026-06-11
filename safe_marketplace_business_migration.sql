@@ -93,13 +93,21 @@ GO
 
 IF COL_LENGTH('dbo.bookings', 'package_name_snapshot') IS NULL
 BEGIN
-    ALTER TABLE dbo.bookings ADD package_name_snapshot NVARCHAR(150) NULL;
+    ALTER TABLE dbo.bookings ADD package_name_snapshot NVARCHAR(255) NULL;
+END
+ELSE IF COL_LENGTH('dbo.bookings', 'package_name_snapshot') < 510
+BEGIN
+    ALTER TABLE dbo.bookings ALTER COLUMN package_name_snapshot NVARCHAR(255) NULL;
 END
 GO
 
 IF COL_LENGTH('dbo.bookings', 'service_name_snapshot') IS NULL
 BEGIN
-    ALTER TABLE dbo.bookings ADD service_name_snapshot NVARCHAR(150) NULL;
+    ALTER TABLE dbo.bookings ADD service_name_snapshot NVARCHAR(255) NULL;
+END
+ELSE IF COL_LENGTH('dbo.bookings', 'service_name_snapshot') < 510
+BEGIN
+    ALTER TABLE dbo.bookings ALTER COLUMN service_name_snapshot NVARCHAR(255) NULL;
 END
 GO
 
@@ -144,4 +152,16 @@ WHERE b.package_name_snapshot IS NULL
    OR b.package_duration_hours_snapshot IS NULL
    OR b.package_max_photos_snapshot IS NULL
    OR b.package_inclusions_snapshot IS NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.payment_statuses WHERE status_name = 'PARTIALLY_REFUNDED')
+BEGIN
+    INSERT INTO dbo.payment_statuses(status_name) VALUES ('PARTIALLY_REFUNDED');
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.payment_statuses WHERE status_name = 'FORFEITED')
+BEGIN
+    INSERT INTO dbo.payment_statuses(status_name) VALUES ('FORFEITED');
+END
 GO

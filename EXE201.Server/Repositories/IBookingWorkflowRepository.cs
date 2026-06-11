@@ -31,6 +31,7 @@ namespace EXE201.Server.Repositories
         /// Reload slot inside a transaction to check status before committing (race condition guard).
         /// </summary>
         Task<TimeSlot?> GetSlotForUpdateAsync(long slotId);
+        Task<TimeSlot?> GetSlotForUpdateWithWorkingDayAsync(long slotId);
         void AddSlot(TimeSlot slot);
 
         // ── Package ──────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ namespace EXE201.Server.Repositories
         Task<List<Payment>> GetPaymentsByStudioAsync(long studioId);
         Task<PaymentMethod?> GetPaymentMethodAsync(string methodName);
         Task<PaymentStatus?> GetPaymentStatusAsync(string statusName);
+        Task<PaymentStatus> GetOrCreatePaymentStatusAsync(string statusName);
         void AddPayment(Payment payment);
 
         // Settlement

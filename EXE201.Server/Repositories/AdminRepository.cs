@@ -25,6 +25,7 @@ namespace EXE201.Server.Repositories
                 .Include(b => b.Studio)
                 .Include(b => b.Package)
                 .Include(b => b.Status)
+                .Include(b => b.BookingLogs)
                 .Include(b => b.Payments).ThenInclude(p => p.PaymentStatus)
                 .Include(b => b.Payments).ThenInclude(p => p.Method)
                 .AsQueryable();
@@ -41,9 +42,15 @@ namespace EXE201.Server.Repositories
 
             if (!string.IsNullOrWhiteSpace(status) && status != "ALL")
             {
-                query = status == "DISPUTED"
-                    ? query.Where(b => b.DisputedAt != null && b.DisputeResolvedAt == null)
-                    : query.Where(b => b.Status.StatusName == status && (b.DisputedAt == null || b.DisputeResolvedAt != null));
+                query = status switch
+                {
+                    "DISPUTED" => query.Where(b => b.DisputedAt != null && b.DisputeResolvedAt == null),
+                    "NO_SHOW" => query.Where(b =>
+                        b.Status.StatusName == "CANCELLED" &&
+                        b.BookingLogs.Any(l => l.NewStatus == "NO_SHOW") &&
+                        (b.DisputedAt == null || b.DisputeResolvedAt != null)),
+                    _ => query.Where(b => b.Status.StatusName == status && (b.DisputedAt == null || b.DisputeResolvedAt != null))
+                };
             }
 
             if (!string.IsNullOrWhiteSpace(paymentStatus) && paymentStatus != "ALL")
@@ -809,7 +816,11 @@ namespace EXE201.Server.Repositories
         }
 
         private static string GetEffectiveBookingStatus(Booking booking)
-            => IsDisputed(booking) ? "DISPUTED" : booking.Status.StatusName;
+        {
+            if (IsDisputed(booking)) return "DISPUTED";
+            if (booking.Status.StatusName == "CANCELLED" && booking.BookingLogs.Any(l => l.NewStatus == "NO_SHOW")) return "NO_SHOW";
+            return booking.Status.StatusName;
+        }
 
         private async Task SyncBookingForManualPaymentStatusAsync(Payment payment, string paymentStatus, string? reason, long adminId)
         {
