@@ -168,10 +168,10 @@ export default function NotificationBell() {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full z-50 mt-3 w-80 sm:w-96 overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white shadow-xl max-h-[500px] flex flex-col">
+        <div className="absolute right-0 top-full z-50 mt-3 flex max-h-[min(500px,calc(100dvh-6rem))] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white shadow-xl sm:w-96">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-4">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/50 p-4">
+            <div className="flex min-w-0 items-center gap-2">
               <span className="font-extrabold text-sm text-[var(--color-ink)]">Thông báo</span>
               {unreadCount > 0 && (
                 <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
@@ -182,7 +182,7 @@ export default function NotificationBell() {
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition"
+                className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
                 Đánh dấu tất cả đã đọc

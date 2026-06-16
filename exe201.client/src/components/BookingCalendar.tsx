@@ -49,7 +49,7 @@ export default function BookingCalendar({
   const monthLabel = cursor.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
@@ -59,7 +59,7 @@ export default function BookingCalendar({
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <div className="text-sm font-semibold text-slate-900">{monthLabel}</div>
+        <div className="min-w-0 truncate text-center text-sm font-semibold text-slate-900">{monthLabel}</div>
         <button
           type="button"
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
@@ -70,7 +70,7 @@ export default function BookingCalendar({
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold text-slate-500">
+      <div className="mt-3 grid grid-cols-7 gap-1.5 text-center text-[11px] font-semibold text-slate-500 sm:gap-2">
         {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d) => (
           <div key={d} className="py-1">
             {d}
@@ -78,9 +78,9 @@ export default function BookingCalendar({
         ))}
       </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-2">
+      <div className="mt-2 grid grid-cols-7 gap-1.5 sm:gap-2">
         {grid.map((cell) => {
-          if (cell.day === 0) return <div key={cell.iso} className="h-10" />
+          if (cell.day === 0) return <div key={cell.iso} className="h-9 sm:h-10" />
           const isSelected = value === cell.iso
           const disabled = cell.disabled
           return (
@@ -90,7 +90,7 @@ export default function BookingCalendar({
               disabled={disabled}
               onClick={() => onChange(cell.iso)}
               className={[
-                'h-10 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center',
+                'flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition-all duration-200 sm:h-10 sm:text-sm',
                 disabled
                   ? 'cursor-not-allowed bg-slate-50 text-slate-300 border border-slate-100'
                   : isSelected

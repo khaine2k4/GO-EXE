@@ -61,7 +61,7 @@ export default function ChatPage() {
 
   const connectionRef = useRef<HubConnection | null>(null)
   const activeConvRef = useRef<ConversationDto | null>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const creatingRef = useRef<string | null>(null)
 
   // Keep activeConvRef updated
@@ -253,7 +253,15 @@ export default function ChatPage() {
 
   // ── Scroll xuống dưới khi có tin mới ─────────────────────────────────────
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    requestAnimationFrame(() => {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth',
+      })
+    })
   }, [messages])
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -345,7 +353,7 @@ export default function ChatPage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3">
               <AnimatePresence initial={false}>
                 {messages.map(msg => {
                   const isMine = msg.senderId === Number(currentUser.id)
@@ -371,7 +379,6 @@ export default function ChatPage() {
                   )
                 })}
               </AnimatePresence>
-              <div ref={bottomRef} />
             </div>
 
             {/* Input gửi tin */}
@@ -381,11 +388,17 @@ export default function ChatPage() {
                   type="text"
                   value={text}
                   onChange={e => setText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      sendMessage()
+                    }
+                  }}
                   placeholder="Nhập tin nhắn..."
                   className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
                 />
                 <button
+                  type="button"
                   onClick={sendMessage}
                   disabled={!text.trim() || sending}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-azure)] text-white transition hover:bg-[var(--color-azure-dark)] disabled:opacity-40"

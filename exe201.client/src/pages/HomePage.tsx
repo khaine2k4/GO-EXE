@@ -213,8 +213,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-16 pb-16">
-      <section className="relative isolate -mx-4 overflow-hidden rounded-[32px] bg-slate-950 px-5 py-10 text-white shadow-[0_24px_80px_rgba(15,23,42,0.18)] sm:-mx-6 sm:px-8 sm:py-12 lg:min-h-[520px] lg:px-12">
+    <div className="space-y-12 pb-16 sm:space-y-16">
+      <section className="relative isolate -mx-4 overflow-hidden rounded-[24px] bg-slate-950 px-4 py-9 text-white shadow-[0_24px_80px_rgba(15,23,42,0.18)] sm:-mx-6 sm:rounded-[32px] sm:px-8 sm:py-12 lg:min-h-[520px] lg:px-12">
         <Galaxy
           aria-hidden="true"
           className="absolute inset-0"
@@ -253,7 +253,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...revealTransition, delay: 0.08 }}
-            className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-white/84 backdrop-blur-xl"
+            className="inline-flex max-w-full items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-white/84 backdrop-blur-xl sm:text-xs sm:tracking-[0.18em]"
           >
             <Sparkles className="h-4 w-4 text-[var(--color-orange)]" />
             {heroBadge}
@@ -263,7 +263,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...revealTransition, delay: 0.18 }}
-            className="mt-5 max-w-5xl text-[38px] font-black uppercase leading-[1.02] text-white sm:text-[52px] lg:text-[64px]"
+            className="mt-5 max-w-5xl text-[clamp(2rem,11vw,2.375rem)] font-black uppercase leading-[1.05] text-white sm:text-[52px] sm:leading-[1.02] lg:text-[64px]"
             style={{
               textShadow: '0 8px 36px rgba(2, 6, 23, 0.92), 0 2px 12px rgba(2, 6, 23, 0.72)',
             }}
@@ -275,7 +275,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...revealTransition, delay: 0.32 }}
-            className="mt-4 max-w-2xl text-base font-medium leading-7 text-white/76 sm:text-lg"
+            className="mt-4 max-w-2xl text-sm font-medium leading-6 text-white/76 sm:text-lg sm:leading-7"
           >
             {heroDescription}
           </motion.p>
@@ -284,12 +284,12 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...revealTransition, delay: 0.44 }}
-            className="mt-6 flex flex-wrap justify-center gap-3"
+            className="mt-6 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row sm:flex-wrap"
           >
-            <Link to={primaryHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-black text-slate-950 shadow-lg shadow-black/10 transition hover:bg-slate-100">
+            <Link to={primaryHref} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-slate-950 shadow-lg shadow-black/10 transition hover:bg-slate-100 sm:w-auto sm:px-6">
               {primaryLabel} <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link to={secondaryHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/22 bg-white/10 px-6 text-sm font-black text-white backdrop-blur-xl transition hover:bg-white/16">
+            <Link to={secondaryHref} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-white/22 bg-white/10 px-5 text-sm font-black text-white backdrop-blur-xl transition hover:bg-white/16 sm:w-auto sm:px-6">
               {secondaryLabel}
             </Link>
           </motion.div>
@@ -351,7 +351,7 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        <div className="grid w-full grid-cols-3 gap-3 text-left">
+        <div className="grid w-full grid-cols-1 gap-3 text-left sm:grid-cols-3">
           {[
             ['120+', 'studio và dịch vụ'],
             ['4.8/5', 'đánh giá trung bình'],
@@ -362,9 +362,9 @@ export default function HomePage() {
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...cardRevealTransition, delay: 0.64 + index * 0.08 }}
-              className="rounded-[20px] border border-[var(--color-border)] bg-white p-4 shadow-sm"
+              className="rounded-[20px] border border-[var(--color-border)] bg-white p-3 shadow-sm sm:p-4"
             >
-              <div className="text-2xl font-black text-[var(--color-ink)]">{value}</div>
+              <div className="text-xl font-black text-[var(--color-ink)] sm:text-2xl">{value}</div>
               <div className="mt-1 text-xs font-semibold text-[var(--color-graphite)]">{label}</div>
             </motion.div>
           ))}
@@ -398,13 +398,13 @@ export default function HomePage() {
           transition={revealTransition}
         >
           <p className="text-sm font-black uppercase tracking-[0.18em] text-[var(--color-azure)]">Quy trình booking</p>
-          <h2 className="mt-3 max-w-xl text-4xl font-black leading-tight text-[var(--color-ink)]">
+          <h2 className="mt-3 max-w-xl text-3xl font-black leading-tight text-[var(--color-ink)] sm:text-4xl">
             Từ tìm kiếm đến thanh toán, mọi bước đều gọn trong một luồng.
           </h2>
           <p className="mt-4 max-w-lg text-base font-medium leading-7 text-[var(--color-graphite)]">
             GO! giúp khách đặt lịch nhanh hơn, còn studio quản lý yêu cầu, lịch chụp và doanh thu rõ ràng hơn.
           </p>
-          <Link to={isLoggedIn ? primaryHref : "/register"} className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--color-azure)] px-5 text-sm font-black text-white transition hover:bg-[var(--color-azure-dark)]">
+          <Link to={isLoggedIn ? primaryHref : "/register"} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--color-azure)] px-5 text-sm font-black text-white transition hover:bg-[var(--color-azure-dark)] sm:w-auto">
             Bắt đầu với GO! <ArrowRight className="h-4 w-4" />
           </Link>
         </motion.div>
@@ -442,12 +442,12 @@ export default function HomePage() {
         >
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-[var(--color-orange)]">Dịch vụ nổi bật</p>
-            <h2 className="mt-2 text-4xl font-black leading-tight text-[var(--color-ink)]">Khám phá studio được khách hàng tin chọn</h2>
+            <h2 className="mt-2 text-3xl font-black leading-tight text-[var(--color-ink)] sm:text-4xl">Khám phá studio được khách hàng tin chọn</h2>
             <p className="mt-3 max-w-2xl text-base font-medium leading-7 text-[var(--color-graphite)]">
               Xem nhanh portfolio, gói chụp, giá và đánh giá trước khi gửi yêu cầu booking.
             </p>
           </div>
-          <Link to="/photosets" className="secondary-pill h-11 gap-2 px-5 text-sm font-black">
+          <Link to="/photosets" className="secondary-pill h-11 w-full gap-2 px-5 text-sm font-black sm:w-auto">
             Xem tất cả <ArrowRight className="h-4 w-4" />
           </Link>
         </motion.div>
@@ -477,7 +477,7 @@ export default function HomePage() {
         )}
       </section>
 
-      <section className="overflow-hidden rounded-[28px] bg-[var(--color-azure)] p-8 text-white sm:p-10">
+      <section className="overflow-hidden rounded-[24px] bg-[var(--color-azure)] p-5 text-white sm:rounded-[28px] sm:p-10">
         <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-white/72">{bottomCtaEyebrow}</p>
@@ -488,7 +488,7 @@ export default function HomePage() {
               {bottomCtaDescription}
             </p>
           </div>
-          <Link to={secondaryHref} className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-[var(--color-orange)] px-7 text-sm font-black text-white transition hover:bg-[var(--color-orange-dark)]">
+          <Link to={secondaryHref} className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--color-orange)] px-7 text-sm font-black text-white transition hover:bg-[var(--color-orange-dark)] md:w-auto">
             {secondaryLabel} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -506,7 +506,7 @@ function ServiceCard({ service, index, onClick }: { service: ServiceSummary; ind
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
       transition={{ ...cardRevealTransition, delay: Math.min(index, 5) * 0.08 }}
-      className="group flex h-full min-h-[500px] flex-col overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white text-left shadow-sm transition duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]"
+      className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white text-left shadow-sm transition duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] sm:min-h-[500px]"
     >
       <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-slate-100">
         <SafeImage src={service.thumbnailUrl || FALLBACK_IMAGES[0]} fallback={FALLBACK_IMAGES[0]} alt={service.name} className="h-full w-full object-cover transition duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105" />
@@ -514,19 +514,19 @@ function ServiceCard({ service, index, onClick }: { service: ServiceSummary; ind
           {service.categoryName}
         </div>
       </div>
-      <div className="flex flex-1 flex-col space-y-4 p-5">
+      <div className="flex flex-1 flex-col space-y-4 p-4 sm:p-5">
         <div className="min-h-[94px]">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[var(--color-azure)]">
             <MapPin className="h-3.5 w-3.5" />
             {service.city || 'Đà Nẵng'}
           </div>
-          <h3 className="mt-2 line-clamp-2 text-xl font-black leading-tight text-[var(--color-ink)]">{service.name}</h3>
+          <h3 className="mt-2 line-clamp-2 text-lg font-black leading-tight text-[var(--color-ink)] sm:text-xl">{service.name}</h3>
           <p className="mt-1 text-sm font-bold text-[var(--color-graphite)]">{service.studioName}</p>
         </div>
         <p className="line-clamp-3 min-h-[66px] text-sm font-medium leading-6 text-[var(--color-graphite)]">
           {service.description || 'Xem portfolio, gói chụp và thông tin đặt lịch của dịch vụ này.'}
         </p>
-        <div className="mt-auto flex items-center justify-between gap-4 border-t border-[var(--color-soft-border)] pt-4">
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-[var(--color-soft-border)] pt-4">
           <PriceBlock value={service.minPrice} />
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-orange-50 px-3 py-1.5 text-sm font-black text-[var(--color-orange)]">
             <Star className="h-4 w-4 fill-[var(--color-orange)] text-[var(--color-orange)]" />

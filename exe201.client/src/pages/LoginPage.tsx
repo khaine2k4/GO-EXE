@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, LogIn, Mail, Lock, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -27,6 +27,27 @@ export default function LoginPage() {
     const [forgotLoading, setForgotLoading] = useState(false)
     const [forgotError, setForgotError] = useState('')
     const [forgotSuccess, setForgotSuccess] = useState('')
+    const googleButtonRef = useRef<HTMLDivElement>(null)
+    const [googleButtonWidth, setGoogleButtonWidth] = useState(320)
+
+    useEffect(() => {
+        const updateGoogleButtonWidth = () => {
+            const containerWidth = googleButtonRef.current?.clientWidth ?? 320
+            const nextWidth = Math.min(380, Math.max(240, Math.floor(containerWidth)))
+            setGoogleButtonWidth((current) => (current === nextWidth ? current : nextWidth))
+        }
+
+        updateGoogleButtonWidth()
+        const container = googleButtonRef.current
+        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateGoogleButtonWidth) : null
+        if (container && observer) observer.observe(container)
+        window.addEventListener('resize', updateGoogleButtonWidth)
+
+        return () => {
+            observer?.disconnect()
+            window.removeEventListener('resize', updateGoogleButtonWidth)
+        }
+    }, [])
 
     async function handleForgotPassword(e: React.FormEvent) {
         e.preventDefault()
@@ -137,7 +158,7 @@ export default function LoginPage() {
 
 
     return (
-        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-12">
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-8 sm:py-12">
             {/* Galaxy Background */}
             <div className="absolute inset-0 z-0 overflow-hidden">
                 <Galaxy
@@ -176,7 +197,7 @@ export default function LoginPage() {
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="relative z-10 w-full max-w-5xl"
             >
-                <div className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/70 shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl grid md:grid-cols-12 min-h-[600px]">
+                <div className="grid overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/70 shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl md:min-h-[600px] md:grid-cols-12 md:rounded-[32px]">
                     {/* Left Panel: Photo Showcase (Hidden on Mobile) */}
                     <div className="hidden md:flex md:col-span-5 relative flex-col justify-between overflow-hidden bg-slate-900 p-10 border-r border-slate-100">
                         <div className="absolute inset-0 z-0 opacity-40 mix-blend-luminosity">
@@ -216,9 +237,9 @@ export default function LoginPage() {
                     </div>
 
                     {/* Right Panel: Glass Form */}
-                    <div className="col-span-12 md:col-span-7 flex flex-col justify-center p-8 sm:p-12 bg-white/40">
+                    <div className="col-span-12 flex flex-col justify-center bg-white/40 p-5 sm:p-8 md:col-span-7 lg:p-12">
                         <div className="max-w-md w-full mx-auto">
-                            <div className="text-center md:text-left mb-8">
+                            <div className="mb-7 text-center md:mb-8 md:text-left">
                                 <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Mừng bạn trở lại</h1>
                                 <p className="mt-2 text-xs font-bold text-slate-400 tracking-wider uppercase">Đăng nhập tài khoản PhotoMarket</p>
                             </div>
@@ -316,7 +337,7 @@ export default function LoginPage() {
                             </div>
 
                             {/* Google Login Button */}
-                            <div className="mt-4 flex justify-center">
+                            <div ref={googleButtonRef} className="mt-4 flex w-full justify-center overflow-hidden">
                                 <GoogleLogin
                                     onSuccess={(credentialResponse) => {
                                         if (credentialResponse.credential) {
@@ -328,7 +349,7 @@ export default function LoginPage() {
                                     shape="rectangular"
                                     theme="outline"
                                     size="large"
-                                    width="380"
+                                    width={`${googleButtonWidth}`}
                                 />
                             </div>
 
@@ -354,7 +375,7 @@ export default function LoginPage() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 10 }}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/90 p-8 shadow-2xl shadow-slate-950/20 backdrop-blur-2xl"
+                            className="relative w-full max-w-md overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/90 p-6 shadow-2xl shadow-slate-950/20 backdrop-blur-2xl sm:rounded-[32px] sm:p-8"
                         >
                             {/* Close button */}
                             <button

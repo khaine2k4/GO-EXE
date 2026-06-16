@@ -137,16 +137,16 @@ export default function Layout() {
   return (
     <div className={`app-shell ${showHeader ? '' : 'header-hidden'}`}>
       <header className={`sticky top-0 z-40 border-b border-[var(--color-border)] bg-white/86 backdrop-blur-xl transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
-        <div className="page-shell relative flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="page-shell relative flex h-16 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-6">
           <Link to={homePath} onClick={handleLogoClick} className="flex shrink-0 items-center">
             <img
               src={logoImg}
               alt="GO! Logo"
-              className="h-12 w-auto object-contain transition-all hover:scale-105"
+              className="h-10 w-auto object-contain transition-all hover:scale-105 sm:h-12"
             />
           </Link>
 
-          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
+          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 lg:flex">
             {links.map((item) => (
               <Link
                 key={item.to}
@@ -194,7 +194,7 @@ export default function Layout() {
                     </span>
                   )}
                   <span className="hidden max-w-32 truncate text-sm font-medium text-[var(--color-ink)] sm:block">{user.name}</span>
-                  <ChevronDown className={`h-4 w-4 text-slate-400 transition ${profileOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`hidden h-4 w-4 text-slate-400 transition sm:block ${profileOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 <AnimatePresence>
@@ -203,7 +203,7 @@ export default function Layout() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 8 }}
-                      className="absolute right-0 top-full z-50 mt-3 w-72 overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white shadow-xl"
+                      className="absolute right-0 top-full z-50 mt-3 w-[calc(100vw-2rem)] max-w-72 overflow-hidden rounded-[24px] border border-[var(--color-border)] bg-white shadow-xl"
                     >
                       <div className="border-b border-slate-100 p-4">
                         <div className="font-semibold text-[var(--color-ink)]">{user.name}</div>
@@ -253,7 +253,7 @@ export default function Layout() {
                 </AnimatePresence>
               </div>
             ) : (
-              <Link to="/login" className="primary-pill px-5 py-2.5 text-sm font-medium">
+              <Link to="/login" className="primary-pill px-3 py-2 text-xs font-medium sm:px-5 sm:py-2.5 sm:text-sm">
                 Đăng nhập
               </Link>
             )}
@@ -261,7 +261,7 @@ export default function Layout() {
             <button
               type="button"
               onClick={() => setMenuOpen((value) => !value)}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-white md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-white lg:hidden"
             >
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -274,7 +274,7 @@ export default function Layout() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-t border-[var(--color-border)] bg-white md:hidden"
+              className="overflow-hidden border-t border-[var(--color-border)] bg-white lg:hidden"
             >
               <div className="space-y-1 p-3">
                 {links.map((item) => (
@@ -395,7 +395,7 @@ export default function Layout() {
             <div>
               © 2026 GO! Studio Marketplace. Tất cả quyền được bảo lưu.
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-3 sm:gap-4">
               <a href="#" className="hover:text-[var(--color-azure)] transition-colors">Điều khoản dịch vụ</a>
               <a href="#" className="hover:text-[var(--color-azure)] transition-colors">Chính sách bảo mật</a>
               <a href="#" className="hover:text-[var(--color-azure)] transition-colors">Giải quyết khiếu nại</a>

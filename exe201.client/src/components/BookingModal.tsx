@@ -327,7 +327,7 @@ export default function BookingModal({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -339,10 +339,10 @@ export default function BookingModal({
             initial={{ opacity: 0, y: 18, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.96 }}
-            className="relative max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="relative max-h-[96dvh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-3xl"
           >
             {successCode ? (
-              <div className="p-8 text-center">
+              <div className="p-6 text-center sm:p-8">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
                   <Check className="h-8 w-8" />
                 </div>
@@ -356,25 +356,25 @@ export default function BookingModal({
                 <button
                   type="button"
                   onClick={closeSuccess}
-                  className="mt-8 h-12 rounded-2xl bg-slate-950 px-7 text-xs font-black uppercase tracking-widest text-white"
+                  className="mt-8 h-12 w-full rounded-2xl bg-slate-950 px-7 text-xs font-black uppercase tracking-widest text-white sm:w-auto"
                 >
                   Xem booking của tôi
                 </button>
               </div>
             ) : (
               <>
-                <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-                  <div>
+                <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:gap-4 sm:px-6 sm:py-5">
+                  <div className="min-w-0">
                     <div className="text-xs font-black uppercase tracking-widest text-indigo-600">Đặt lịch chụp</div>
-                    <h2 className="mt-1 text-xl font-black text-slate-950">{title}</h2>
+                    <h2 className="mt-1 text-lg font-black text-slate-950 sm:text-xl">{title}</h2>
                     <p className="mt-1 text-sm font-semibold text-slate-500">{studioName}</p>
                   </div>
-                  <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
+                  <button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="max-h-[72vh] overflow-y-auto bg-slate-50/40">
+                <div className="max-h-[78dvh] overflow-y-auto bg-slate-50/40 sm:max-h-[72vh]">
                   <Stepper
                     initialStep={1}
                     onStepChange={handleStepChange}
@@ -407,7 +407,7 @@ export default function BookingModal({
                                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                                 }`}
                               >
-                                <div className="flex items-start justify-between gap-4">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                                   <div>
                                     <div className="font-black text-slate-950">{item.name}</div>
                                     {item.description && <div className="mt-1 text-sm text-slate-500">{item.description}</div>}
@@ -495,7 +495,7 @@ export default function BookingModal({
                                   if (suggestions.length > 0) setShowSuggestions(true)
                                 }}
                                 placeholder="Ví dụ: Bãi biển Mỹ Khê, Đà Nẵng"
-                                className="h-12 w-full rounded-2xl border border-slate-200 px-4 pr-24 text-sm font-bold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50"
+                                className="h-12 w-full rounded-2xl border border-slate-200 px-4 pr-20 text-sm font-bold outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 sm:pr-24"
                               />
                               {searching && (
                                 <div className="absolute right-4 top-3.5 text-xs font-bold text-indigo-500 animate-pulse">
@@ -517,7 +517,7 @@ export default function BookingModal({
                                 </div>
                               )}
                             </div>
-                            <LocationPickerMap value={shootingCoordinate} onChange={handleMapLocationChange} className="h-64 w-full" />
+                            <LocationPickerMap value={shootingCoordinate} onChange={handleMapLocationChange} className="h-56 w-full sm:h-64" />
                             <div className="rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
                               Tọa độ đã chọn: <span className="text-slate-900">{shootingCoordinate.lat.toFixed(5)}, {shootingCoordinate.lng.toFixed(5)}</span>
                             </div>
@@ -585,7 +585,7 @@ export default function BookingModal({
                   </Stepper>
 
                   {error && (
-                    <div className="px-6 pb-6">
+                    <div className="px-4 pb-4 sm:px-6 sm:pb-6">
                       <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4 text-xs font-bold text-rose-700">{error}</div>
                     </div>
                   )}
@@ -603,7 +603,7 @@ function StepHeading({ index, title, description }: { index: number; title: stri
   return (
     <div>
       <div className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Bước {index}/4</div>
-      <h3 className="mt-1 text-xl font-black text-slate-950">{title}</h3>
+      <h3 className="mt-1 text-lg font-black text-slate-950 sm:text-xl">{title}</h3>
       <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p>
     </div>
   )
@@ -611,7 +611,7 @@ function StepHeading({ index, title, description }: { index: number; title: stri
 
 function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex items-center gap-2 text-sm font-black text-slate-950">
         <span className="text-indigo-600">{icon}</span>
         {title}
@@ -623,9 +623,9 @@ function Panel({ icon, title, children }: { icon: ReactNode; title: string; chil
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-200/70 pb-2 last:border-b-0 last:pb-0">
+    <div className="flex flex-col gap-1 border-b border-slate-200/70 pb-2 last:border-b-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
       <span className="shrink-0 font-bold text-slate-400">{label}</span>
-      <span className="text-right font-black text-slate-800">{value}</span>
+      <span className="min-w-0 break-words text-left font-black text-slate-800 sm:text-right">{value}</span>
     </div>
   )
 }

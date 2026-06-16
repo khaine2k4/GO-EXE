@@ -56,7 +56,7 @@ export default function VerifyEmailPage() {
     }, [token, email])
 
     return (
-        <div className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/60 p-6 overflow-hidden">
+        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/60 p-4 sm:p-6">
             {/* Ambient Animated Gradients */}
             <div className="absolute inset-0 z-0 overflow-hidden">
                 <div className="absolute -left-[10%] -top-[10%] h-[600px] w-[600px] rounded-full bg-indigo-500/12 blur-[130px] animate-blob-slow" />
@@ -71,7 +71,7 @@ export default function VerifyEmailPage() {
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="relative z-10 w-full max-w-md"
             >
-                <div className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/80 p-8 text-center shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl">
+                <div className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/80 p-6 text-center shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl sm:rounded-[32px] sm:p-8">
                     <AnimatePresence mode="wait">
                         {loading ? (
                             <motion.div
