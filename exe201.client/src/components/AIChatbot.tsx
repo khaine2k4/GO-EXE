@@ -316,7 +316,7 @@ export default function AIChatbot() {
   return (
     <>
       {/* ── Nút kích hoạt Chatbot nổi ở góc màn hình ────────────────────────────────── */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3" style={{ zIndex: 9999 }}>
+      <div className="fixed bottom-4 right-4 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6" style={{ zIndex: 9999 }}>
         {/* Tooltip chào mừng */}
         <AnimatePresence>
           {showTooltip && !isOpen && (
@@ -324,7 +324,7 @@ export default function AIChatbot() {
               initial={{ opacity: 0, y: 10, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="mr-3 max-w-[220px] rounded-2xl border border-slate-200 bg-white p-3.5 text-xs text-slate-700 shadow-[0_8px_30px_rgba(99,102,241,0.12)] backdrop-blur-xl"
+              className="max-w-[calc(100vw-5rem)] rounded-2xl border border-slate-200 bg-white p-3.5 text-xs text-slate-700 shadow-[0_8px_30px_rgba(99,102,241,0.12)] backdrop-blur-xl sm:mr-3 sm:max-w-[220px]"
             >
               <div className="font-bold text-indigo-600 flex items-center gap-1.5 mb-1 text-xs">
                 <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-spin" /> Trợ lý GO! AI
@@ -389,7 +389,7 @@ export default function AIChatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.92 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-24 right-6 flex h-[580px] w-[380px] flex-col overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 backdrop-blur-2xl text-slate-800 shadow-[0_20px_50px_rgba(99,102,241,0.15)]"
+            className="fixed inset-x-4 bottom-20 flex h-[min(580px,calc(100dvh-6rem))] w-auto flex-col overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/95 backdrop-blur-2xl text-slate-800 shadow-[0_20px_50px_rgba(99,102,241,0.15)] sm:inset-x-auto sm:bottom-24 sm:right-6 sm:w-[380px] sm:rounded-[2rem]"
             style={{ zIndex: 9999 }}
           >
             {/* Lớp nền khuếch tán ánh sáng dịu mắt */}
@@ -397,7 +397,7 @@ export default function AIChatbot() {
             <div className="absolute -bottom-24 -right-24 h-48 w-48 rounded-full bg-pink-100/40 blur-[60px] pointer-events-none" />
 
             {/* Header - Thiết kế mới đồng bộ tông sáng premium */}
-            <div className="relative flex items-center justify-between bg-gradient-to-r from-indigo-600 to-violet-600 p-5 text-white shadow-sm z-10">
+            <div className="relative flex items-center justify-between bg-gradient-to-r from-indigo-600 to-violet-600 p-4 text-white shadow-sm z-10 sm:p-5">
               <div className="flex items-center gap-3">
                 <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white border border-white/20 shadow-sm">
                   <Bot className="h-5.5 w-5.5 animate-pulse" />
@@ -417,7 +417,7 @@ export default function AIChatbot() {
             </div>
 
             {/* Danh sách tin nhắn - Readability & Contrast optimized */}
-            <div ref={chatContainerRef} className="relative flex-1 min-h-0 overflow-y-auto p-5 space-y-5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent bg-slate-50/50 z-0">
+            <div ref={chatContainerRef} className="relative flex-1 min-h-0 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent bg-slate-50/50 z-0 sm:p-5 sm:space-y-5">
               {messages.map((msg, index) => (
                 <div
                   key={index}
@@ -430,7 +430,7 @@ export default function AIChatbot() {
                   )}
 
                   <div
-                    className={`max-w-[78%] rounded-[1.2rem] py-3 px-4 shadow-sm transition-all duration-200 ${
+                    className={`max-w-[86%] rounded-[1.2rem] px-3 py-2.5 shadow-sm transition-all duration-200 sm:max-w-[78%] sm:px-4 sm:py-3 ${
                       msg.sender === 'user'
                         ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-tr-none font-medium'
                         : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-none shadow-[0_2px_8px_rgba(0,0,0,0.02)]'
@@ -460,7 +460,7 @@ export default function AIChatbot() {
             </div>
 
             {/* Input Bar - FIXED CUT-OFF & REMOVED DOUBLE BORDER */}
-            <div className="relative p-4 border-t border-slate-100 bg-white z-10">
+            <div className="relative border-t border-slate-100 bg-white p-3 z-10 sm:p-4">
               <div className="relative flex items-center rounded-full border border-slate-200 bg-slate-50/70 p-1.5 pr-12 focus-within:border-indigo-500 focus-within:shadow-[0_0_12px_rgba(99,102,241,0.08)] transition-all duration-300">
                 <input
                   type="text"
@@ -480,9 +480,9 @@ export default function AIChatbot() {
                   <Send className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <div className="mt-2.5 flex items-center justify-between px-2 text-[9px] text-slate-400 font-medium">
+              <div className="mt-2.5 flex items-center justify-between gap-2 px-2 text-[9px] text-slate-400 font-medium">
                 <span>GO! Assistant • Hỗ trợ trực tuyến</span>
-                <span className="flex items-center gap-0.5">
+                <span className="hidden items-center gap-0.5 sm:flex">
                   Nhấn <CornerDownLeft className="h-2 w-2" /> để gửi
                 </span>
               </div>
@@ -498,7 +498,7 @@ export default function AIChatbot() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-3 backdrop-blur-md sm:p-4"
             onClick={() => setModalTableHtml(null)}
           >
             <motion.div
@@ -506,12 +506,12 @@ export default function AIChatbot() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-slate-100 bg-white p-7 shadow-[0_25px_60px_rgba(0,0,0,0.18)]"
+              className="relative w-full max-w-4xl overflow-hidden rounded-[1.5rem] border border-slate-100 bg-white p-4 shadow-[0_25px_60px_rgba(0,0,0,0.18)] sm:rounded-[2rem] sm:p-7"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-5 mb-5">
-                <div className="flex items-center gap-3">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4 mb-4 sm:items-center sm:pb-5 sm:mb-5">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 font-bold text-lg shadow-sm">
                     📊
                   </div>
@@ -524,7 +524,7 @@ export default function AIChatbot() {
                 </div>
                 <button
                   onClick={() => setModalTableHtml(null)}
-                  className="rounded-full bg-slate-50 hover:bg-slate-100 p-2.5 text-slate-400 hover:text-slate-600 transition duration-200"
+                  className="shrink-0 rounded-full bg-slate-50 hover:bg-slate-100 p-2.5 text-slate-400 hover:text-slate-600 transition duration-200"
                 >
                   <X className="h-5 w-5" />
                 </button>

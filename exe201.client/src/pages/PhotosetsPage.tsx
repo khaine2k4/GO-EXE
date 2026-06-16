@@ -260,16 +260,16 @@ export default function PhotosetsPage() {
 
   return (
     <div className="space-y-8 pb-20">
-      <div className="surface-card p-8">
+      <div className="surface-card p-6 sm:p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase text-[var(--color-azure)]">Dịch vụ chụp ảnh</p>
-            <h1 className="mt-2 text-4xl font-bold">Tìm kiếm, lọc và so sánh studio</h1>
+            <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Tìm kiếm, lọc và so sánh studio</h1>
             <p className="mt-3 max-w-2xl text-[var(--color-graphite)]">
               Xem dịch vụ đang hoạt động với danh mục, giá, đánh giá và hồ sơ studio từ hệ thống.
             </p>
           </div>
-          <button type="button" onClick={() => setShowFilters((value) => !value)} className="secondary-pill h-11 gap-2 px-5 text-sm font-semibold">
+          <button type="button" onClick={() => setShowFilters((value) => !value)} className="secondary-pill h-11 w-full gap-2 px-5 text-sm font-semibold sm:w-auto">
             <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
           </button>
         </div>
@@ -338,7 +338,7 @@ export default function PhotosetsPage() {
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="flex h-11 items-center justify-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-5 text-sm font-bold text-rose-600 hover:bg-rose-100 transition"
+                  className="flex h-11 items-center justify-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-5 text-sm font-bold text-rose-600 transition hover:bg-rose-100 sm:w-auto"
                 >
                   <X className="h-4 w-4" />
                   Xóa bộ lọc
@@ -450,9 +450,9 @@ function CompareDrawer({
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 100, opacity: 0 }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="fixed inset-x-0 bottom-0 z-50 bg-white border-t border-[var(--color-border)] shadow-[0_-12px_40px_rgba(0,0,0,0.12)] px-4 py-4 sm:px-6 md:py-5"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--color-border)] bg-white px-3 py-3 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] sm:px-6 md:py-5"
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-azure)] text-[10px] font-black text-white">
@@ -463,10 +463,10 @@ function CompareDrawer({
           <p className="text-xs text-[var(--color-graphite)]">Chọn tối đa 3 dịch vụ để so sánh trực quan</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             {list.map((service) => (
-              <div key={service.id} className="group relative h-12 w-16 shrink-0 overflow-hidden rounded-lg border border-[var(--color-border)] bg-slate-50 shadow-sm">
+              <div key={service.id} className="group relative h-10 w-14 shrink-0 overflow-hidden rounded-lg border border-[var(--color-border)] bg-slate-50 shadow-sm sm:h-12 sm:w-16">
                 <img
                   src={service.thumbnailUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=200&q=80'}
                   alt={service.name}
@@ -482,13 +482,13 @@ function CompareDrawer({
               </div>
             ))}
             {Array.from({ length: Math.max(0, 3 - list.length) }).map((_, i) => (
-              <div key={i} className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-slate-400">
+              <div key={i} className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-slate-400 sm:h-12 sm:w-16">
                 <span className="text-[10px] font-bold">Chờ...</span>
               </div>
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:items-center">
             <button
               type="button"
               onClick={onClear}
@@ -500,7 +500,7 @@ function CompareDrawer({
               type="button"
               disabled={list.length < 2}
               onClick={onCompare}
-              className={`inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-xs font-black text-white shadow transition-all duration-300 ${
+              className={`inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full px-5 text-xs font-black text-white shadow transition-all duration-300 sm:w-auto ${
                 list.length >= 2
                   ? 'bg-[var(--color-orange)] hover:bg-[var(--color-orange-dark)] hover:scale-105'
                   : 'bg-slate-300 cursor-not-allowed'
@@ -524,7 +524,7 @@ function CompareModal({
   onClose: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -540,11 +540,11 @@ function CompareModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-        className="relative z-10 flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-[var(--color-border)] bg-white shadow-2xl"
+        className="relative z-10 flex h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-[20px] border border-[var(--color-border)] bg-white shadow-2xl sm:h-[85vh] sm:rounded-[28px]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4 bg-slate-50/50">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] bg-slate-50/50 px-4 py-3 sm:items-center sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[var(--color-orange)]">
               <GitCompare className="h-5 w-5" />
             </div>
@@ -556,15 +556,15 @@ function CompareModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-white text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Scrollable table container */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="min-w-[800px] border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="flex-1 overflow-auto p-3 sm:p-6">
+          <div className="min-w-[720px] overflow-hidden rounded-2xl border border-slate-200 sm:min-w-[800px]">
             <table className="w-full border-collapse text-left table-fixed">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200">
@@ -725,7 +725,7 @@ function CompareModal({
         </div>
 
         {/* Footer actions */}
-        <div className="flex justify-end border-t border-[var(--color-border)] bg-slate-50 px-6 py-4">
+        <div className="flex justify-end border-t border-[var(--color-border)] bg-slate-50 px-4 py-3 sm:px-6 sm:py-4">
           <button
             type="button"
             onClick={onClose}

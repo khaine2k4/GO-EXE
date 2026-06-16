@@ -71,10 +71,10 @@ export default function GalleryPage() {
 
   return (
     <div className="space-y-10 pb-20">
-      <section className="surface-card p-8 text-center">
+      <section className="surface-card p-6 text-center sm:p-8">
         <div className="mx-auto max-w-2xl">
           <div className="text-sm font-semibold uppercase text-[var(--color-azure)]">Studio</div>
-          <h1 className="mt-3 text-4xl font-bold text-[var(--color-ink)] md:text-5xl">Khám phá Studio chụp ảnh uy tín tại Đà Nẵng</h1>
+          <h1 className="mt-3 text-3xl font-bold text-[var(--color-ink)] sm:text-4xl md:text-5xl">Khám phá Studio chụp ảnh uy tín tại Đà Nẵng</h1>
           <p className="mt-4 text-[var(--color-graphite)]">
             So sánh dịch vụ, portfolio, đánh giá và khoảng giá trước khi gửi yêu cầu đặt lịch.
           </p>
@@ -83,7 +83,7 @@ export default function GalleryPage() {
 
       <section 
         style={{ top: showHeader ? '80px' : '16px' }}
-        className="sticky z-20 rounded-[28px] border border-[var(--color-border)] bg-white/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-[top] duration-300"
+        className="sticky z-20 rounded-[22px] border border-[var(--color-border)] bg-white/95 p-3 shadow-[0_12px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-[top] duration-300 sm:rounded-[28px]"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <label className="flex h-12 flex-1 items-center gap-3 rounded-full bg-[var(--color-fog)] px-4">
@@ -102,11 +102,11 @@ export default function GalleryPage() {
             )}
           </label>
           <div className="flex flex-wrap gap-2">
-            <div className="flex h-12 rounded-full bg-[var(--color-fog)] p-1">
+            <div className="flex h-12 w-full rounded-full bg-[var(--color-fog)] p-1 sm:w-auto">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
-                className={`inline-flex items-center gap-2 rounded-full px-4 text-sm font-bold transition ${viewMode === 'list' ? 'bg-white text-[var(--color-azure)] shadow-sm' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'}`}
+                className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full px-3 text-sm font-bold transition sm:flex-none sm:px-4 ${viewMode === 'list' ? 'bg-white text-[var(--color-azure)] shadow-sm' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'}`}
               >
                 <List className="h-4 w-4" />
                 Danh sách
@@ -114,13 +114,13 @@ export default function GalleryPage() {
               <button
                 type="button"
                 onClick={() => setViewMode('map')}
-                className={`inline-flex items-center gap-2 rounded-full px-4 text-sm font-bold transition ${viewMode === 'map' ? 'bg-white text-[var(--color-azure)] shadow-sm' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'}`}
+                className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full px-3 text-sm font-bold transition sm:flex-none sm:px-4 ${viewMode === 'map' ? 'bg-white text-[var(--color-azure)] shadow-sm' : 'text-[var(--color-graphite)] hover:text-[var(--color-ink)]'}`}
               >
                 <MapIcon className="h-4 w-4" />
                 Bản đồ
               </button>
             </div>
-            <button type="button" onClick={() => setShowFilters((value) => !value)} className="secondary-pill h-12 gap-2 px-5 text-sm font-semibold">
+            <button type="button" onClick={() => setShowFilters((value) => !value)} className="secondary-pill h-12 flex-1 gap-2 px-4 text-sm font-semibold sm:flex-none sm:px-5">
               <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
             </button>
             <button type="button" onClick={applyFilters} className="primary-pill h-12 w-12 text-sm font-semibold" aria-label="Tìm kiếm">
@@ -162,9 +162,9 @@ export default function GalleryPage() {
             fitToMarkers
             openSelectedPopup
             onMarkerClick={(markerId) => setSelectedStudioId(Number(markerId))}
-            className="h-[620px] w-full"
+            className="h-[55dvh] min-h-[320px] w-full lg:h-[620px]"
           />
-          <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1">
+          <div className="max-h-[55dvh] space-y-3 overflow-y-auto pr-1 lg:max-h-[620px]">
             {mapMarkers.length === 0 ? (
               <StateBox text="Chưa có studio nào có tọa độ để hiển thị trên bản đồ." />
             ) : null}

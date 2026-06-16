@@ -317,6 +317,17 @@ input:-webkit-autofill:active {
   letter-spacing: 0;
 }
 
+@media (max-width: 480px) {
+  :root {
+    --radius-card: 20px;
+  }
+
+  .price-block-card .price-block-value {
+    font-size: clamp(1.3rem, 7vw, 1.55rem);
+    white-space: normal;
+  }
+}
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .scrollbar-none::-webkit-scrollbar {
   display: none;

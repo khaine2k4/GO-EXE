@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
 
     if (!token || !email) {
         return (
-            <div className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/60 p-6 overflow-hidden select-none">
+            <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/60 p-4 select-none sm:p-6">
                 {/* Ambient Animated Gradients */}
                 <div className="absolute inset-0 z-0 overflow-hidden">
                     <div className="absolute -left-[10%] -top-[10%] h-[600px] w-[600px] rounded-full bg-indigo-500/12 blur-[130px] animate-blob-slow" />
@@ -73,7 +73,7 @@ export default function ResetPasswordPage() {
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative z-10 w-full max-w-md rounded-[32px] border border-slate-200/80 bg-white/90 p-8 text-center shadow-2xl backdrop-blur-xl"
+                    className="relative z-10 w-full max-w-md rounded-[24px] border border-slate-200/80 bg-white/90 p-6 text-center shadow-2xl backdrop-blur-xl sm:rounded-[32px] sm:p-8"
                 >
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500">
                         <AlertCircle className="h-7 w-7" />
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <div className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/60 p-6 overflow-hidden">
+        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-indigo-50/50 to-violet-50/60 p-4 sm:p-6">
             {/* Ambient Animated Gradients */}
             <div className="absolute inset-0 z-0 overflow-hidden">
                 <div className="absolute -left-[10%] -top-[10%] h-[600px] w-[600px] rounded-full bg-indigo-500/12 blur-[130px] animate-blob-slow" />
@@ -112,7 +112,7 @@ export default function ResetPasswordPage() {
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 className="relative z-10 w-full max-w-5xl"
             >
-                <div className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white/70 shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl grid md:grid-cols-12 min-h-[600px]">
+                <div className="grid overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/70 shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl md:min-h-[600px] md:grid-cols-12 md:rounded-[32px]">
                     {/* Left Panel: Photo Showcase (Hidden on Mobile) */}
                     <div className="hidden md:flex md:col-span-5 relative flex-col justify-between overflow-hidden bg-slate-900 p-10 border-r border-slate-100">
                         <div className="absolute inset-0 z-0 opacity-40 mix-blend-luminosity">
@@ -152,7 +152,7 @@ export default function ResetPasswordPage() {
                     </div>
 
                     {/* Right Panel: Form Area */}
-                    <div className="col-span-12 md:col-span-7 flex flex-col justify-center p-8 sm:p-12 bg-white/40">
+                    <div className="col-span-12 flex flex-col justify-center bg-white/40 p-5 sm:p-8 md:col-span-7 lg:p-12">
                         <div className="max-w-md w-full mx-auto">
                             <AnimatePresence mode="wait">
                                 {!success ? (
@@ -224,7 +224,7 @@ export default function ResetPasswordPage() {
                                                     <Shield className={`h-4 w-4 ${isValid ? 'text-emerald-500' : 'text-indigo-500'}`} />
                                                     <span className="font-bold text-slate-700">Yêu cầu bảo mật mật khẩu:</span>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-3 mt-1.5">
+                                                <div className="mt-1.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                     <div className="flex items-center gap-2">
                                                         <Check className={`h-4 w-4 transition-all flex-shrink-0 ${isMinLength ? 'text-emerald-500 stroke-[3]' : 'text-slate-300'}`} />
                                                         <span className={`transition-all duration-300 ${isMinLength ? 'text-emerald-600 font-bold' : 'text-slate-500'}`}>Tối thiểu 6 ký tự</span>
