@@ -313,96 +313,91 @@ function AnalyticsTab({
   onEndDateChange: (value: string) => void
   onQuickRange: (days: number) => void
 }) {
+  const rangeLabel = `${shortDateLabel(startDate)} - ${shortDateLabel(endDate)}`
+  const visitorRate = analytics.monthViews > 0
+    ? Math.round((analytics.monthUniqueVisitors / analytics.monthViews) * 100)
+    : 0
+  const activeDays = analytics.dailyViews.filter((day) => day.views > 0).length
+  const avgViewsPerDay = activeDays > 0 ? Math.round(analytics.monthViews / activeDays) : 0
+  const peakDay = [...analytics.dailyViews].sort((a, b) => b.views - a.views)[0]
+  const peakPage = analytics.topPages[0]
+
   return (
-    <>
-      <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-950">Khoảng thời gian báo cáo</h3>
-          <p className="mt-1 text-xs text-slate-500">Áp dụng cho metric, biểu đồ lượt xem, top trang và tăng trưởng user.</p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="grid gap-1 text-xs font-medium text-slate-500">
-            Từ ngày
-            <input type="date" value={startDate} max={endDate} onChange={(event) => onStartDateChange(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
-          </label>
-          <label className="grid gap-1 text-xs font-medium text-slate-500">
-            Đến ngày
-            <input type="date" value={endDate} min={startDate} onChange={(event) => onEndDateChange(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10" />
-          </label>
-          <button type="button" onClick={() => onQuickRange(7)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50">7 ngày</button>
-          <button type="button" onClick={() => onQuickRange(30)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50">30 ngày</button>
-        </div>
-      </section>
-      {/* ── Metric Cards ── */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<Eye className="h-5 w-5" />} label="Lượt xem hôm nay" value={formatNumber(analytics.todayViews)} tone="indigo" />
-        <Metric icon={<Globe className="h-5 w-5" />} label="Lượt xem 30 ngày" value={formatNumber(analytics.monthViews)} />
-        <Metric icon={<Users className="h-5 w-5" />} label="Visitor 30 ngày" value={formatNumber(analytics.monthUniqueVisitors)} />
-        <Metric icon={<Users className="h-5 w-5" />} label="Khách tiềm năng 30 ngày" value={formatNumber(analytics.monthPotentialCustomerVisitors)} tone="amber" />
-      </div>
-
-      {/* ── Daily Views Chart (30 days) ── */}
-      <div className="grid gap-5 xl:grid-cols-[1.3fr_0.9fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-semibold text-slate-950">Lượt xem theo ngày</h3>
-              <p className="text-sm text-slate-500">30 ngày gần nhất · Cột = views, Chấm = unique visitors.</p>
-            </div>
-            <Eye className="h-5 w-5 text-slate-400" />
-          </div>
-          <DailyViewsChart data={analytics.dailyViews} />
-        </section>
-
-        {/* ── Top 10 Pages ── */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4">
-            <h3 className="text-base font-semibold text-slate-950">Top trang được xem</h3>
-            <p className="text-sm text-slate-500">30 ngày · Xếp theo tổng views.</p>
-          </div>
-          <div className="space-y-2">
-            {analytics.topPages.length === 0 ? (
-              <div className="py-10 text-center text-sm text-slate-500">Chưa có dữ liệu.</div>
-            ) : analytics.topPages.map((page, idx) => {
-              const maxPageViews = analytics.topPages[0]?.views || 1
-              const barWidth = Math.max(8, Math.round(page.views * 100 / maxPageViews))
-              return (
-                <div key={page.pagePath} className="group rounded-xl border border-slate-100 bg-slate-50/70 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/30">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white text-[11px] font-semibold text-slate-600">{idx + 1}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800" title={page.pagePath}>{getPageLabel(page.pagePath)}</span>
-                    <span className="text-xs font-semibold text-indigo-700">{page.views}</span>
-                    <span className="text-[10px] text-slate-400">({page.uniqueVisitors} unique)</span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600 transition-all" style={{ width: `${barWidth}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      </div>
-
-      {/* ── User Growth Chart ── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-5 flex items-center justify-between">
+    <div className="space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <h3 className="text-base font-semibold text-slate-950">Tăng trưởng user</h3>
-            <p className="text-sm text-slate-500">12 tháng gần nhất · Cột = user mới, đường = tổng tích lũy.</p>
+            <h3 className="text-lg font-semibold text-slate-950">Thống kê truy cập Web</h3>
+            <p className="mt-1 text-sm text-slate-500">Báo cáo lượt xem, lượt khách và các trang được quan tâm.</p>
+            <div className="mt-3 inline-flex rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">{rangeLabel}</div>
           </div>
-          <TrendingUp className="h-5 w-5 text-slate-400" />
-        </div>
-        <UserGrowthChart data={analytics.userGrowth} />
-        <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-5 rounded bg-gradient-to-r from-cyan-400 to-cyan-500" /> User mới</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" /> Tổng tích lũy</span>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="grid gap-1 text-xs font-medium text-slate-500">
+              Từ ngày
+              <input type="date" value={startDate} max={endDate} onChange={(event) => onStartDateChange(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400" />
+            </label>
+            <label className="grid gap-1 text-xs font-medium text-slate-500">
+              Đến ngày
+              <input type="date" value={endDate} min={startDate} onChange={(event) => onEndDateChange(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-slate-400" />
+            </label>
+            <button type="button" onClick={() => onQuickRange(7)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50">7 ngày</button>
+            <button type="button" onClick={() => onQuickRange(30)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50">30 ngày</button>
+          </div>
         </div>
       </section>
-    </>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <AnalyticsMetric icon={<Eye className="h-5 w-5" />} label="Lượt xem" value={formatNumber(analytics.monthViews)} detail={`Hôm nay ${formatNumber(analytics.todayViews)} · 7 ngày ${formatNumber(analytics.weekViews)}`} tone="indigo" />
+        <AnalyticsMetric icon={<Users className="h-5 w-5" />} label="Lượt khách" value={formatNumber(analytics.monthUniqueVisitors)} detail={`Tỷ lệ khách/lượt xem: ${visitorRate}%`} tone="emerald" />
+        <AnalyticsMetric icon={<Globe className="h-5 w-5" />} label="Khách tiềm năng" value={formatNumber(analytics.monthPotentialCustomerVisitors)} detail="Chưa đăng nhập + Khách hàng" tone="amber" />
+        <AnalyticsMetric icon={<TrendingUp className="h-5 w-5" />} label="Tài khoản hoạt động" value={formatNumber(analytics.totalRegisteredUsers)} detail="Khách hàng + Nhiếp ảnh gia" tone="slate" />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <InsightCard
+          icon={<CalendarCheck className="h-4 w-4" />}
+          title="Ngày có truy cập"
+          value={formatNumber(activeDays)}
+          detail={peakDay ? `Cao nhất: ${shortDateLabel(peakDay.date)} với ${formatNumber(peakDay.views)} lượt xem` : 'Chưa có ngày nào có dữ liệu'}
+        />
+        <InsightCard
+          icon={<BarChart3 className="h-4 w-4" />}
+          title="Trung bình / ngày"
+          value={formatNumber(avgViewsPerDay)}
+          detail="Tính trên các ngày có lượt xem"
+        />
+        <InsightCard
+          icon={<Globe className="h-4 w-4" />}
+          title="Trang nổi bật"
+          value={peakPage ? getPageLabel(peakPage.pagePath) : '-'}
+          detail={peakPage ? `${formatNumber(peakPage.views)} lượt xem` : 'Chưa có dữ liệu'}
+          truncateValue
+        />
+        <InsightCard
+          icon={<TrendingUp className="h-4 w-4" />}
+          title="Tổng trang xem"
+          value={formatNumber(analytics.topPages.length)}
+          detail="Số trang xuất hiện trong bảng top"
+        />
+      </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <SectionTitle title="Lượt xem theo ngày" subtitle="Biểu đồ cột: lượt xem và lượt khách theo từng ngày." icon={<BarChart3 className="h-5 w-5" />} />
+        <DailyViewsChart data={analytics.dailyViews} />
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <SectionTitle title="Top trang được xem" subtitle="Biểu đồ ngang theo tổng lượt xem trong kỳ." icon={<Globe className="h-5 w-5" />} />
+        <TopPagesChart pages={analytics.topPages} />
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <SectionTitle title="Tăng trưởng user" subtitle="Biểu đồ cột user mới từng tháng, kèm tổng tích lũy." icon={<TrendingUp className="h-5 w-5" />} />
+        <UserGrowthChart data={analytics.userGrowth} />
+      </section>
+    </div>
   )
 }
-
 // ══════════════════════════════════════════════════════════════════════
 // Shared components
 // ══════════════════════════════════════════════════════════════════════
@@ -415,149 +410,211 @@ function shortDateLabel(value: string) {
   return `${parts[2]}/${parts[1]}`
 }
 
-function smoothPath(points: { x: number; y: number }[]) {
-  if (points.length === 0) return ''
-  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`
-
-  return points.reduce((path, point, index, all) => {
-    if (index === 0) return `M ${point.x} ${point.y}`
-    const previous = all[index - 1]
-    const controlDistance = (point.x - previous.x) * 0.45
-    return `${path} C ${previous.x + controlDistance} ${previous.y}, ${point.x - controlDistance} ${point.y}, ${point.x} ${point.y}`
-  }, '')
-}
 
 function DailyViewsChart({ data }: { data: DailyViewPoint[] }) {
-  const visibleData = data.slice(-7)
-  const maxViews = Math.max(...visibleData.map((d) => d.views), 1)
-  const hasViews = visibleData.some((d) => d.views > 0)
+  const activeData = data.filter((day) => day.views > 0).slice(-14)
+  const maxValue = Math.max(...activeData.flatMap((d) => [d.views, d.uniqueVisitors]), 1)
+  const width = 980
+  const height = 340
+  const padding = { top: 28, right: 24, bottom: 48, left: 46 }
+  const plotWidth = width - padding.left - padding.right
+  const plotHeight = height - padding.top - padding.bottom
+  const step = activeData.length > 0 ? plotWidth / activeData.length : plotWidth
+  const barWidth = Math.max(8, Math.min(22, step * 0.26))
+  const gridLines = [1, 0.75, 0.5, 0.25, 0]
+
+  if (activeData.length === 0) {
+    return <EmptyState label="Chưa có dữ liệu lượt xem." />
+  }
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/80 p-4">
-      {!hasViews ? (
-        <div className="flex h-64 items-center justify-center text-sm text-slate-500">Chưa có dữ liệu lượt xem.</div>
-      ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-[76px_1fr_96px] items-center gap-3 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <span>Ngày</span>
-            <span>Lượt xem</span>
-            <span className="text-right">Số liệu</span>
-          </div>
-          {visibleData.map((day) => {
-            const viewWidth = day.views === 0 ? 0 : Math.max(5, Math.round(day.views * 100 / maxViews))
-            const uniqueWidth = day.uniqueVisitors === 0 ? 0 : Math.max(4, Math.round(day.uniqueVisitors * 100 / maxViews))
-            return (
-              <div key={day.date} className="grid grid-cols-[76px_1fr_96px] items-center gap-3 rounded-lg border border-slate-100 bg-white px-3 py-3 shadow-sm">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">{shortDateLabel(day.date)}</div>
-                  <div className="text-[10px] text-slate-400">{day.date.slice(0, 4)}</div>
-                </div>
-                <div className="space-y-2">
-                  <div className="relative h-7 overflow-hidden rounded-lg bg-slate-100">
-                    <div className="absolute inset-y-0 left-0 rounded-lg bg-gradient-to-r from-indigo-400 to-indigo-600" style={{ width: `${viewWidth}%` }} />
-                    <div className="relative flex h-full items-center px-2 text-xs font-semibold text-white drop-shadow-sm">
-                      {day.views > 0 ? `${formatNumber(day.views)} views` : ''}
-                    </div>
-                  </div>
-                  <div className="relative h-2 overflow-hidden rounded-full bg-emerald-50">
-                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{ width: `${uniqueWidth}%` }} />
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-indigo-700">{formatNumber(day.views)}</div>
-                  <div className="mt-0.5 text-xs font-medium text-emerald-700">
-                    {formatNumber(day.uniqueVisitors)} unique
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-          <div className="flex items-center gap-4 px-1 text-xs text-slate-500">
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-5 rounded bg-indigo-500" /> Views</span>
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-5 rounded bg-emerald-500" /> Unique visitors</span>
-          </div>
-        </div>
-      )}
+    <div className="overflow-x-auto rounded-lg border border-slate-100 bg-slate-50 p-4">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-80 min-w-[760px] w-full" role="img" aria-label="Biểu đồ lượt xem theo ngày">
+        <rect x={padding.left} y={padding.top} width={plotWidth} height={plotHeight} rx="12" fill="#ffffff" />
+        {gridLines.map((ratio) => {
+          const y = padding.top + (1 - ratio) * plotHeight
+          const value = Math.round(maxValue * ratio)
+          return (
+            <g key={ratio}>
+              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray="4 6" />
+              <text x={padding.left - 10} y={y + 4} textAnchor="end" className="fill-slate-400 text-[11px]">{value}</text>
+            </g>
+          )
+        })}
+        {activeData.map((day, index) => {
+          const centerX = padding.left + index * step + step / 2
+          const viewHeight = Math.max(4, (day.views / maxValue) * plotHeight)
+          const uniqueHeight = Math.max(4, (day.uniqueVisitors / maxValue) * plotHeight)
+          const viewX = centerX - barWidth - 2
+          const uniqueX = centerX + 2
+          const viewY = padding.top + plotHeight - viewHeight
+          const uniqueY = padding.top + plotHeight - uniqueHeight
+          const showLabel = activeData.length <= 8 || index % 2 === 0 || index === activeData.length - 1
+          return (
+            <g key={day.date}>
+              <rect x={viewX} y={viewY} width={barWidth} height={viewHeight} rx="5" fill="#4f46e5">
+                <title>{`${shortDateLabel(day.date)}: ${day.views} lượt xem`}</title>
+              </rect>
+              <rect x={uniqueX} y={uniqueY} width={barWidth} height={uniqueHeight} rx="5" fill="#10b981">
+                <title>{`${shortDateLabel(day.date)}: ${day.uniqueVisitors} khách`}</title>
+              </rect>
+              <text x={centerX} y={Math.min(viewY, uniqueY) - 8} textAnchor="middle" className="fill-slate-700 text-[11px] font-semibold">{formatNumber(day.views)}</text>
+              {showLabel && <text x={centerX} y={height - 16} textAnchor="middle" className="fill-slate-500 text-[11px]">{shortDateLabel(day.date)}</text>}
+            </g>
+          )
+        })}
+      </svg>
+      <div className="mt-3 flex justify-center gap-5 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-indigo-600" /> Lượt xem</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Lượt khách</span>
+      </div>
     </div>
   )
 }
 function UserGrowthChart({ data }: { data: UserGrowthPoint[] }) {
-  const width = 920
-  const height = 250
-  const padding = { top: 26, right: 28, bottom: 38, left: 42 }
+  const visibleData = data.slice(-12)
+  const maxNewUsers = Math.max(...visibleData.map((d) => d.newUsers), 1)
+  const width = 980
+  const height = 320
+  const padding = { top: 28, right: 24, bottom: 50, left: 46 }
   const plotWidth = width - padding.left - padding.right
   const plotHeight = height - padding.top - padding.bottom
-  const maxNewUsers = Math.max(...data.map((d) => d.newUsers), 1)
-  const maxTotalUsers = Math.max(...data.map((d) => d.cumulativeUsers), 1)
-  const step = data.length > 1 ? plotWidth / (data.length - 1) : plotWidth
-  const barWidth = Math.max(12, Math.min(34, step * 0.42))
-  const linePoints = data.map((item, index) => {
-    const x = padding.left + index * step
-    const y = padding.top + plotHeight - (item.cumulativeUsers / maxTotalUsers) * plotHeight
-    return { x, y, item }
-  })
-  const linePath = smoothPath(linePoints)
-  const areaPath = linePoints.length > 0
-    ? `${linePath} L ${linePoints[linePoints.length - 1].x} ${padding.top + plotHeight} L ${linePoints[0].x} ${padding.top + plotHeight} Z`
-    : ''
+  const step = visibleData.length > 0 ? plotWidth / visibleData.length : plotWidth
+  const barWidth = Math.max(16, Math.min(42, step * 0.44))
   const monthNames = ['', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
-  const gridLines = [0, 0.25, 0.5, 0.75, 1]
+  const gridLines = [1, 0.75, 0.5, 0.25, 0]
+
+  if (visibleData.length === 0) {
+    return <EmptyState label="Chưa có dữ liệu user." />
+  }
 
   return (
-    <div className="relative h-64 overflow-hidden rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/80">
-      {data.length === 0 && <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">Chưa có dữ liệu user.</div>}
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img" aria-label="Biểu đồ tăng trưởng user">
-        <defs>
-          <linearGradient id="userBarGradient" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#22d3ee" />
-            <stop offset="100%" stopColor="#0891b2" />
-          </linearGradient>
-          <linearGradient id="userLineArea" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0.02" />
-          </linearGradient>
-          <filter id="userLineShadow" x="-40%" y="-60%" width="180%" height="220%">
-            <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#10b981" floodOpacity="0.24" />
-          </filter>
-        </defs>
-        <rect x={padding.left} y={padding.top} width={plotWidth} height={plotHeight} rx="14" fill="#f8fafc" />
+    <div className="overflow-x-auto rounded-lg border border-slate-100 bg-slate-50 p-4">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-76 min-w-[760px] w-full" role="img" aria-label="Biểu đồ tăng trưởng user">
+        <rect x={padding.left} y={padding.top} width={plotWidth} height={plotHeight} rx="12" fill="#ffffff" />
         {gridLines.map((ratio) => {
-          const y = padding.top + ratio * plotHeight
-          const value = Math.round(maxTotalUsers * (1 - ratio))
+          const y = padding.top + (1 - ratio) * plotHeight
+          const value = Math.round(maxNewUsers * ratio)
           return (
             <g key={ratio}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray="4 6" />
-              <text x={padding.left - 10} y={y + 3} textAnchor="end" className="fill-slate-400 text-[10px]">{value}</text>
+              <text x={padding.left - 10} y={y + 4} textAnchor="end" className="fill-slate-400 text-[11px]">{value}</text>
             </g>
           )
         })}
-        {data.map((item, index) => {
-          const centerX = padding.left + index * step
-          const barHeight = item.newUsers === 0 ? 0 : Math.max(6, (item.newUsers / maxNewUsers) * plotHeight)
-          const barX = centerX - barWidth / 2
-          const barY = padding.top + plotHeight - barHeight
+        {visibleData.map((item, index) => {
+          const centerX = padding.left + index * step + step / 2
+          const barHeight = item.newUsers === 0 ? 0 : Math.max(5, (item.newUsers / maxNewUsers) * plotHeight)
+          const x = centerX - barWidth / 2
+          const y = padding.top + plotHeight - barHeight
           return (
             <g key={`${item.year}-${item.month}`}>
-              <rect x={barX} y={padding.top} width={barWidth} height={plotHeight} rx="6" fill="#e2e8f0" opacity="0.26" />
-              <rect x={barX} y={barY} width={barWidth} height={barHeight} rx="6" fill="url(#userBarGradient)">
-                <title>{`${item.month}/${item.year}: +${item.newUsers} user mới`}</title>
+              <rect x={x} y={y} width={barWidth} height={barHeight} rx="7" fill="#0891b2">
+                <title>{`${monthNames[item.month]}/${item.year}: +${item.newUsers} user mới, tổng ${item.cumulativeUsers}`}</title>
               </rect>
-              <text x={centerX} y={height - 10} textAnchor="middle" className="fill-slate-500 text-[10px]">{monthNames[item.month]}</text>
+              {item.newUsers > 0 && <text x={centerX} y={y - 8} textAnchor="middle" className="fill-slate-700 text-[11px] font-semibold">+{formatNumber(item.newUsers)}</text>}
+              <text x={centerX} y={height - 22} textAnchor="middle" className="fill-slate-500 text-[11px]">{monthNames[item.month]}</text>
+              <text x={centerX} y={height - 8} textAnchor="middle" className="fill-slate-400 text-[10px]">Tổng {formatNumber(item.cumulativeUsers)}</text>
             </g>
           )
         })}
-        {areaPath && <path d={areaPath} fill="url(#userLineArea)" pointerEvents="none" />}
-        {linePoints.length > 0 && <path d={linePath} fill="none" stroke="#10b981" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#userLineShadow)" pointerEvents="none" />}
-        {linePoints.map((point) => (
-          <circle key={`${point.item.year}-${point.item.month}-total`} cx={point.x} cy={point.y} r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2.2">
-            <title>{`${point.item.month}/${point.item.year}: tổng ${point.item.cumulativeUsers} user`}</title>
-          </circle>
-        ))}
       </svg>
     </div>
   )
 }
+function TopPagesChart({ pages }: { pages: AnalyticsStats['topPages'] }) {
+  if (pages.length === 0) {
+    return <EmptyState label="Chưa có dữ liệu." />
+  }
 
+  const visiblePages = pages.slice(0, 10)
+  const maxViews = visiblePages[0]?.views || 1
+
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-4">
+      {visiblePages.map((page, index) => {
+        const width = Math.max(4, Math.round(page.views * 100 / maxViews))
+        return (
+          <div key={page.pagePath} className="grid grid-cols-[44px_minmax(0,1fr)_96px] items-center gap-3 rounded-lg bg-white px-3 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-600">{index + 1}</div>
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="truncate text-sm font-semibold text-slate-900" title={page.pagePath}>{getPageLabel(page.pagePath)}</div>
+                <div className="shrink-0 text-xs text-slate-400">{formatNumber(page.uniqueVisitors)} khách</div>
+              </div>
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full bg-indigo-600" style={{ width: `${width}%` }} />
+              </div>
+            </div>
+            <div className="text-right text-sm font-semibold text-slate-950">{formatNumber(page.views)}</div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+function SectionTitle({ title, subtitle, icon }: { title: string; subtitle: string; icon: React.ReactNode }) {
+  return (
+    <div className="mb-5 flex items-start justify-between gap-4">
+      <div>
+        <h3 className="text-base font-semibold text-slate-950">{title}</h3>
+        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+      </div>
+      <div className="text-slate-400">{icon}</div>
+    </div>
+  )
+}
+
+function EmptyState({ label }: { label: string }) {
+  return <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">{label}</div>
+}
+
+function InsightCard({
+  icon,
+  title,
+  value,
+  detail,
+  truncateValue = false,
+}: {
+  icon: React.ReactNode
+  title: string
+  value: string | number
+  detail: string
+  truncateValue?: boolean
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-xs font-medium text-slate-500">{title}</div>
+        <div className="rounded-lg bg-slate-100 p-2 text-slate-600">{icon}</div>
+      </div>
+      <div className={`mt-2 text-xl font-semibold tracking-tight text-slate-950 ${truncateValue ? 'truncate' : ''}`}>{value}</div>
+      <div className="mt-2 text-xs text-slate-500">{detail}</div>
+    </div>
+  )
+}
+function AnalyticsMetric({ icon, label, value, detail, tone = 'slate' }: { icon: React.ReactNode; label: string; value: string | number; detail: string; tone?: 'slate' | 'amber' | 'emerald' | 'indigo' | 'rose' }) {
+  const toneClass = {
+    slate: 'bg-slate-100 text-slate-700',
+    amber: 'bg-amber-50 text-amber-700',
+    emerald: 'bg-emerald-50 text-emerald-700',
+    indigo: 'bg-indigo-50 text-indigo-700',
+    rose: 'bg-rose-50 text-rose-700',
+  }[tone]
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-medium text-slate-500">{label}</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value}</div>
+        </div>
+        <div className={`rounded-lg p-2 ${toneClass}`}>{icon}</div>
+      </div>
+      <div className="mt-3 truncate text-xs text-slate-500">{detail}</div>
+    </div>
+  )
+}
 function Metric({ icon, label, value, tone = 'slate' }: { icon: React.ReactNode; label: string; value: string | number; tone?: 'slate' | 'amber' | 'emerald' | 'indigo' | 'rose' }) {
   const toneClass = {
     slate: 'text-slate-950',
