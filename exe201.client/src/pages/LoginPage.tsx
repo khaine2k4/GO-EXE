@@ -28,12 +28,12 @@ export default function LoginPage() {
     const [forgotError, setForgotError] = useState('')
     const [forgotSuccess, setForgotSuccess] = useState('')
     const googleButtonRef = useRef<HTMLDivElement>(null)
-    const [googleButtonWidth, setGoogleButtonWidth] = useState(320)
+    const [googleButtonWidth, setGoogleButtonWidth] = useState(280)
 
     useEffect(() => {
         const updateGoogleButtonWidth = () => {
             const containerWidth = googleButtonRef.current?.clientWidth ?? 320
-            const nextWidth = Math.min(380, Math.max(240, Math.floor(containerWidth)))
+            const nextWidth = Math.min(380, Math.max(220, Math.floor(containerWidth)))
             setGoogleButtonWidth((current) => (current === nextWidth ? current : nextWidth))
         }
 
@@ -158,7 +158,7 @@ export default function LoginPage() {
 
 
     return (
-        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-8 sm:py-12">
+        <div className="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-slate-950 px-3 py-6 sm:px-4 sm:py-12">
             {/* Galaxy Background */}
             <div className="absolute inset-0 z-0 overflow-hidden">
                 <Galaxy
@@ -195,9 +195,9 @@ export default function LoginPage() {
                 initial={{ opacity: 0, scale: 0.98, y: 15 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="relative z-10 w-full max-w-5xl"
+                className="relative z-10 w-full min-w-0 max-w-5xl"
             >
-                <div className="grid overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/70 shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl md:min-h-[600px] md:grid-cols-12 md:rounded-[32px]">
+                <div className="grid w-full min-w-0 overflow-hidden rounded-[22px] border border-slate-200/80 bg-white/70 shadow-2xl shadow-indigo-950/5 backdrop-blur-2xl md:min-h-[600px] md:grid-cols-12 md:rounded-[32px]">
                     {/* Left Panel: Photo Showcase (Hidden on Mobile) */}
                     <div className="hidden md:flex md:col-span-5 relative flex-col justify-between overflow-hidden bg-slate-900 p-10 border-r border-slate-100">
                         <div className="absolute inset-0 z-0 opacity-40 mix-blend-luminosity">
@@ -237,17 +237,17 @@ export default function LoginPage() {
                     </div>
 
                     {/* Right Panel: Glass Form */}
-                    <div className="col-span-12 flex flex-col justify-center bg-white/40 p-5 sm:p-8 md:col-span-7 lg:p-12">
-                        <div className="max-w-md w-full mx-auto">
+                    <div className="col-span-12 flex min-w-0 flex-col justify-center bg-white/40 p-4 sm:p-8 md:col-span-7 lg:p-12">
+                        <div className="mx-auto w-full min-w-0 max-w-md">
                             <div className="mb-7 text-center md:mb-8 md:text-left">
-                                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Mừng bạn trở lại</h1>
-                                <p className="mt-2 text-xs font-bold text-slate-400 tracking-wider uppercase">Đăng nhập tài khoản PhotoMarket</p>
+                                <h1 className="text-[clamp(1.75rem,8vw,1.875rem)] font-extrabold leading-tight tracking-tight text-slate-900 sm:text-3xl">Mừng bạn trở lại</h1>
+                                <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400 sm:text-xs sm:tracking-wider">Đăng nhập tài khoản PhotoMarket</p>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-5">
+                            <form onSubmit={handleSubmit} className="min-w-0 space-y-5">
                                 <div className="space-y-1">
                                     <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Địa chỉ Email</label>
-                                    <div className="relative flex items-center rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all focus-ring-premium">
+                                    <div className="relative flex min-w-0 items-center rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all focus-ring-premium">
                                         <div className="pl-4 text-slate-400">
                                             <Mail className="h-5 w-5" />
                                         </div>
@@ -257,14 +257,14 @@ export default function LoginPage() {
                                             onChange={(e) => setEmail(e.target.value)}
                                             placeholder="name@example.com"
                                             required
-                                            className="h-12 w-full bg-transparent px-3 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                                            className="h-12 min-w-0 w-full bg-transparent px-3 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-1">
-                                    <div className="flex items-center justify-between">
-                                        <label className="block text-[10px] font-black tracking-widest text-slate-500 uppercase">Mật khẩu</label>
+                                    <div className="flex min-w-0 items-center justify-between gap-3">
+                                        <label className="block min-w-0 text-[10px] font-black uppercase tracking-widest text-slate-500">Mật khẩu</label>
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -273,12 +273,12 @@ export default function LoginPage() {
                                                 setForgotSuccess('')
                                                 setIsForgotOpen(true)
                                             }}
-                                            className="text-[11px] font-bold text-indigo-600 transition-colors hover:text-indigo-500 hover:underline cursor-pointer"
+                                            className="shrink-0 cursor-pointer text-right text-[11px] font-bold text-indigo-600 transition-colors hover:text-indigo-500 hover:underline"
                                         >
                                             Quên mật khẩu?
                                         </button>
                                     </div>
-                                    <div className="relative flex items-center rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all focus-ring-premium">
+                                    <div className="relative flex min-w-0 items-center rounded-2xl border border-slate-200 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all focus-ring-premium">
                                         <div className="pl-4 text-slate-400">
                                             <Lock className="h-5 w-5" />
                                         </div>
@@ -288,7 +288,7 @@ export default function LoginPage() {
                                             onChange={(e) => setPassword(e.target.value)}
                                             placeholder="••••••••"
                                             required
-                                            className="h-12 w-full bg-transparent px-3 pr-12 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                                            className="h-12 min-w-0 w-full bg-transparent px-3 pr-12 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
                                         />
                                         <button
                                             type="button"
@@ -313,17 +313,17 @@ export default function LoginPage() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className={`group relative flex h-12 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] transition-all active:scale-[0.98] cursor-pointer ${
+                                    className={`group relative flex h-12 w-full min-w-0 items-center justify-center gap-2 overflow-hidden rounded-2xl px-3 text-[10px] font-black uppercase tracking-[0.12em] transition-all active:scale-[0.98] cursor-pointer sm:gap-3 sm:text-[11px] sm:tracking-[0.2em] ${
                                         loading 
                                         ? 'bg-slate-200 text-slate-400' 
                                         : 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 hover:shadow-indigo-600/30'
                                     }`}
                                 >
-                                    <div className="relative z-10 flex items-center justify-center gap-3">
+                                    <div className="relative z-10 flex min-w-0 items-center justify-center gap-2 sm:gap-3">
                                         {loading ? (
                                             <> <Spinner /> Đang xác minh...</>
                                         ) : (
-                                            <><LogIn className="h-4 w-4" /> Đăng nhập ngay</>
+                                            <><LogIn className="h-4 w-4 shrink-0" /> <span className="whitespace-nowrap">Đăng nhập ngay</span></>
                                         )}
                                     </div>
                                 </button>
@@ -353,10 +353,10 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            <div className="mt-6 text-center md:text-left border-t border-slate-100 pt-6">
-                                <p className="text-[13px] font-medium text-slate-500">
-                                    Chưa có tài khoản Workspace?{' '}
-                                    <Link to="/register" className="ml-1 text-[11px] font-bold uppercase tracking-widest text-indigo-600 transition-colors hover:text-indigo-500 hover:underline">
+                            <div className="mt-6 border-t border-slate-100 pt-6 text-center md:text-left">
+                                <p className="flex flex-wrap items-center justify-center gap-x-1 gap-y-2 text-[12px] font-medium text-slate-500 sm:text-[13px] md:justify-start">
+                                    <span>Chưa có tài khoản Workspace?</span>
+                                    <Link to="/register" className="text-[10px] font-bold uppercase tracking-[0.08em] text-indigo-600 transition-colors hover:text-indigo-500 hover:underline sm:text-[11px] sm:tracking-widest">
                                         Đăng ký tại đây
                                     </Link>
                                 </p>
