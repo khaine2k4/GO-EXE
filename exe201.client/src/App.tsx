@@ -35,6 +35,7 @@ import FAQPage from './pages/FAQPage'
 import ProfilePage from './pages/ProfilePage'
 import ChatPage from './pages/ChatPage'
 import { useAppStore } from './store/AppStore'
+import usePageTracking from './hooks/usePageTracking'
 
 function RequireAuth({ children, role }: { children: React.ReactNode; role?: string }) {
   const { state } = useAppStore()
@@ -55,6 +56,7 @@ function roleMatches(actual: string, expected: string) {
 export default function App() {
   const { state } = useAppStore()
   const role = state.currentUser?.role
+  usePageTracking()
 
   return (
     <Routes>

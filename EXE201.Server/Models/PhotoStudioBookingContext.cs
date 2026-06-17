@@ -83,6 +83,8 @@ public partial class PhotoStudioBookingContext : DbContext
 
     public virtual DbSet<WorkingSchedule> WorkingSchedules { get; set; }
 
+    public virtual DbSet<PageView> PageViews { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (optionsBuilder.IsConfigured)
@@ -1430,6 +1432,40 @@ public partial class PhotoStudioBookingContext : DbContext
                 .HasForeignKey(d => d.WalletId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_payout_requests_wallets");
+        });
+
+        modelBuilder.Entity<PageView>(entity =>
+        {
+            entity.HasKey(e => e.ViewId).HasName("PK_page_views");
+
+            entity.ToTable("page_views");
+
+            entity.HasIndex(e => e.CreatedAt, "IX_page_views_created_at").IsDescending();
+            entity.HasIndex(e => e.PagePath, "IX_page_views_page_path");
+            entity.HasIndex(e => e.SessionId, "IX_page_views_session");
+
+            entity.Property(e => e.ViewId).HasColumnName("view_id");
+            entity.Property(e => e.PagePath)
+                .HasMaxLength(500)
+                .HasColumnName("page_path");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.SessionId)
+                .HasMaxLength(100)
+                .IsUnicode(false)
+                .HasColumnName("session_id");
+            entity.Property(e => e.UserAgent)
+                .HasMaxLength(500)
+                .HasColumnName("user_agent");
+            entity.Property(e => e.Referrer)
+                .HasMaxLength(500)
+                .HasColumnName("referrer");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(sysutcdatetime())")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("FK_page_views_users");
         });
 
         modelBuilder.HasSequence("seq_booking_code");
