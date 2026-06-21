@@ -70,8 +70,8 @@ function formatNumber(n: number) {
 const PAGE_LABELS: Record<string, string> = {
   '/': 'Trang chủ',
   '/home': 'Trang chủ',
-  '/gallery': 'Thư viện ảnh',
-  '/photosets': 'Bộ ảnh',
+  '/gallery': 'Trang Studio',      // Khớp với menu "Studio"
+  '/photosets': 'Trang Dịch vụ',   // Khớp với menu "Dịch vụ"
   '/login': 'Đăng nhập',
   '/register': 'Đăng ký',
   '/faq': 'FAQ',
@@ -82,13 +82,64 @@ const PAGE_LABELS: Record<string, string> = {
 }
 
 function getPageLabel(path: string): string {
-  if (PAGE_LABELS[path]) return PAGE_LABELS[path]
-  if (path.startsWith('/photographers/')) return `Studio #${path.split('/')[2]}`
-  if (path.startsWith('/photosets/')) return `Bộ ảnh #${path.split('/')[2]}`
-  if (path.startsWith('/albums/')) return `Album #${path.split('/')[2]}`
-  if (path.startsWith('/customer/bookings/')) return `Booking #${path.split('/')[3]}`
-  if (path.startsWith('/photographer/')) return `Photographer`
-  return path
+  const [pathname, search] = path.split('?');
+
+  if (PAGE_LABELS[pathname] && !search) return PAGE_LABELS[pathname];
+  if (pathname === '/photographers/{id}') return 'Chi tiết Studio';
+  if (pathname === '/photosets/{id}') return 'Chi tiết Bộ ảnh';
+  if (pathname === '/albums/{id}') return 'Chi tiết Album';
+  if (pathname === '/customer/bookings/{id}') return 'Chi tiết Booking (KH)';
+  if (pathname === '/photographer/bookings/{id}') return 'Chi tiết Booking (Photo)';
+
+  if (pathname.startsWith('/photographers/')) return `Studio #${pathname.split('/')[2]}`;
+  if (pathname.startsWith('/photosets/')) return `Bộ ảnh #${pathname.split('/')[2]}`;
+  if (pathname.startsWith('/albums/')) return `Album #${pathname.split('/')[2]}`;
+  if (pathname.startsWith('/customer/bookings/')) return `Booking #${pathname.split('/')[3]}`;
+
+  if (pathname.startsWith('/photographer/')) {
+    const subPath = pathname.split('/')[2];
+    const detailId = pathname.split('/')[3];
+
+    if (subPath === 'bookings' && detailId) {
+      return `Photo - Booking #${detailId}`;
+    }
+
+    if (subPath === 'dashboard' && search) {
+      const params = new URLSearchParams(search);
+      const tab = params.get('tab');
+      const section = params.get('section');
+
+      if (tab === 'manage' && section === 'services') return 'Photo - Dịch vụ';
+      if (tab === 'manage' && section === 'packages') return 'Photo - Gói chụp';
+      if (tab === 'manage' && section === 'schedule') return 'Photo - Lịch trình';
+      if (tab === 'manage') return 'Photo - Quản lý';
+      
+      if (tab === 'bookings') return 'Photo - Bookings';
+      if (tab === 'finance') return 'Photo - Tài chính';
+      
+      if (tab === 'content' && section === 'portfolio') return 'Photo - Portfolio';
+      if (tab === 'content') return 'Photo - Nội dung';
+
+      return `Photo - Dashboard (${tab})`;
+    }
+
+    switch (subPath) {
+      case 'dashboard': return 'Photo - Dashboard'
+      case 'portfolio': return 'Photo - Portfolio'
+      case 'services': return 'Photo - Dịch vụ'
+      case 'packages': return 'Photo - Gói chụp'
+      case 'bookings': return 'Photo - Bookings'
+      case 'finance': return 'Photo - Tài chính'
+      case 'wallet': return 'Photo - Ví'
+      case 'schedule': return 'Photo - Lịch trình'
+      case 'revenue': return 'Photo - Doanh thu'
+      case 'commissions': return 'Photo - Hoa hồng'
+      case 'commission-setting': return 'Photo - Cài đặt HH'
+      case 'booking-stats': return 'Photo - Thống kê booking'
+      default: return `Photo - ${subPath || 'Home'}`
+    }
+  }
+  return pathname;
 }
 
 export default function AdminDashboardPage() {
@@ -386,10 +437,17 @@ function AnalyticsTab({
         <DailyViewsChart data={analytics.dailyViews} />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <SectionTitle title="Top trang được xem" subtitle="Biểu đồ ngang theo tổng lượt xem trong kỳ." icon={<Globe className="h-5 w-5" />} />
-        <TopPagesChart pages={analytics.topPages} />
-      </section>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <SectionTitle title="Top trang Khách hàng" subtitle="Lượt truy cập vào các trang dành cho khách hàng." icon={<Globe className="h-5 w-5" />} />
+          <TopPagesChart pages={analytics.topPages.filter(p => !p.pagePath.startsWith('/photographer/'))} />
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <SectionTitle title="Top trang Thợ chụp" subtitle="Lượt truy cập vào các chức năng quản lý nội bộ." icon={<Users className="h-5 w-5" />} />
+          <TopPagesChart pages={analytics.topPages.filter(p => p.pagePath.startsWith('/photographer/'))} />
+        </section>
+      </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <SectionTitle title="Tăng trưởng user" subtitle="Biểu đồ cột user mới từng tháng, kèm tổng tích lũy." icon={<TrendingUp className="h-5 w-5" />} />
