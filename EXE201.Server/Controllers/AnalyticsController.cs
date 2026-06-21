@@ -160,18 +160,40 @@ namespace EXE201.Server.Controllers
                     filledDaily.Add(existing ?? new DailyViewDto { Date = date, Views = 0, UniqueVisitors = 0 });
                 }
 
-                var topPages = await trackedPageViews
+                var pathGroups = await trackedPageViews
                     .Where(p => p.CreatedAt >= rangeStart && p.CreatedAt < rangeEnd)
                     .GroupBy(p => p.PagePath)
-                    .Select(g => new TopPageDto
+                    .Select(g => new
                     {
                         PagePath = g.Key,
                         Views = g.Count(),
                         UniqueVisitors = g.Select(x => x.SessionId).Distinct().Count()
                     })
+                    .ToListAsync();
+
+                string NormalizePath(string path)
+                {
+                    var pathname = path.Split('?')[0];
+                    if (pathname.StartsWith("/photographers/")) return "/photographers/{id}";
+                    if (pathname.StartsWith("/photosets/")) return "/photosets/{id}";
+                    if (pathname.StartsWith("/albums/")) return "/albums/{id}";
+                    if (pathname.StartsWith("/customer/bookings/")) return "/customer/bookings/{id}";
+                    if (pathname.StartsWith("/photographer/bookings/")) return "/photographer/bookings/{id}";
+                    if (pathname == "/photographer/dashboard") return path;
+                    return pathname;
+                }
+
+                var topPages = pathGroups
+                    .GroupBy(p => NormalizePath(p.PagePath))
+                    .Select(g => new TopPageDto
+                    {
+                        PagePath = g.Key,
+                        Views = g.Sum(x => x.Views),
+                        UniqueVisitors = g.Sum(x => x.UniqueVisitors)
+                    })
                     .OrderByDescending(t => t.Views)
                     .Take(10)
-                    .ToListAsync();
+                    .ToList();
 
                 var firstDayOfMonth = new DateTime(rangeStart.Year, rangeStart.Month, 1);
                 var lastDayMonth = new DateTime(rangeEnd.AddDays(-1).Year, rangeEnd.AddDays(-1).Month, 1);
